@@ -81,6 +81,14 @@ subprojects { project ->
 	            required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
 	            sign publishing.publications.maven
 	        }
+	        jar {
+	            manifest {
+	            	attributes(
+	            		'Implementation-Title': project.name,
+	            		'Implementation-Version': project.version
+	            	)
+	            }
+	        }
 	    }
 
 	    tasks.withType(Sign) {
