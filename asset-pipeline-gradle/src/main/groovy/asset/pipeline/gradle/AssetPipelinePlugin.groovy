@@ -169,7 +169,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
             if (buildDependencies) {
                 for (file in buildDependencies) {
                     if (file.name.startsWith('graal') || file.name.startsWith('js') || file.name.startsWith('rhino-') || file.name.startsWith('closure-compiler-unshaded-')) {
-                        project.getLogger().info("Adding build dependency ${file} to bootRun")
+                        project.getLogger().info("asset-pipeline: Adding build dependency ${file} to bootRun")
                         additionalFiles.add(file)
                     }
                 }
@@ -177,7 +177,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
             def assetDeps = project.configurations.findByName(ASSET_CONFIGURATION_NAME)?.files
             if (assetDeps) {
                 for (file in assetDeps) {
-                    project.getLogger().info("Adding asset dependency ${file} to bootRun")
+                    project.getLogger().info("asset-pipeline: Adding asset dependency ${file} to bootRun")
                     additionalFiles.add(file)
                 }
             }
