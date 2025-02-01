@@ -1,14 +1,14 @@
 buildscript {
-	repositories {
-		mavenLocal()
-		mavenCentral()
-		maven {
-			url 'https://plugins.gradle.org/m2/'
-		}
-	}
-	dependencies {
-		classpath 'com.gradle.publish:plugin-publish-plugin:0.15.0'
-	}
+    repositories {
+        mavenLocal()
+        mavenCentral()
+        maven {
+            url 'https://plugins.gradle.org/m2/'
+        }
+    }
+    dependencies {
+        classpath 'com.gradle.publish:plugin-publish-plugin:0.15.0'
+    }
 }
 
 apply plugin: 'com.gradle.plugin-publish'
@@ -24,8 +24,8 @@ targetCompatibility = '1.17'
 ext.isReleaseVersion = !version.endsWith('SNAPSHOT')
 
 repositories {
-	mavenLocal()
-	mavenCentral()
+    mavenLocal()
+    mavenCentral()
 }
 
 java {
@@ -34,57 +34,57 @@ java {
 }
 
 dependencies {
-	api gradleApi()
-	//api localGroovy()
-	compileOnly    'org.codehaus.groovy:groovy:3.0.20'
-	api(project(':asset-pipeline-core')) {
-		exclude module:'groovy'
-		exclude module:'groovy-all'
-	}
-	api 'com.google.javascript:closure-compiler-unshaded:v20240317'
+    api gradleApi()
+    //api localGroovy()
+    compileOnly    'org.codehaus.groovy:groovy:3.0.20'
+    api(project(':asset-pipeline-core')) {
+        exclude module:'groovy'
+        exclude module:'groovy-all'
+    }
+    api 'com.google.javascript:closure-compiler-unshaded:v20240317'
     api "org.graalvm.sdk:graal-sdk:$graalvmVersion"
     api("org.graalvm.js:js:$graalvmVersion") {
-    	exclude group:'org.graalvm.js', module:'js-community'
+        exclude group:'org.graalvm.js', module:'js-community'
     }
     api "org.graalvm.js:js-language:$graalvmVersion"
     api "org.graalvm.js:js-scriptengine:$graalvmVersion"
-	testImplementation('org.spockframework:spock-core:1.3-groovy-2.4')
+    testImplementation('org.spockframework:spock-core:1.3-groovy-2.4')
 }
 
 publishing {
-	publications {
-		maven(MavenPublication) {
-			artifactId 'asset-pipeline-gradle'
-			pom.withXml {
-				asNode().children().last() + {
-					resolveStrategy = Closure.DELEGATE_FIRST
-					name 'asset-pipeline-gradle'
-					description 'JVM Asset Pipeline Gradle Adapter.'
-					url 'https://github.com/bertramdev/asset-pipeline-core'
-					scm {
-						url 'https://github.com/bertramdev/asset-pipeline-core'
-						connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
-						developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
-					}
-					licenses {
-						license {
-							name 'The Apache Software License, Version 2.0'
-							url 'http://www.apache.org/license/LICENSE-2.0.txt'
-							distribution 'repo'
-						}
-					}
-					developers {
-						developer {
-							id 'davydotcom'
-							name 'David Estes'
-							email 'davydotcom@gmail.com'
-						}
-					}
-				}
-			}
-			from components.java
-		}
-	}
+    publications {
+        maven(MavenPublication) {
+            artifactId 'asset-pipeline-gradle'
+            pom.withXml {
+                asNode().children().last() + {
+                    resolveStrategy = Closure.DELEGATE_FIRST
+                    name 'asset-pipeline-gradle'
+                    description 'JVM Asset Pipeline Gradle Adapter.'
+                    url 'https://github.com/bertramdev/asset-pipeline-core'
+                    scm {
+                        url 'https://github.com/bertramdev/asset-pipeline-core'
+                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
+                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
+                    }
+                    licenses {
+                        license {
+                            name 'The Apache Software License, Version 2.0'
+                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
+                            distribution 'repo'
+                        }
+                    }
+                    developers {
+                        developer {
+                            id 'davydotcom'
+                            name 'David Estes'
+                            email 'davydotcom@gmail.com'
+                        }
+                    }
+                }
+            }
+            from components.java
+        }
+    }
 
     repositories {
         maven {
@@ -101,37 +101,33 @@ publishing {
     }
 }
 
-
-
-
 task(console, dependsOn: 'classes', type: JavaExec) {
-main = 'groovy.ui.Console'
-classpath = sourceSets.main.runtimeClasspath
+    main = 'groovy.ui.Console'
+    classpath = sourceSets.main.runtimeClasspath
 }
 
 test {
-	testLogging {
-		exceptionFormat = 'full'
-		showStandardStreams = true
-	}
+    testLogging {
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
 }
 
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
 pluginBundle {
-	website = 'https://github.com/bertramdev/asset-pipeline-core/'
-	vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
-	description = 'JVM Asset Pipeline Gradle Adapter.'
-	tags = ['assets', 'resources', 'asset-pipeline']
+    website = 'https://github.com/bertramdev/asset-pipeline-core/'
+    vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
+    description = 'JVM Asset Pipeline Gradle Adapter.'
+    tags = ['assets', 'resources', 'asset-pipeline']
 
-	plugins {
-		assetPipelinePlugin {
-			id = 'com.bertramlabs.asset-pipeline'
-			displayName = 'Asset-Pipeline Plugin'
-		}
-	}
-	mavenCoordinates {
-		groupId = 'com.bertramlabs.plugins'
-	}
+    plugins {
+        assetPipelinePlugin {
+            id = 'com.bertramlabs.asset-pipeline'
+            displayName = 'Asset-Pipeline Plugin'
+        }
+    }
+    mavenCoordinates {
+        groupId = 'com.bertramlabs.plugins'
+    }
 }
-
