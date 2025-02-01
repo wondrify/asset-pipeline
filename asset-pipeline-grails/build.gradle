@@ -153,7 +153,6 @@ dependencies {
     testImplementation("io.micronaut:micronaut-http-client")
 
 
-
     compileOnly "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
     compileOnly "jakarta.annotation:jakarta.annotation-api:$jakartaAnnotationApiVersion"
 
