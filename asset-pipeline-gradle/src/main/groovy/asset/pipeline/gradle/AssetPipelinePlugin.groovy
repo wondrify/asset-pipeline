@@ -19,6 +19,7 @@ package asset.pipeline.gradle
 import asset.pipeline.AssetPipelineConfigHolder
 import org.gradle.api.Plugin
 import org.gradle.api.Project
+import org.gradle.api.Task
 import org.gradle.api.UnknownDomainObjectException
 import org.gradle.api.UnknownTaskException
 import org.gradle.api.artifacts.Configuration
@@ -162,28 +163,16 @@ class AssetPipelinePlugin implements Plugin<Project> {
     }
 
     private void configureBootRun(Project project) {
-        JavaExec bootRunTask = (JavaExec)project.tasks.findByName('bootRun')
-        if (bootRunTask != null) {
-            List additionalFiles = []
-            def buildDependencies = project.buildscript.configurations.findByName("classpath")?.files
-            if (buildDependencies) {
-                for (file in buildDependencies) {
-                    if (file.name.startsWith('graal') || file.name.startsWith('js') || file.name.startsWith('rhino-') || file.name.startsWith('closure-compiler-unshaded-')) {
-                        project.getLogger().info("asset-pipeline: Adding build dependency ${file} to bootRun")
-                        additionalFiles.add(file)
-                    }
-                }
-            }
-            def assetDeps = project.configurations.findByName(ASSET_CONFIGURATION_NAME)?.files
-            if (assetDeps) {
-                for (file in assetDeps) {
-                    project.getLogger().info("asset-pipeline: Adding asset dependency ${file} to bootRun")
-                    additionalFiles.add(file)
-                }
-            }
-            bootRunTask.classpath += project.files(additionalFiles)
-            // bootRunTask.classpath += project.files(project.configurations.findByName(ASSET_DEVELOPMENT_CONFIGURATION_NAME).files)
-        }
+        project.getPlugins().withId("org.springframework.boot", plugin -> {
+            project.getTasks().named("bootRun", Task.class, bootRun -> {
+                String version = AssetPipelinePlugin.class.getPackage().getImplementationVersion()
+                project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:${version}")
+                project.getLogger().info("asset-pipeline: Adding ${ASSET_DEVELOPMENT_CONFIGURATION_NAME} configuration to bootRun classPath")
+                bootRun.setClasspath(bootRun.getClasspath().plus(project.getConfigurations().maybeCreate(ASSET_DEVELOPMENT_CONFIGURATION_NAME)))
+                project.getLogger().info("asset-pipeline: Adding ${ASSET_CONFIGURATION_NAME} configuration to bootRun classPath")
+                bootRun.setClasspath(bootRun.getClasspath().plus(project.getConfigurations().maybeCreate(ASSET_CONFIGURATION_NAME)))
+            })
+        })
     }
 
     private void createGradleConfiguration(Project project) {
