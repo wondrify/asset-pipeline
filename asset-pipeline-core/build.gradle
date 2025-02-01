@@ -60,9 +60,9 @@ dependencies {
 	doc         'org.apache.groovy:groovy-all:4.0.22'
 	doc         'org.fusesource.jansi:jansi:1.11'
 	compileOnly     'org.mozilla:rhino:1.7R4'
-	api("org.graalvm.sdk:graal-sdk:22.0.0.2")
-    api("org.graalvm.js:js:22.0.0.2")
-    api("org.graalvm.js:js-scriptengine:22.0.0.2")
+	compileOnly 	"org.graalvm.sdk:graal-sdk:22.0.0.2"
+	compileOnly 	"org.graalvm.js:js:22.0.0.2"
+	compileOnly 	"org.graalvm.js:js-scriptengine:22.0.0.2"
 	compileOnly     'com.google.javascript:closure-compiler-unshaded:v20240317'
 	api 'org.slf4j:slf4j-api:1.7.28'
 	//api   'log4j:log4j:1.2.16'
