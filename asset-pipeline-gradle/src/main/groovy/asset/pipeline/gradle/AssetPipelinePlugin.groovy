@@ -68,9 +68,9 @@ class AssetPipelinePlugin implements Plugin<Project> {
         // assetPrecompileTask.dependsOn('classes')
         def assetCleanTask = project.tasks.create('assetClean', Delete)
         project.configurations.create("assetDevelopmentRuntime")
-        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.sdk:graal-sdk:22.0.0.2")
-        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js:22.0.0.2")
-        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js-scriptengine:22.0.0.2")
+        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.sdk:graal-sdk:$graalvmVersion")
+        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js:$graalvmVersion")
+        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js-scriptengine:$graalvmVersion")
 
         project.afterEvaluate {
             def assetPipeline = project.extensions.getByType(AssetPipelineExtensionImpl)

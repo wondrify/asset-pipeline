@@ -43,15 +43,15 @@ dependencies {
 	api project(':asset-pipeline-core')
     compileOnly 'org.apache.groovy:groovy-all:4.0.22'
     compileOnly 'org.mozilla:rhino:1.7R4'
-    compileOnly("org.graalvm.sdk:graal-sdk:22.0.0.2")
-    compileOnly("org.graalvm.js:js:22.0.0.2")
-    compileOnly("org.graalvm.js:js-scriptengine:22.0.0.2")
+    compileOnly("org.graalvm.sdk:graal-sdk:$graalvmVersion")
+    compileOnly("org.graalvm.js:js:$graalvmVersion")
+    compileOnly("org.graalvm.js:js-scriptengine:$graalvmVersion")
     // api 'log4j:log4j:1.2.17'
 
     testImplementation 'org.mozilla:rhino:1.7R4'
-    testImplementation("org.graalvm.sdk:graal-sdk:22.0.0.2")
-    testImplementation("org.graalvm.js:js:22.0.0.2")
-    testImplementation("org.graalvm.js:js-scriptengine:22.0.0.2")
+    testImplementation("org.graalvm.sdk:graal-sdk:$graalvmVersion")
+    testImplementation("org.graalvm.js:js:$graalvmVersion")
+    testImplementation("org.graalvm.js:js-scriptengine:$graalvmVersion")
     testImplementation 'org.apache.groovy:groovy-all:4.0.22'
     testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
 }
