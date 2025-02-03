@@ -156,6 +156,7 @@ dependencies {
     compileOnly "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
     compileOnly "jakarta.annotation:jakarta.annotation-api:$jakartaAnnotationApiVersion"
 
+    compileOnly 'org.grails:grails-web-taglib' // For taglib compilation
 
     implementation project(':asset-pipeline-core'), {
         exclude group:'org.mozilla', module:'rhino'
