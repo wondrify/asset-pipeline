@@ -52,7 +52,6 @@ class AssetPipelinePlugin implements Plugin<Project> {
         def config = AssetPipelineConfigHolder.config != null ? AssetPipelineConfigHolder.config : [:]
         config.cacheLocation = "${project.buildDir}/.assetcache"
         if (project.extensions.findByName('grails')) {
-            
             defaultConfiguration.assetsPath = 'grails-app/assets'
         } else {
             defaultConfiguration.assetsPath = "${project.projectDir}/src/assets"
@@ -69,7 +68,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
         def assetCleanTask = project.tasks.create('assetClean', Delete)
         project.configurations.create("assetDevelopmentRuntime")
         // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.sdk:graal-sdk:$graalvmVersion")
-        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js:$graalvmVersion")
+        // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js-community:$graalvmVersion")
         // project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME,"org.graalvm.js:js-scriptengine:$graalvmVersion")
 
         project.afterEvaluate {

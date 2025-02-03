@@ -61,7 +61,7 @@ dependencies {
 	doc         'org.fusesource.jansi:jansi:1.11'
 	compileOnly     'org.mozilla:rhino:1.7R4'
 	compileOnly 	"org.graalvm.sdk:graal-sdk:$graalvmVersion"
-	compileOnly 	"org.graalvm.js:js:$graalvmVersion"
+	compileOnly 	"org.graalvm.js:js-community:$graalvmVersion"
 	compileOnly 	"org.graalvm.js:js-scriptengine:$graalvmVersion"
 	compileOnly     'com.google.javascript:closure-compiler-unshaded:v20240317'
 	api 'org.slf4j:slf4j-api:1.7.28'

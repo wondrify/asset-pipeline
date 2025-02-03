@@ -43,10 +43,7 @@ dependencies {
     }
     api 'com.google.javascript:closure-compiler-unshaded:v20240317'
     api "org.graalvm.sdk:graal-sdk:$graalvmVersion"
-    api("org.graalvm.js:js:$graalvmVersion") {
-        exclude group:'org.graalvm.js', module:'js-community'
-    }
-    api "org.graalvm.js:js-language:$graalvmVersion"
+    api "org.graalvm.js:js-community:$graalvmVersion"
     api "org.graalvm.js:js-scriptengine:$graalvmVersion"
     testImplementation('org.spockframework:spock-core:1.3-groovy-2.4')
 }
