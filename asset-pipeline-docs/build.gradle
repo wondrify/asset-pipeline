@@ -19,10 +19,9 @@ asciidoctor {
             '--add-opens', 'java.base/java.io=ALL-UNNAMED'
         ]
     }
-    options = [
-        doctype: 'book'
-    ]
     attributes = [
+        doctype: 'book',
+        icons: 'font',
         'source-highlighter': 'coderay',
         toc                 : 'left',
         'toc-title': 'Table of Contents',
