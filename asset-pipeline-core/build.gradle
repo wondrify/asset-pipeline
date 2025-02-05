@@ -58,7 +58,7 @@ dependencies {
 	doc "org.apache.groovy:groovy:$groovy4Version"
 	doc "org.apache.groovy:groovy-ant:$groovy4Version"
 	doc "org.apache.groovy:groovy-templates:$groovy4Version"
-    doc "com.github.javaparser:javaparser-core:$javaparserVersion"
+	doc "com.github.javaparser:javaparser-core:$javaparserVersion"
 
 	// Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
 	compileOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"

@@ -117,7 +117,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 processResources.configure {
                     it.dependsOn(assetPluginTask)
                 }
-            } else if(!assetPipeline.developmentRuntime && processResources) {
+            } else if (!assetPipeline.developmentRuntime && processResources) {
                 processResources.configure {
                     it.with {
                         dependsOn(assetPrecompileTask)
@@ -141,16 +141,16 @@ class AssetPipelinePlugin implements Plugin<Project> {
     }
 
     private void configureBootRun(Project project) {
-        project.plugins.withId('org.springframework.boot', { Plugin plugin ->
-            project.tasks.named('bootRun', JavaExec,{ JavaExec bootRun ->
+        project.plugins.withId('org.springframework.boot') { Plugin plugin ->
+            project.tasks.named('bootRun', JavaExec) { JavaExec bootRun ->
                 String version = AssetPipelinePlugin.package.implementationVersion
                 project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:$version")
                 project.logger.info('asset-pipeline: Adding {} configuration to bootRun classPath', ASSET_DEVELOPMENT_CONFIGURATION_NAME)
                 bootRun.classpath += project.configurations.maybeCreate(ASSET_DEVELOPMENT_CONFIGURATION_NAME)
                 project.logger.info('asset-pipeline: Adding {} configuration to bootRun classPath', ASSET_CONFIGURATION_NAME)
                 bootRun.classpath += project.configurations.maybeCreate(ASSET_CONFIGURATION_NAME)
-            })
-        })
+            }
+        }
     }
 
     private void createGradleConfiguration(Project project) {
