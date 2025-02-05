@@ -54,23 +54,27 @@ groovydoc {
 }
 
 dependencies {
-	compileOnly    'org.codehaus.groovy:groovy:3.0.20'
-	compileOnly    'org.codehaus.groovy:groovy-json:3.0.20'
-	compileOnly    'org.codehaus.groovy:groovy-templates:3.0.20'
-	doc         'org.apache.groovy:groovy-all:4.0.22'
-	doc         'org.fusesource.jansi:jansi:1.11'
-	compileOnly     'org.mozilla:rhino:1.7R4'
-	compileOnly 	"org.graalvm.sdk:graal-sdk:$graalvmVersion"
-	compileOnly 	"org.graalvm.js:js-community:$graalvmVersion"
-	compileOnly 	"org.graalvm.js:js-scriptengine:$graalvmVersion"
-	compileOnly     'com.google.javascript:closure-compiler-unshaded:v20240317'
-	api 'org.slf4j:slf4j-api:1.7.28'
-	//api   'log4j:log4j:1.2.16'
+
+	doc "org.apache.groovy:groovy:$groovy4Version"
+	doc "org.apache.groovy:groovy-ant:$groovy4Version"
+	doc "org.apache.groovy:groovy-templates:$groovy4Version"
+    doc "com.github.javaparser:javaparser-core:$javaparserVersion"
+
+	// Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
+	compileOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
+	compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+	compileOnly "org.codehaus.groovy:groovy-json:$groovy3Version"
+	compileOnly "org.codehaus.groovy:groovy-templates:$groovy3Version"
+	compileOnly "org.graalvm.polyglot:polyglot:$graalvmVersion"
+	compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
+
 	testImplementation project(':asset-pipeline-classpath-test')
-	testImplementation 'org.apache.groovy:groovy-all:4.0.22'
-	testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
-	testRuntimeOnly 'org.slf4j:slf4j-simple:1.7.28'
-	compileOnly 'org.slf4j:slf4j-simple:1.7.28'
+	testImplementation "org.apache.groovy:groovy:$groovy4Version"
+	testImplementation "org.spockframework:spock-core:$spockVersion"
+
+	testRuntimeOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
+	testRuntimeOnly "org.graalvm.js:js-community:$graalvmVersion"
+	testRuntimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
 }
 
 publishing {

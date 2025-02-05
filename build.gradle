@@ -99,14 +99,6 @@ subprojects { project ->
 
     }
 }
-
-dependencies {
-    api 'org.apache.groovy:groovy:3.0.20'
-    api 'org.apache.groovy:groovy-templates:3.0.20'
-    api 'org.mozilla:rhino:1.7R4'
-    testImplementation 'org.spockframework:spock-core:2.3-groovy-3.0'
-}
-
 test {
     testLogging {
         exceptionFormat = 'full'

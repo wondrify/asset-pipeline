@@ -44,20 +44,16 @@ java {
 }
 
 dependencies {
+
     api project(':asset-pipeline-core')
-    compileOnly 'org.apache.groovy:groovy:4.0.22'
-    compileOnly 'org.mozilla:rhino:1.7R4'
-    compileOnly "org.graalvm.sdk:graal-sdk:$graalvmVersion"
-    compileOnly "org.graalvm.js:js-community:$graalvmVersion"
-    compileOnly "org.graalvm.js:js-scriptengine:$graalvmVersion"
 
+    // Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
+    compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+    compileOnly "org.graalvm.polyglot:polyglot:$graalvmVersion"
 
-    testImplementation 'org.mozilla:rhino:1.7R4'
-    testImplementation "org.graalvm.sdk:graal-sdk:$graalvmVersion"
+    testImplementation "org.apache.groovy:groovy:$groovy4Version"
     testImplementation "org.graalvm.js:js-community:$graalvmVersion"
-    testImplementation "org.graalvm.js:js-scriptengine:$graalvmVersion"
-    testImplementation 'org.apache.groovy:groovy-all:4.0.22'
-    testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
+    testImplementation "org.spockframework:spock-core:$spockVersion"
 }
 
 publishing {

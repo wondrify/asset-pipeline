@@ -43,14 +43,18 @@ repositories {
 }
 
 dependencies {
-	compileOnly    'org.apache.groovy:groovy:4.0.22'
-	api     project(':asset-pipeline-core')
-	api     project(':asset-pipeline-servlet')
-	api     'org.springframework.boot:spring-boot-starter-web:3.0.0'
-	testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
-	// compileOnly "org.slf4j:log4j-over-slf4j:1.7.28"
 
+	api project(':asset-pipeline-core')
+	api project(':asset-pipeline-servlet')
 
+	implementation "org.springframework:spring-beans:$springVersion"
+	implementation "org.springframework:spring-context:$springVersion"
+	implementation "org.springframework:spring-core:$springVersion"
+	implementation "org.springframework:spring-web:$springVersion"
+	implementation "org.springframework.boot:spring-boot:$springBootVersion"
+
+	compileOnly "org.apache.groovy:groovy:$groovy4Version"
+	compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
 }
 
 publishing {
