@@ -1,13 +1,13 @@
 package asset.pipeline
 
-import asset.pipeline.AssetPipelineConfigHolder
+import grails.core.GrailsApplication
 
 class AssetPipelineBootStrap {
 
-    def grailsApplication
+    GrailsApplication grailsApplication
 
-    def init = { servletContext ->
-        def storagePath = grailsApplication.config.getProperty('grails.assets.storagePath')
+    def init = {
+        def storagePath = grailsApplication.config.getProperty('grails.assets.storagePath', String)
         if (!storagePath) {
             return
         }
@@ -38,7 +38,7 @@ class AssetPipelineBootStrap {
                 }
             }
             def manifestFile = new File(storagePath,'manifest.properties')
-            manifest.store(manifestFile.newWriter(),"")
+            manifest.store(manifestFile.newWriter(), '')
         }
     }
 
@@ -70,12 +70,11 @@ class AssetPipelineBootStrap {
                 digestFile?.setReadable(true,false)
                 digestFile?.setExecutable(true,false)
                 digestFile?.setWritable(true)
-            } catch (ex) {
+            } catch (ignore) {
                // attempting permission set
             }
         } finally {
             sourceStream.close()
         }
-        
     }
 }

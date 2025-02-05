@@ -1,13 +1,10 @@
 package asset.pipeline
 
-
 import asset.pipeline.grails.AssetAttributes
 import asset.pipeline.grails.AssetProcessorService
 import asset.pipeline.grails.ProductionAssetCache
-import asset.pipeline.AssetHelper
-import asset.pipeline.AssetPipelineClassLoaderEntry
 import groovy.transform.CompileStatic
-import groovy.util.logging.Commons
+import groovy.util.logging.Slf4j
 import jakarta.servlet.FilterChain
 import jakarta.servlet.FilterConfig
 import jakarta.servlet.ServletContext
@@ -20,8 +17,7 @@ import org.springframework.core.io.Resource
 import org.springframework.web.context.support.WebApplicationContextUtils
 import org.springframework.web.filter.OncePerRequestFilter
 
-
-@Commons
+@Slf4j
 @CompileStatic
 class AssetPipelineFilter extends OncePerRequestFilter {
 
