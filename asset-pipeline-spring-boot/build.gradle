@@ -112,10 +112,3 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 	main = 'groovy.ui.Console'
 	classpath = sourceSets.main.runtimeClasspath
 }
-
-test {
-	testLogging {
-		exceptionFormat = 'full'
-		showStandardStreams = true
-	}
-}

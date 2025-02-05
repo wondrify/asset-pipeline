@@ -102,13 +102,6 @@ task(console, dependsOn: 'classes', type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
-test {
-    testLogging {
-        exceptionFormat = 'full'
-        showStandardStreams = true
-    }
-}
-
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
 pluginBundle {

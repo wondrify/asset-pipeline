@@ -99,9 +99,3 @@ subprojects { project ->
 
     }
 }
-test {
-    testLogging {
-        exceptionFormat = 'full'
-        showStandardStreams = true
-    }
-}

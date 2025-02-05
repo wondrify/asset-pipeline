@@ -136,7 +136,9 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 }
 
 test {
+    useJUnitPlatform()
     testLogging {
+        events('passed', 'skipped', 'failed')
         exceptionFormat = 'full'
         showStandardStreams = true
     }
