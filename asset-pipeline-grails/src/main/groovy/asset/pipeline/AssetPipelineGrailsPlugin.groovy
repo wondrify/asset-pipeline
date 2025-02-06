@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 the original author or authors.
+ * Copyright 2014-2025 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,20 +15,19 @@
  */
 package asset.pipeline
 
-import asset.pipeline.grails.AssetProcessorService
+import asset.pipeline.fs.ClasspathAssetResolver
+import asset.pipeline.fs.FileSystemAssetResolver
 import asset.pipeline.grails.AssetResourceLocator
-import asset.pipeline.grails.fs.*
-import asset.pipeline.fs.*
-import asset.pipeline.*
+import grails.plugins.Plugin
 import grails.util.BuildSettings
+import groovy.util.logging.Slf4j
 import org.grails.plugins.BinaryGrailsPlugin
 import org.grails.web.config.http.GrailsFilters
-import groovy.util.logging.Commons
 import org.springframework.util.ClassUtils
 
-@Commons
-class AssetPipelineGrailsPlugin extends grails.plugins.Plugin {
-    def grailsVersion   = "3.0 > *"
+@Slf4j
+class AssetPipelineGrailsPlugin extends Plugin {
+    def grailsVersion   = "7.0 > *"
     def title           = "Asset Pipeline Plugin"
     def author          = "David Estes"
     def authorEmail     = "destes@bcap.com"
@@ -42,7 +41,7 @@ class AssetPipelineGrailsPlugin extends grails.plugins.Plugin {
         "grails-app/assets/**",
         "test/dummy/**"
     ]
-    def developers      = [ [name: 'Brian Wheeler'] ]
+    def developers = [[name: 'Brian Wheeler']]
     def loadAfter = ['url-mappings']
 
     void doWithApplicationContext() {

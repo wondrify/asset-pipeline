@@ -9,7 +9,8 @@ buildscript {
         maven { url "https://repo.grails.org/grails/core" }
     }
     dependencies {
-        classpath "org.grails:grails-gradle-plugin:$grailsVersion"
+        classpath platform("org.grails:grails-bom:$grailsVersion")
+        classpath 'org.grails:grails-gradle-plugin'
     }
 }
 
@@ -50,25 +51,37 @@ repositories {
 configurations.configureEach {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
-            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovyVersion")
+            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy4Version")
             details.because "The dependency coordinates are changed in Apache Groovy 4, plus ensure version"
         }
-
-        if (details.requested.group == "io.micronaut" && details.requested.name == "micronaut-inject-groovy") {
-            details.useVersion("$micronautVersion")
-        }
     }
-}
-
-dependencyManagement {
-    imports {
-        mavenBom "org.grails:grails-bom:$grailsVersion"
-    }
-    applyMavenExclusions false
 }
 
 grails {
     packageAssets = false
+}
+
+dependencies {
+
+    implementation platform("org.grails:grails-bom:$grailsVersion")
+
+    implementation project(':asset-pipeline-core')
+    implementation 'org.grails:grails-plugin-url-mappings'
+
+    compileOnly 'com.github.ben-manes.caffeine:caffeine' // Cache
+    compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
+    compileOnly 'org.grails:grails-core' // Provided as this is a Grails plugin
+    compileOnly 'org.grails:grails-web-taglib' // For taglib compilation
+
+    testImplementation 'org.grails:grails-web-testing-support'
+    testImplementation 'org.spockframework:spock-core'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    testLogging {
+        events('passed', 'skipped', 'failed')
+    }
 }
 
 publishing {
@@ -120,55 +133,3 @@ publishing {
         }
     }
 }
-
-configurations.all {
-    resolutionStrategy.dependencySubstitution {
-        substitute module("org.codehaus.groovy:groovy") using module('org.apache.groovy:groovy:4.0.22')
-        substitute module("org.codehaus.groovy:groovy-templates") using module('org.apache.groovy:groovy-templates:4.0.22')
-        substitute module("org.codehaus.groovy:groovy-xml") using module('org.apache.groovy:groovy-xml:4.0.22')
-        substitute module("org.codehaus.groovy:groovy-json") using module('org.apache.groovy:groovy-json:4.0.22')
-        substitute module("org.codehaus.groovy:groovy-test-junit5") using module('org.apache.groovy:groovy-test-junit5:4.0.22')
-    }
-}
-
-dependencies {
-    implementation("org.grails:grails-core")
-    implementation("org.grails:grails-logging")
-    // implementation("org.grails:grails-plugin-databinding")
-    // implementation("org.grails:grails-plugin-i18n")
-    // implementation("org.grails:grails-plugin-interceptors")
-    // implementation("org.grails:grails-plugin-rest")
-    // implementation("org.grails:grails-plugin-services")
-    implementation("org.grails:grails-plugin-url-mappings")
-    implementation("com.github.ben-manes.caffeine:caffeine:$caffeineVersion")
-    implementation("org.grails:grails-web-boot")
-    implementation("org.springframework.boot:spring-boot-autoconfigure")
-    implementation("org.springframework.boot:spring-boot-starter-logging")
-    implementation("org.springframework.boot:spring-boot-starter-validation")
-    compileOnly("io.micronaut:micronaut-inject-groovy")
-    
-    
-    testImplementation("io.micronaut:micronaut-inject-groovy")
-    testImplementation("org.spockframework:spock-core")
-    testImplementation("io.micronaut:micronaut-http-client")
-
-
-
-    compileOnly "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
-    compileOnly "jakarta.annotation:jakarta.annotation-api:$jakartaAnnotationApiVersion"
-
-
-    implementation project(':asset-pipeline-core'), {
-        exclude group:'org.mozilla', module:'rhino'
-        exclude group:'com.google.javascript', module:'closure-compiler-unshaded'
-    }
-    testImplementation('org.grails:grails-web-testing-support')
-    testImplementation "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
-    testImplementation "jakarta.annotation:jakarta.annotation-api:$jakartaAnnotationApiVersion"
-    // testCompile "org.grails:grails-plugin-testing"
-}
-
-bootRun {
-    jvmArgs('-Dspring.output.ansi.enabled=always')
-}
-

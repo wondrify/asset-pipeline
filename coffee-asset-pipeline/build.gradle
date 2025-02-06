@@ -39,11 +39,15 @@ sourceSets {
 }
 
 dependencies {
-	api project(':asset-pipeline-core')
-	compileOnly 'org.apache.groovy:groovy:4.0.22'
-    api 'org.mozilla:rhino:1.7R4'
 
-    testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
+    api project(':asset-pipeline-core')
+    api "org.mozilla:rhino:$rhinoVersion"
+
+    // Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
+    compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+
+    testImplementation "org.apache.groovy:groovy:$groovy4Version"
+    testImplementation "org.spockframework:spock-core:$spockVersion"
 }
 
 publishing {
@@ -103,7 +107,9 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 }
 
 test {
+    useJUnitPlatform()
     testLogging {
+        events('passed', 'skipped', 'failed')
         exceptionFormat = 'full'
         showStandardStreams = true
     }

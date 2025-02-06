@@ -40,23 +40,26 @@ java {
 }
 
 dependencies {
-	implementation    'org.apache.groovy:groovy:4.0.22'
-	//implementation    'org.apache.groovy:groovy:3.0.20'
-	api     project(':asset-pipeline-core')
-	api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
-	testImplementation 'org.apache.groovy:groovy:2.4.19'
-    testImplementation 'org.eclipse.jetty:jetty-server:11.0.15'
-    testImplementation 'org.eclipse.jetty:jetty-servlet:11.0.15'
-    testImplementation 'org.eclipse.jetty:jetty-webapp:11.0.15'
-    testImplementation "org.apache.httpcomponents:httpclient:4.3.4"
-    testImplementation "org.apache.httpcomponents:fluent-hc:4.3.4"
-    testImplementation 'junit:junit:4.10'
-	compileOnly 'org.slf4j:slf4j-simple:2.0.5'
-	testImplementation 'org.slf4j:slf4j-simple:2.0.5'
+
+	api project(':asset-pipeline-core')
+
+	implementation "org.apache.groovy:groovy:$groovy4Version"
+
+	compileOnlyApi "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
+
+	testImplementation "org.apache.httpcomponents:fluent-hc:$fluentHcVersion"
+	testImplementation "org.apache.httpcomponents:httpcore:$httpcoreVersion"
+	testImplementation "junit:junit:$junit4Version"
+	testImplementation "org.eclipse.jetty:jetty-server:$jettyVersion"
+	testImplementation "org.eclipse.jetty:jetty-servlet:$jettyVersion"
+	testImplementation "org.eclipse.jetty:jetty-webapp:$jettyVersion"
+
+	testRuntimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
 }
 
 test {
 	testLogging {
+		events('passed', 'skipped', 'failed')
 		exceptionFormat = 'full'
 		showStandardStreams = true
 	}

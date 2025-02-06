@@ -1,27 +1,31 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-
-    dependencies {
-    }
-}
-
 plugins {
-    id 'org.asciidoctor.jvm.convert' version '4.0.2'
+    id 'org.asciidoctor.jvm.convert' version '4.0.4'
 }
 
-asciidoctor { 
-    outputDir = new File("$buildDir/docs")
-    options = [
-        doctype: 'book'
-        
-    ]
+repositories {
+    mavenCentral()
+}
+
+asciidoctor {
+    baseDir = layout.projectDirectory.dir('src/asciidoc')
+    sourceDir = layout.projectDirectory.dir('src/asciidoc')
+    outputDir = layout.buildDirectory.dir('docs')
+    sources {
+        include 'index.adoc'
+    }
+    jvm {
+        jvmArgs += [
+            '--add-opens', 'java.base/sun.nio.ch=ALL-UNNAMED',
+            '--add-opens', 'java.base/java.io=ALL-UNNAMED'
+        ]
+    }
     attributes = [
-            'source-highlighter': 'coderay',
-            toc                 : 'left',
-            'toc-title': 'Table of Contents',
-            idprefix            : '',
-            idseparator         : '-'
-     ]
+        doctype: 'book',
+        icons: 'font',
+        'source-highlighter': 'coderay',
+        toc                 : 'left',
+        'toc-title': 'Table of Contents',
+        idprefix            : '',
+        idseparator         : '-'
+    ]
 }

@@ -43,14 +43,19 @@ sourceSets {
 }
 
 dependencies {
-    compileOnly 'org.apache.groovy:groovy-all:4.0.22'
-    api project(':asset-pipeline-core')
-    api 'org.mozilla:rhino:1.7R4'
-    api 'org.slf4j:slf4j-api:1.7.28'
-    api "com.github.sommeri:less4j:1.17.2"
-    api "com.github.sommeri:less4j-javascript:0.0.1"
 
-    testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
+    api project(':asset-pipeline-core')
+    api "org.mozilla:rhino:$rhinoVersion"
+    api "com.github.sommeri:less4j:$less4jVersion"
+
+    implementation "com.github.sommeri:less4j-javascript:$less4jJsVersion", {
+        // An old forked version of Rhino is included in less4j-javascript
+        exclude group: 'ro.isdc.wro4j', module: 'rhino'
+    }
+
+    // Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
+    compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+    compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
 }
 
 publishing {
@@ -108,12 +113,3 @@ task(console, dependsOn: 'classes', type: JavaExec) {
   main = 'groovy.ui.Console'
   classpath = sourceSets.main.runtimeClasspath
 }
-
-test {
-    testLogging {
-        exceptionFormat = 'full'
-        showStandardStreams = true
-    }
-}
-
-

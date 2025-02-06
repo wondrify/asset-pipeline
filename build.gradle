@@ -1,110 +1,101 @@
 buildscript {
-	repositories {
-		mavenLocal()
-		maven { url "https://plugins.gradle.org/m2/" }
-		mavenCentral()
-		
-	}
-	dependencies {
-		classpath "io.github.gradle-nexus:publish-plugin:1.3.0"
-	}
+    repositories {
+        mavenLocal()
+        maven { url "https://plugins.gradle.org/m2/" }
+        mavenCentral()
+
+    }
+    dependencies {
+        classpath "io.github.gradle-nexus:publish-plugin:1.3.0"
+    }
 }
 
 plugins {
-	id 'java'
-	id 'groovy'
-	id 'java-library'
+    id 'java'
+    id 'groovy'
+    id 'java-library'
     id 'signing'
     id 'idea'
     id 'maven-publish'
 }
-
 
 ext {
     isBuildSnapshot = version.endsWith('-SNAPSHOT')
     isReleaseVersion = !isBuildSnapshot
 }
 
-
 group = 'com.bertramlabs.plugins'
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 java {
-	withJavadocJar()
-	withSourcesJar()
+    withJavadocJar()
+    withSourcesJar()
 }
 
 if (isReleaseVersion) {
-   apply plugin: "io.github.gradle-nexus.publish-plugin"
-   nexusPublishing {
-       repositories {
-           sonatype {
-               if(project.hasProperty('mavenUser')) {
-                   username = mavenUser
-                   password = mavenPassword
-               }
-           }
-       }
-   }
+    apply plugin: "io.github.gradle-nexus.publish-plugin"
+    nexusPublishing {
+        repositories {
+            sonatype {
+                if(project.hasProperty('mavenUser')) {
+                    username = mavenUser
+                    password = mavenPassword
+                }
+            }
+        }
+    }
 } else {
-
-	publishing {
-		publications {
-			mavenJava(MavenPublication) {
-				from components.java
-			}
-		}
-		repositories {
-			maven {
-				url = project.hasProperty('labsNexusUrl') ? labsNexusUrl : "https://nexus.bertramlabs.com/content/repositories/snapshots"
-				if(project.hasProperty('labsNexusUser')) {
-					credentials {
-						username = labsNexusUser
-						password = labsNexusPassword
-					}
-				}
-			}
-		}
-	}
-}
-
-subprojects { project ->
-	if (project.name != 'asset-pipeline-classpath-test' && project.name != 'asset-pipeline-docs' && project.name != 'asset-pipeline-site') {
-	    apply plugin: 'java'
-	    apply plugin: 'maven-publish'
-	    apply plugin: 'signing'
-	    afterEvaluate {
-	        signing {
-	            required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
-	            sign publishing.publications.maven
-	        }
-	    }
-
-	    tasks.withType(Sign) {
-	        onlyIf { isReleaseVersion }
-	    }
-
-	    //do not generate extra load on Nexus with new staging repository if signing fails
-	    tasks.withType(io.github.gradlenexus.publishplugin.InitializeNexusStagingRepository).configureEach {
-	        shouldRunAfter(tasks.withType(Sign))
-	    }
-    
+    publishing {
+        publications {
+            mavenJava(MavenPublication) {
+                from components.java
+            }
+        }
+        repositories {
+            maven {
+                url = project.hasProperty('labsNexusUrl') ? labsNexusUrl : "https://nexus.bertramlabs.com/content/repositories/snapshots"
+                if(project.hasProperty('labsNexusUser')) {
+                    credentials {
+                        username = labsNexusUser
+                        password = labsNexusPassword
+                    }
+                }
+            }
+        }
     }
 }
 
-dependencies {
-	api 'org.apache.groovy:groovy:3.0.20'
-	api 'org.apache.groovy:groovy-templates:3.0.20'
-	api 'org.mozilla:rhino:1.7R4'
-	testImplementation 'org.spockframework:spock-core:2.3-groovy-3.0'
-}
+subprojects { project ->
+    if (project.name != 'asset-pipeline-classpath-test' && project.name != 'asset-pipeline-docs' && project.name != 'asset-pipeline-site') {
+        apply plugin: 'java'
+        apply plugin: 'maven-publish'
+        apply plugin: 'signing'
+        afterEvaluate {
+            signing {
+                required { isReleaseVersion && gradle.taskGraph.hasTask("publish") }
+                sign publishing.publications.maven
+            }
+            jar {
+                manifest {
+                    attributes(
+                            'Implementation-Title': project.name,
+                            'Implementation-Version': project.version
+                    )
+                }
+            }
+        }
 
-test {
-	testLogging {
-		exceptionFormat = 'full'
-		showStandardStreams = true
-	}
+        tasks.withType(Sign) {
+            onlyIf { isReleaseVersion }
+        }
+
+        //do not generate extra load on Nexus with new staging repository if signing fails
+        tasks.withType(io.github.gradlenexus.publishplugin.InitializeNexusStagingRepository).configureEach {
+            shouldRunAfter(tasks.withType(Sign))
+        }
+
+    }
 }
