@@ -43,7 +43,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
     static final String ASSET_DEVELOPMENT_CONFIGURATION_NAME = 'assetDevelopmentRuntime'
 
     void apply(Project project) {
-        createGradleConfiguration(project)
+        createAssetsGradleConfiguration(project)
 
         def defaultConfiguration = project.extensions.create('assets', AssetPipelineExtensionImpl)
         def config = AssetPipelineConfigHolder.config != null ? AssetPipelineConfigHolder.config : [:]
@@ -153,8 +153,12 @@ class AssetPipelinePlugin implements Plugin<Project> {
         }
     }
 
-    private void createGradleConfiguration(Project project) {
+    private void createAssetsGradleConfiguration(Project project) {
         Configuration assetsConfiguration = project.configurations.create(ASSET_CONFIGURATION_NAME)
-        project.configurations.getByName(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME).extendsFrom(assetsConfiguration)
+        project.plugins.withType(JavaPlugin).configureEach {
+            project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure {
+                it.extendsFrom(assetsConfiguration)
+            }
+        }
     }
 }
