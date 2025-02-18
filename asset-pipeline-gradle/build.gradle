@@ -35,11 +35,11 @@ java {
 
 dependencies {
 
-    implementation gradleApi()
     implementation project(':asset-pipeline-core')
 
     // Gradle Plugin must be compiled with Groovy 3
     compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+    compileOnly gradleApi()
 
     // These will be used by the Asset Pipeline Gradle Plugin for pre-compiling assets
     // and when running bootRun task (in development)

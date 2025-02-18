@@ -43,7 +43,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
     static final String ASSET_DEVELOPMENT_CONFIGURATION_NAME = 'assetDevelopmentRuntime'
 
     void apply(Project project) {
-        createGradleConfiguration(project)
+        createAssetsGradleConfiguration(project)
 
         def defaultConfiguration = project.extensions.create('assets', AssetPipelineExtensionImpl)
         def config = AssetPipelineConfigHolder.config != null ? AssetPipelineConfigHolder.config : [:]
@@ -141,20 +141,30 @@ class AssetPipelinePlugin implements Plugin<Project> {
     }
 
     private void configureBootRun(Project project) {
-        project.plugins.withId('org.springframework.boot') { Plugin plugin ->
-            project.tasks.named('bootRun', JavaExec) { JavaExec bootRun ->
-                String version = AssetPipelinePlugin.package.implementationVersion
-                project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:$version")
-                project.logger.info('asset-pipeline: Adding {} configuration to bootRun classPath', ASSET_DEVELOPMENT_CONFIGURATION_NAME)
-                bootRun.classpath += project.configurations.maybeCreate(ASSET_DEVELOPMENT_CONFIGURATION_NAME)
-                project.logger.info('asset-pipeline: Adding {} configuration to bootRun classPath', ASSET_CONFIGURATION_NAME)
-                bootRun.classpath += project.configurations.maybeCreate(ASSET_CONFIGURATION_NAME)
+        // Add the asset-pipeline-gradle dependency to the bootRun classpath.
+        // This is needed for asset compilers to work in development, but not be included in the production jars
+        project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:${getClass().package.implementationVersion}")
+        def configureBootRun = { JavaExec runTask ->
+            [ASSET_DEVELOPMENT_CONFIGURATION_NAME, ASSET_CONFIGURATION_NAME].each { String configurationName ->
+                project.configurations.named(configurationName).configure {
+                    project.logger.info('asset-pipeline: Adding {} configuration to {} classpath', configurationName, runTask.name)
+                    runTask.classpath += it
+                }
+            }
+        }
+        project.plugins.withId('org.springframework.boot') {
+            ['bootRun', 'bootTestRun'].each { String taskName ->
+                project.tasks.named(taskName, JavaExec, configureBootRun)
             }
         }
     }
 
-    private void createGradleConfiguration(Project project) {
+    private void createAssetsGradleConfiguration(Project project) {
         Configuration assetsConfiguration = project.configurations.create(ASSET_CONFIGURATION_NAME)
-        project.configurations.getByName(JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME).extendsFrom(assetsConfiguration)
+        project.plugins.withType(JavaPlugin).configureEach {
+            project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).configure {
+                it.extendsFrom(assetsConfiguration)
+            }
+        }
     }
 }
