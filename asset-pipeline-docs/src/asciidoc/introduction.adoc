@@ -6,6 +6,10 @@ The asset-pipeline provides first class static and 'not so static' asset managem
 This guide documents configuration and usage examples of the asset-pipeline plugin.
 
 === Release History
+* Feb 18, 2024
+** 5.0.7 - Improvements to graal injection on various gradle build task formats
+* Feb 6, 2024
+** 5.0.6 - Fixing build gradle plugin to properly inject graal runtime dependencies during development runtime
 * Dec 10, 2024 
 ** 5.0.2 - Grails 7.0.0 Support, dependency upgrades, removal (for now) of g:resource legacy taglib support due to bean override.
 * July 25, 2024 
