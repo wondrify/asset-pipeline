@@ -62,6 +62,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
         def assetPluginTask = project.tasks.named('assetPluginPackage', AssetPluginPackage)
         def assetCleanTask = project.tasks.register('assetClean', Delete)
         project.configurations.create(ASSET_DEVELOPMENT_CONFIGURATION_NAME)
+        project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:${getClass().package.implementationVersion}")
 
         project.afterEvaluate {
             def assetPipeline = project.extensions.getByType(AssetPipelineExtensionImpl)
@@ -101,6 +102,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 }
             }
 
+            configureTestRuntimeClasspath(project)
             configureBootRun(project)
 
             if (distributionContainer) {
@@ -140,10 +142,19 @@ class AssetPipelinePlugin implements Plugin<Project> {
         }
     }
 
+    private void configureTestRuntimeClasspath(Project project) {
+        // Add the asset-pipeline-gradle dependency to the testRuntime classpath
+        // This is needed for asset compilers to work in tests without having to be explicitly declared
+        project.plugins.withType(JavaPlugin).configureEach {
+            project.configurations.named(JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME).configure {
+                it.extendsFrom(project.configurations.named(ASSET_DEVELOPMENT_CONFIGURATION_NAME).get())
+            }
+        }
+    }
+
     private void configureBootRun(Project project) {
         // Add the asset-pipeline-gradle dependency to the bootRun classpath.
         // This is needed for asset compilers to work in development, but not be included in the production jars
-        project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:${getClass().package.implementationVersion}")
         def configureBootRun = { JavaExec runTask ->
             [ASSET_DEVELOPMENT_CONFIGURATION_NAME, ASSET_CONFIGURATION_NAME].each { String configurationName ->
                 project.configurations.named(configurationName).configure {
