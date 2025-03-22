@@ -65,11 +65,12 @@ public class AssetPipelineResponseBuilder {
 
     public Boolean checkETag() {
         String etagName = getCurrentETag()
+        headers["ETag"] = etagName
+
         if (ifNoneMatchHeader && ifNoneMatchHeader == etagName) {
             statusCode = 304
             return false
         }
-        headers["ETag"] = etagName
         return true
     }
 

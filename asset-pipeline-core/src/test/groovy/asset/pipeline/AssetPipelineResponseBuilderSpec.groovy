@@ -43,4 +43,28 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         filename << ['header.js', '/header.js']
     }
 
+    @Unroll
+    def "make sure etag is set for 304 reponse"() {
+        given:
+        Properties props = new Properties()
+        props.setProperty("global.js", "global-1d9c55a6d7ec00ec71a5aee2b8749d28.js")
+        AssetPipelineConfigHolder.setManifest(props)
+        AssetPipelineResponseBuilder aprb = new AssetPipelineResponseBuilder(filename)
+
+        aprb.ifNoneMatchHeader = "\"global-1d9c55a6d7ec00ec71a5aee2b8749d28.js\""
+        aprb.headers = [:]
+        aprb.statusCode = 200
+
+        when:
+        def result = aprb.checkETag()
+
+        then:
+        aprb.headers.get('ETag') == "\"global-1d9c55a6d7ec00ec71a5aee2b8749d28.js\""
+        aprb.statusCode == 304
+        result == false
+
+        where:
+        filename << ['global.js', '/global.js']
+    }
+
 }
