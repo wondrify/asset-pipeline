@@ -5,12 +5,13 @@ buildscript {
     repositories {
         mavenLocal()
         mavenCentral()
-        maven { url "https://plugins.gradle.org/m2/" }
-        maven { url "https://repo.grails.org/grails/core" }
+        maven { url = "https://plugins.gradle.org/m2/" }
+        maven { url = "https://repo.grails.org/grails/core" }
+        maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
     }
     dependencies {
-        classpath platform("org.grails:grails-bom:$grailsVersion")
-        classpath 'org.grails:grails-gradle-plugin'
+        classpath platform("org.apache.grails:grails-bom:$grailsVersion")
+        classpath 'org.apache.grails:grails-gradle-plugins'
     }
 }
 
@@ -20,7 +21,7 @@ group "com.bertramlabs.plugins"
 apply plugin: 'eclipse'
 apply plugin: 'idea'
 apply plugin: 'java-library'
-apply plugin: "org.grails.grails-plugin"
+apply plugin: "org.apache.grails.gradle.grails-plugin"
 
 // Used for publishing to central repository, remove if not needed
 ext {
@@ -35,9 +36,6 @@ targetCompatibility = 1.17
 
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
     withSourcesJar()
     withJavadocJar()
 }
@@ -45,7 +43,8 @@ java {
 repositories {
     mavenLocal()
     mavenCentral()
-    maven { url "https://repo.grails.org/grails/core" }
+    maven { url = "https://repo.grails.org/grails/core" }
+    maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
 }
 
 configurations.configureEach {
@@ -63,17 +62,17 @@ grails {
 
 dependencies {
 
-    implementation platform("org.grails:grails-bom:$grailsVersion")
+    implementation platform("org.apache.grails:grails-bom:$grailsVersion")
 
     implementation project(':asset-pipeline-core')
-    implementation 'org.grails:grails-plugin-url-mappings'
+    implementation 'org.apache.grails:grails-url-mappings'
 
     compileOnly 'com.github.ben-manes.caffeine:caffeine' // Cache
     compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
-    compileOnly 'org.grails:grails-core' // Provided as this is a Grails plugin
-    compileOnly 'org.grails:grails-web-taglib' // For taglib compilation
+    compileOnly 'org.apache.grails:grails-core' // Provided as this is a Grails plugin
+    compileOnly 'org.apache.grails.views:grails-web-taglib' // For taglib compilation
 
-    testImplementation 'org.grails:grails-web-testing-support'
+    testImplementation 'org.apache.grails:grails-testing-support-web'
     testImplementation 'org.spockframework:spock-core'
 }
 
