@@ -5,9 +5,9 @@ buildscript {
     }
   }
   dependencies {
-    classpath "com.bertramlabs.plugins:asset-pipeline-gradle:2.10.0"
-    classpath "com.bertramlabs.plugins:jsx-asset-pipeline:2.10.0"
+    classpath "cloud.wondrify:asset-pipeline-gradle:2.10.0"
+    classpath "cloud.wondrify:jsx-asset-pipeline:2.10.0"
   }
 }
 
-apply plugin: "com.bertramlabs.asset-pipeline"
+apply plugin: "cloud.wondrify.asset-pipeline"

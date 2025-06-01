@@ -1,97 +1,94 @@
 buildscript {
-  repositories {
-    mavenLocal()
-    mavenCentral()
-  }
-  dependencies {
-    classpath "io.ratpack:ratpack-gradle:1.3.3"
-    classpath "com.github.jengelman.gradle.plugins:shadow:5.2.0"
-    classpath "com.bertramlabs.plugins:morpheus-gradle:0.2.0"
-  }
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "io.ratpack:ratpack-gradle:1.3.3"
+        classpath "com.github.jengelman.gradle.plugins:shadow:5.2.0"
+        classpath "cloud.wondrify:morpheus-gradle:0.2.0"
+    }
 }
 
- plugins {
-   id "com.bertramlabs.asset-pipeline" version "2.7.2"
- }
-
+plugins {
+    id "cloud.wondrify.asset-pipeline" version "2.7.2"
+}
 
 apply plugin: "io.ratpack.ratpack-groovy"
 apply plugin: "com.github.johnrengelman.shadow"
-apply plugin: "idea"
 apply plugin: 'asset-pipeline'
 apply plugin: 'morpheus'
 
 repositories {
-  mavenCentral()
+    mavenCentral()
 }
 
-
 dependencies {
-	implementation ratpack.dependency('handlebars')
-  // Default SLF4J binding.  Note that this is a blocking implementation.
-  // See here for a non blocking appender http://logging.apache.org/log4j/2.x/manual/async.html
-  runtimeOnly 'org.slf4j:slf4j-simple:1.7.12'
+    implementation ratpack.dependency('handlebars')
+    // Default SLF4J binding.  Note that this is a blocking implementation.
+    // See here for a non blocking appender http://logging.apache.org/log4j/2.x/manual/async.html
+    runtimeOnly 'org.slf4j:slf4j-simple:1.7.12'
 
 
-  assets(project(':asset-pipeline-core')) {
-	  exclude module: "groovy-all"
-  }
-  assets(project(':ratpack-asset-pipeline')) {
-	  exclude module: "groovy-all"
-  }
-  assets(project(':less-asset-pipeline')) {
-	  exclude module: "groovy-all"
-  }
-  testImplementation "org.spockframework:spock-core:1.3-groovy-2.4"
+    assets(project(':asset-pipeline-core')) {
+        exclude module: "groovy-all"
+    }
+    assets(project(':ratpack-asset-pipeline')) {
+        exclude module: "groovy-all"
+    }
+    assets(project(':less-asset-pipeline')) {
+        exclude module: "groovy-all"
+    }
+    testImplementation "org.spockframework:spock-core:1.3-groovy-2.4"
 }
 
 assets {
-  excludes = ["**/*.less"]
-  includes = ["application.less"]
+    excludes = ["**/*.less"]
+    includes = ["application.less"]
 }
 // project(':common:shared').projectDir
 
 task copyApiDoc(type: Copy, dependsOn: ':asset-pipeline-core:groovydoc') {
-    from new File(project(':asset-pipeline-core').buildDir,'/docs/groovydoc')
+    from new File(project(':asset-pipeline-core').buildDir, '/docs/groovydoc')
     into 'src/assets/html/apidoc/'
 }
 
 task copyManual(type: Copy, dependsOn: ':asset-pipeline-docs:asciidoctor') {
-    from new File(project(':asset-pipeline-docs').buildDir,'/docs')
+    from new File(project(':asset-pipeline-docs').buildDir, '/docs')
     into 'src/assets/html/manual/'
 }
 
 task copyManualNew(type: Copy, dependsOn: ':asset-pipeline-docs:asciidoctor') {
-    from new File(project(':asset-pipeline-docs').buildDir,'/docs')
+    from new File(project(':asset-pipeline-docs').buildDir, '/docs')
     into 'src/assets/html/manual-new/'
 }
 
 morpheus {
-  if(project.hasProperty('morpheusUser')) {
-      morpheusUser = project.morpheusUser
-      morpheusPassword = project.morpheusPassword
-  }
-  applianceUrl = 'https://v2.morpheusdata.com'
-  instance 'Asset-Pipeline Site'
-  from {
-    resolverPath = new File(project(':asset-pipeline-site').buildDir, '/libs').canonicalPath
-    includes = ["asset-pipeline-site-${version}-all.jar"]
-  }
-  if(project.hasProperty('bintrayUser')) {
-    deployConfiguration = [
-      javaCommand: "-Dratpack.port=8080 -Dratpack.bintrayUsername=${bintrayUser} -Dratpack.bintrayApiKey=${bintrayKey} -jar asset-pipeline-site-${version}-all.jar"
-    ]
-  } else {
-    deployConfiguration = [
-      javaCommand: "-Dratpack.port=8080 -jar asset-pipeline-site-${version}-all.jar"
-    ]
-  }
+    if (project.hasProperty('morpheusUser')) {
+        morpheusUser = project.morpheusUser
+        morpheusPassword = project.morpheusPassword
+    }
+    applianceUrl = 'https://v2.morpheusdata.com'
+    instance 'Asset-Pipeline Site'
+    from {
+        resolverPath = new File(project(':asset-pipeline-site').buildDir, '/libs').canonicalPath
+        includes = ["asset-pipeline-site-${version}-all.jar"]
+    }
+    if (project.hasProperty('bintrayUser')) {
+        deployConfiguration = [
+                javaCommand: "-Dratpack.port=8080 -Dratpack.bintrayUsername=${bintrayUser} -Dratpack.bintrayApiKey=${bintrayKey} -jar asset-pipeline-site-${version}-all.jar"
+        ]
+    } else {
+        deployConfiguration = [
+                javaCommand: "-Dratpack.port=8080 -jar asset-pipeline-site-${version}-all.jar"
+        ]
+    }
 }
 
-[ tasks.run].each { runTask ->
-	configure(runTask) {
-		systemProperties System.properties
-	}
+[tasks.run].each { runTask ->
+    configure(runTask) {
+        systemProperties System.properties
+    }
 }
 
 tasks.shadowJar.dependsOn assetCompile

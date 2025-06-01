@@ -1,0 +1,9 @@
+extensions.configure(GrailsPublishExtension) {
+    // Explicit `it` is required here
+    it.artifactId = findProperty('pomArtifactId') ?: project.name
+    it.githubSlug = 'wondrify/asset-pipeline'
+    it.license.name = 'Apache-2.0'
+    it.title = findProperty('pomTitle') ?: project.name
+    it.desc = findProperty('pomDescription') ?: "JVM Asset Pipeline"
+    it.developers = findProperty('pomDevelopers') as Map<String, String> ?: [davydotcom: 'David Estes']
+}

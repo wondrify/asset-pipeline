@@ -1,31 +1,32 @@
 buildscript {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        maven {
-            url 'https://plugins.gradle.org/m2/'
-        }
-    }
-    dependencies {
-        classpath 'com.gradle.publish:plugin-publish-plugin:0.15.0'
-    }
+	repositories {
+		mavenLocal()
+		mavenCentral()
+		maven {
+			url 'https://plugins.gradle.org/m2/'
+		}
+	}
+	dependencies {
+		classpath 'com.gradle.publish:plugin-publish-plugin:0.15.0'
+	}
 }
 
 apply plugin: 'com.gradle.plugin-publish'
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.17'
 targetCompatibility = '1.17'
 
-ext.isReleaseVersion = !version.endsWith('SNAPSHOT')
+ext {
+	pomDescription = 'JVM Asset Pipeline Gradle Adapter.'
+}
 
 repositories {
-    mavenLocal()
-    mavenCentral()
+	mavenLocal()
+	mavenCentral()
 }
 
 java {
@@ -47,76 +48,38 @@ dependencies {
     runtimeOnly "org.graalvm.js:js-community:$graalvmVersion"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'asset-pipeline-gradle'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'asset-pipeline-gradle'
-                    description 'JVM Asset Pipeline Gradle Adapter.'
-                    url 'https://github.com/bertramdev/asset-pipeline-core'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline-core'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
+task(console, dependsOn: 'classes', type: JavaExec) {
+main = 'groovy.ui.Console'
+classpath = sourceSets.main.runtimeClasspath
 }
 
-task(console, dependsOn: 'classes', type: JavaExec) {
-    main = 'groovy.ui.Console'
-    classpath = sourceSets.main.runtimeClasspath
+test {
+	testLogging {
+		exceptionFormat = 'full'
+		showStandardStreams = true
+	}
 }
 
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
 pluginBundle {
-    website = 'https://github.com/bertramdev/asset-pipeline-core/'
-    vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
-    description = 'JVM Asset Pipeline Gradle Adapter.'
-    tags = ['assets', 'resources', 'asset-pipeline']
+	website = 'https://github.com/bertramdev/asset-pipeline-core/'
+	vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
+	description = 'JVM Asset Pipeline Gradle Adapter.'
+	tags = ['assets', 'resources', 'asset-pipeline']
 
-    plugins {
-        assetPipelinePlugin {
-            id = 'com.bertramlabs.asset-pipeline'
-            displayName = 'Asset-Pipeline Plugin'
-        }
-    }
-    mavenCoordinates {
-        groupId = 'com.bertramlabs.plugins'
-    }
+	plugins {
+		assetPipelinePlugin {
+			id = 'cloud.wondrify.asset-pipeline'
+			displayName = 'Asset-Pipeline Plugin'
+		}
+	}
+	mavenCoordinates {
+		groupId = 'cloud.wondrify'
+	}
 }
+
+apply {
+	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
+

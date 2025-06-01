@@ -10,16 +10,17 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.17'
 targetCompatibility = '1.17'
 
 ext {
-    isReleaseVersion = !version.endsWith("SNAPSHOT")
+    javetVersion = "1.1.0"
+    pomDescription = 'Provides SASS Compiling using jsass (libsass) support for the Asset-Pipeline library.'
+    pomDevelopers = ['gferon': 'Gabriel Féron']
 }
 
 repositories {
@@ -63,56 +64,6 @@ dependencies {
     testRuntimeOnly "org.webjars:bootstrap:$bootstrapCssVersion"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'sass-dart-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'sass-dart-asset-pipeline'
-                    description 'Provides SASS Compiling using jsass (libsass) support for the Asset-Pipeline library.'
-                    url 'https://www.asset-pipeline.com'
-                    scm {
-                        url 'https://github.com/bertramdev/sass-asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/sass-asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/sass-asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'gferon'
-                            name 'Gabriel Féron'
-                            email 'feron.gabriel@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 task copyJavetVersion()  {
     doLast {
         new File("${projectDir}/src/main/resources", "javet-version.txt").text = javetVersion
@@ -155,4 +106,8 @@ processResources {
 
 sourcesJar {
     dependsOn bundleJSCompiler
+}
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

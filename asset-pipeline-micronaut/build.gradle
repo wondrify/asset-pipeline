@@ -1,5 +1,3 @@
-
-
 buildscript {
 	repositories {
 		mavenLocal()
@@ -14,16 +12,11 @@ plugins {
 	// id "io.micronaut.library" version "1.0.0.RC13"
 }
 
-
-
-
-
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.17'
 targetCompatibility = '1.17'
 repositories {
@@ -60,6 +53,10 @@ java {
 //     }
 // }
 
+ext {
+	pomDescription = 'JVM Asset Pipeline Micronaut Adapter.'
+}
+
 dependencies {
 	api     project(':asset-pipeline-core')
 	compileOnly "io.micronaut:micronaut-inject-groovy:$micronautVersion"
@@ -85,56 +82,6 @@ test {
 	}
 }
 
-publishing {
-	publications {
-		maven(MavenPublication) {
-			artifactId 'asset-pipeline-micronaut'
-			pom.withXml {
-				asNode().children().last() + {
-					resolveStrategy = Closure.DELEGATE_FIRST
-					name 'asset-pipeline-micronaut'
-					description 'JVM Asset Pipeline Micronaut Adapter.'
-					url 'https://github.com/bertramdev/asset-pipeline'
-					scm {
-						url 'https://github.com/bertramdev/asset-pipeline'
-						connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline.git'
-						developerConnection 'scm:git://github.com/bertramdev/asset-pipeline.git'
-					}
-					licenses {
-						license {
-							name 'The Apache Software License, Version 2.0'
-							url 'http://www.apache.org/license/LICENSE-2.0.txt'
-							distribution 'repo'
-						}
-					}
-					developers {
-						developer {
-							id 'davydotcom'
-							name 'David Estes'
-							email 'davydotcom@gmail.com'
-						}
-					}
-				}
-			}
-			from components.java
-		}
-	}
-
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
 task(console, dependsOn: 'classes', type: JavaExec) {
 	main = 'groovy.ui.Console'
 	classpath = sourceSets.main.runtimeClasspath
@@ -142,4 +89,8 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 
 tasks.withType(GroovyCompile) {
     groovyOptions.forkOptions.jvmArgs.add('-Dgroovy.parameters=true')
+}
+
+apply {
+	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

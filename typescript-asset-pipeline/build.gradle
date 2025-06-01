@@ -8,19 +8,20 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.17'
 targetCompatibility = '1.17'
+
+ext {
+    pomDescription = 'Typescript Transpiler Extension for the JVM Based Asset-Pipeline.'
+}
 
 repositories {
 	mavenLocal()
     mavenCentral()
-
 }
 
 configurations {
@@ -48,57 +49,6 @@ dependencies {
     testImplementation 'org.spockframework:spock-core:2.3-groovy-4.0'
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'typescript-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'typescript-asset-pipeline'
-                    description 'Typescript Transpiler Extension for the JVM Based Asset-Pipeline.'
-                    url 'https://github.com/bertramdev/asset-pipeline'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-
 task(console, dependsOn: 'classes', type: JavaExec) {
   main = 'groovy.ui.Console'
   classpath = sourceSets.main.runtimeClasspath
@@ -110,4 +60,9 @@ test {
         showStandardStreams = true
     }
 }
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
+
 

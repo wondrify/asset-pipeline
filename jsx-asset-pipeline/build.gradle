@@ -12,21 +12,21 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 apply plugin: 'org.xbib.gradle.plugin.jflex'
 
-group = 'com.bertramlabs.plugins'
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.17'
 targetCompatibility = '1.17'
+
+ext {
+    pomDescription = 'JSX Transpiler Extension for the JVM Based Asset-Pipeline.'
+}
 
 repositories {
     mavenLocal()
     mavenCentral()
-    mavenCentral()
-
 }
 
 configurations {
@@ -56,44 +56,6 @@ dependencies {
     testImplementation "org.spockframework:spock-core:$spockVersion"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'jsx-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'jsx-asset-pipeline'
-                    description 'JSX Transpiler Extension for the JVM Based Asset-Pipeline.'
-                    url 'https://github.com/bertramdev/asset-pipeline'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-}
-
-
-
 task(console, dependsOn: 'classes', type: JavaExec) {
   main = 'groovy.ui.Console'
   classpath = sourceSets.main.runtimeClasspath
@@ -110,4 +72,8 @@ test {
 
 sourcesJar {
     dependsOn jflex
+}
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

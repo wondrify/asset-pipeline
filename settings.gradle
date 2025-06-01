@@ -1,4 +1,19 @@
-include 'asset-pipeline-core', 'asset-pipeline-gradle', 'asset-pipeline-spring-boot', 'less-asset-pipeline', 'coffee-asset-pipeline', 'sass-asset-pipeline', 'handlebars-asset-pipeline', 'ember-asset-pipeline','asset-pipeline-servlet', 'asset-pipeline-classpath-test',  'asset-pipeline-docs', 'sass-dart-asset-pipeline','asset-pipeline-grails'/**,'groocss-asset-pipeline'**/, 'jsx-asset-pipeline'
+include(
+        'asset-pipeline-core',
+        'asset-pipeline-gradle',
+        'asset-pipeline-spring-boot',
+        'less-asset-pipeline',
+        'coffee-asset-pipeline',
+        'sass-asset-pipeline',
+        'handlebars-asset-pipeline',
+        'ember-asset-pipeline',
+        'asset-pipeline-servlet',
+        'asset-pipeline-classpath-test',
+        'asset-pipeline-docs',
+        'sass-dart-asset-pipeline',
+        'asset-pipeline-grails',
+        'jsx-asset-pipeline'
+)
 
 // org.groocss:groocss:1.0-M1 is no longer available, was on https://jcenter.bintray.com/
 // removed 'groocss-asset-pipeline' from include

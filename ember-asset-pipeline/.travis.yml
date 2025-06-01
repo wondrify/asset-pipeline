@@ -1,4 +1,0 @@
-language: groovy
-jdk:
-  - oraclejdk7
-script:  ./gradlew check
