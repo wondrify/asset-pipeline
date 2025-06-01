@@ -1,0 +1,7 @@
+compileJava.options.release = javaVersion.toInteger()
+
+extensions.configure(JavaPluginExtension) {
+    // Explicit `it` is required here
+    it.withJavadocJar()
+    it.withSourcesJar()
+}

@@ -1,19 +1,7 @@
-buildscript {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-    }
-    dependencies {
-    }
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
-
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
 
 ext {
     pomDescription = 'Provides LESS Compiling support for the Asset-Pipeline library.'
@@ -22,11 +10,6 @@ ext {
 repositories {
 	mavenLocal()
     mavenCentral()
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 configurations {
@@ -61,6 +44,7 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }
 

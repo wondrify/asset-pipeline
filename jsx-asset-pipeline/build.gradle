@@ -17,9 +17,6 @@ apply plugin: 'org.xbib.gradle.plugin.jflex'
 
 group = 'cloud.wondrify'
 
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
-
 ext {
     pomDescription = 'JSX Transpiler Extension for the JVM Based Asset-Pipeline.'
 }
@@ -36,11 +33,6 @@ sourceSets {
     main {
         compileClasspath += configurations.provided
     }
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 dependencies {
@@ -70,10 +62,16 @@ test {
     }
 }
 
-sourcesJar {
-    dependsOn jflex
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }
 
-apply {
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+tasks.named('sourcesJar', Jar).configure {
+    it.dependsOn(jflex)
+}
+
+tasks.named('javadocJar', Jar).configure { Jar it ->
+    // TODO: help-doc.html is a duplicate
+    it.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }

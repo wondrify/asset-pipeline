@@ -1,3 +1,5 @@
+import org.grails.gradle.plugin.publishing.GrailsPublishExtension
+
 extensions.configure(GrailsPublishExtension) {
     // Explicit `it` is required here
     it.artifactId = findProperty('pomArtifactId') ?: project.name

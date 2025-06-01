@@ -1,21 +1,7 @@
-buildscript {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-    dependencies {
-        classpath "com.github.node-gradle:gradle-node-plugin:3.1.1"
-    }
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
-
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
 
 ext {
     javetVersion = "1.1.0"
@@ -39,11 +25,6 @@ sourceSets {
     test {
         compileClasspath += configurations.provided
     }
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 apply plugin: 'com.github.node-gradle.node'
@@ -104,10 +85,11 @@ processResources {
     dependsOn bundleJSCompiler
 }
 
-sourcesJar {
-    dependsOn bundleJSCompiler
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }
 
-apply {
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+sourcesJar {
+    dependsOn bundleJSCompiler
 }

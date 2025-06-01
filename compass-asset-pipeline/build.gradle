@@ -1,27 +1,10 @@
-buildscript {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-    }
-    dependencies {
-    }
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
 
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
-
 ext {
     pomDescription = 'SASS/Compass Compiling support for the Asset-Pipeline library.'
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 repositories {
@@ -69,5 +52,6 @@ test {
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

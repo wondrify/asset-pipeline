@@ -1,43 +1,18 @@
-buildscript {
-    ext {
-        grailsVersion = project.grailsVersion
-    }
-    repositories {
-        mavenLocal()
-        mavenCentral()
-        maven { url = "https://plugins.gradle.org/m2/" }
-        maven { url = "https://repo.grails.org/grails/core" }
-        maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
-    }
-    dependencies {
-        classpath platform("org.apache.grails:grails-bom:$grailsVersion")
-        classpath 'org.apache.grails:grails-gradle-plugins'
-    }
-}
-
 group = 'cloud.wondrify'
 
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: "org.apache.grails.gradle.grails-plugin"
 
-sourceCompatibility = 1.17
-targetCompatibility = 1.17
-
 ext {
     pomDescription = 'The Grails Asset-Pipeling plugin providing asset transpiling to grails.'
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 repositories {
     mavenLocal()
     mavenCentral()
     maven { url = "https://repo.grails.org/grails/core" }
-    maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
+    maven { url = 'https://repository.apache.org/content/groups/snapshots' }
 }
 
 configurations.configureEach {
@@ -81,5 +56,6 @@ bootRun {
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

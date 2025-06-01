@@ -1,11 +1,3 @@
-buildscript {
-    repositories {
-        mavenCentral()
-    }
-    dependencies {
-    }
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
@@ -36,11 +28,6 @@ ext {
     pomDescription = 'Provides asset-pipeline integration with the ratpack framework.'
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
-
 dependencies {
     api project(':asset-pipeline-core')
     api "io.ratpack:ratpack-guice:${ratpackVersion}"
@@ -60,5 +47,6 @@ test {
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

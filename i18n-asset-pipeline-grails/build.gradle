@@ -22,7 +22,7 @@ buildscript {
     repositories {
         mavenLocal()
         maven { url = 'https://repo.grails.org/grails/core' }
-        maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
+        maven { url = 'https://repository.apache.org/content/groups/snapshots' }
     }
     dependencies {
         classpath "org.apache.grails.gradle:grails-gradle-plugins:$grailsVersion"
@@ -45,15 +45,10 @@ ext {
     pomDescription = 'asset-pipeline plugin to use localized messages in JavaScript.'
 }
 
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
-
 repositories {
     mavenLocal()
     maven { url 'https://repo.grails.org/grails/core' }
-    maven { url = 'https://repository.apache.org/content/repositories/snapshots' }
+    maven { url = 'https://repository.apache.org/content/groups/snapshots' }
 }
 
 dependencyManagement {
@@ -86,15 +81,16 @@ task wrapper(type: Wrapper) {
     gradleVersion = gradleWrapperVersion
 }
 
-groovydoc {
-    docTitle = "I18n asset pipeline API v${version}"
-    windowTitle = "I18n asset pipeline API v${version}"
-}
-
 assets {
     packagePlugin = true
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
+
+tasks.named('groovydoc', Groovydoc).configure { Groovydoc it ->
+    it.docTitle = "I18n asset pipeline API v${version}"
+    it.windowTitle = "I18n asset pipeline API v${version}"
 }

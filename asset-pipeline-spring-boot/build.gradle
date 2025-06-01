@@ -1,18 +1,7 @@
-buildscript {
-	repositories {
-		mavenLocal()
-		mavenCentral()
-	}
-	dependencies {
-	}
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
 
 ext {
 	pomDescription = 'JVM Asset Pipeline Spring Boot Adapter.'
@@ -29,11 +18,6 @@ sourceSets {
 		groovy.srcDirs   += ['src/main/java']
 		java.srcDirs      = []
 	}
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 repositories {
@@ -63,5 +47,6 @@ task(console, dependsOn: 'classes', type: JavaExec) {
 }
 
 apply {
+	from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
 	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

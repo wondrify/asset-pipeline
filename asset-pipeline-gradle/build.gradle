@@ -1,24 +1,8 @@
-buildscript {
-	repositories {
-		mavenLocal()
-		mavenCentral()
-		maven {
-			url 'https://plugins.gradle.org/m2/'
-		}
-	}
-	dependencies {
-		classpath 'com.gradle.publish:plugin-publish-plugin:0.15.0'
-	}
-}
-
 apply plugin: 'com.gradle.plugin-publish'
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
-
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
 
 ext {
 	pomDescription = 'JVM Asset Pipeline Gradle Adapter.'
@@ -27,11 +11,6 @@ ext {
 repositories {
 	mavenLocal()
 	mavenCentral()
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 dependencies {
@@ -80,6 +59,7 @@ pluginBundle {
 }
 
 apply {
+	from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
 	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }
 

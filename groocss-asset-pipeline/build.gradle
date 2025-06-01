@@ -1,29 +1,12 @@
-buildscript {
-    repositories {
-        mavenLocal()
-        mavenCentral()
-    }
-    dependencies {
-    }
-}
-
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: 'idea'
 
 group = 'cloud.wondrify'
 
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
-
 ext {
     pomDescription = 'GrooCSS Compiling support for the Asset-Pipeline library.'
     pomDevelopers = ['adamldavis': 'adamd@adamldavis.com']
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
 }
 
 repositories {
@@ -62,5 +45,6 @@ test {
 }
 
 apply {
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

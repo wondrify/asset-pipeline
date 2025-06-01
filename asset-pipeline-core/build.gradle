@@ -1,83 +1,55 @@
-buildscript {
-	repositories {
-		mavenLocal()
-		mavenCentral()
-	}
-	dependencies {
-	}
-}
-
 apply plugin: 'groovy'
-apply plugin: 'java-library'
 
 group = 'cloud.wondrify'
 
-sourceCompatibility = '1.17'
-targetCompatibility = '1.17'
-
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 ext {
-	pomDescription = 'JVM Asset Pipeline library for serving static web assets, bundling, minifying, and extensibility for transpiling.'
+    pomDescription = 'JVM Asset Pipeline library for serving static web assets, bundling, minifying, and extensibility for transpiling.'
 }
 
 configurations {
-	provided
-	doc.extendsFrom(runtime)
+    provided
+    doc.extendsFrom(runtime)
 }
 
 sourceSets {
-	main {
-		compileClasspath += configurations.provided
-		groovy.srcDirs   += ['src/main/java']
-		java.srcDirs      = []
-	}
-}
-
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
-
-groovydoc {
-	docTitle "Asset Pipeline Core"
-	windowTitle "Asset Pipeline For the JVM API Doc"
-	groovyClasspath = configurations.doc
-	classpath = configurations.runtime
-	// Links to external Javadoc, currently only the J2SE links are working properly
-  	link('http://download.oracle.com/javase/8/docs/api/', 'java.', 'org.xml', 'javax.', 'org.xml.')
-  	link('http://groovy.codehaus.org/api/',  'groovy.', 'org.apache.groovy.')
+    main {
+        compileClasspath += configurations.provided
+        groovy.srcDirs += ['src/main/java']
+        java.srcDirs = []
+    }
 }
 
 dependencies {
 
-	doc "org.apache.groovy:groovy:$groovy4Version"
-	doc "org.apache.groovy:groovy-ant:$groovy4Version"
-	doc "org.apache.groovy:groovy-templates:$groovy4Version"
-	doc "com.github.javaparser:javaparser-core:$javaparserVersion"
+    doc "org.apache.groovy:groovy:$groovy4Version"
+    doc "org.apache.groovy:groovy-ant:$groovy4Version"
+    doc "org.apache.groovy:groovy-templates:$groovy4Version"
+    doc "com.github.javaparser:javaparser-core:$javaparserVersion"
 
-	// Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
-	compileOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
-	compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
-	compileOnly "org.codehaus.groovy:groovy-json:$groovy3Version"
-	compileOnly "org.codehaus.groovy:groovy-templates:$groovy3Version"
-	compileOnly "org.graalvm.polyglot:polyglot:$graalvmVersion"
-	compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
+    // Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
+    compileOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
+    compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
+    compileOnly "org.codehaus.groovy:groovy-json:$groovy3Version"
+    compileOnly "org.codehaus.groovy:groovy-templates:$groovy3Version"
+    compileOnly "org.graalvm.polyglot:polyglot:$graalvmVersion"
+    compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
 
-	testImplementation project(':asset-pipeline-classpath-test')
-	testImplementation "org.apache.groovy:groovy:$groovy4Version"
-	testImplementation "org.spockframework:spock-core:$spockVersion"
+    testImplementation project(':asset-pipeline-classpath-test')
+    testImplementation "org.apache.groovy:groovy:$groovy4Version"
+    testImplementation "org.spockframework:spock-core:$spockVersion"
 
-	testRuntimeOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
-	testRuntimeOnly "org.graalvm.js:js-community:$graalvmVersion"
-	testRuntimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
+    testRuntimeOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
+    testRuntimeOnly "org.graalvm.js:js-community:$graalvmVersion"
+    testRuntimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
 }
 
 task(console, dependsOn: 'classes', type: JavaExec) {
-  main = 'groovy.ui.Console'
-  classpath = sourceSets.main.runtimeClasspath
+    main = 'groovy.ui.Console'
+    classpath = sourceSets.main.runtimeClasspath
 }
 
 tasks.register("depsize") {
@@ -95,8 +67,6 @@ tasks.register("depsize-all-configurations") {
                 .each { listConfigurationDependencies(it) }
     }
 }
-
-
 
 def listConfigurationDependencies(Configuration configuration) {
     def formatStr = "%,10.2f"
@@ -121,14 +91,30 @@ def listConfigurationDependencies(Configuration configuration) {
 }
 
 test {
-	useJUnitPlatform()
-	testLogging {
-		events('passed', 'skipped', 'failed')
-		exceptionFormat = 'full'
-		showStandardStreams = true
-	}
+    useJUnitPlatform()
+    testLogging {
+        events('passed', 'skipped', 'failed')
+        exceptionFormat = 'full'
+        showStandardStreams = true
+    }
 }
 
 apply {
-	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
+
+tasks.named('groovydoc', Groovydoc).configure { Groovydoc it ->
+    it.docTitle "Asset Pipeline Core"
+    it.windowTitle "Asset Pipeline For the JVM API Doc"
+    it.groovyClasspath = configurations.doc
+    it.classpath = configurations.runtime
+    // Links to external Javadoc, currently only the J2SE links are working properly
+    it.link('http://download.oracle.com/javase/8/docs/api/', 'java.', 'org.xml', 'javax.', 'org.xml.')
+    it.link('http://groovy.codehaus.org/api/', 'groovy.', 'org.apache.groovy.')
+}
+
+tasks.named('javadocJar', Jar).configure { Jar it ->
+    // TODO: help-doc.html is a duplicate
+    it.duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
