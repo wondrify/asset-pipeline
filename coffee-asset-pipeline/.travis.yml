@@ -1,6 +1,0 @@
-language: groovy
-jdk:
-  - oraclejdk7
-before_script:
-  - npm install -g coffee-script
-script:  ./gradlew check

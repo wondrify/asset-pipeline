@@ -7,14 +7,11 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
 
 repositories {
-    mavenCentral()
     mavenCentral()
     mavenLocal()
     maven { url "http://oss.jfrog.org/artifactory/repo" }
@@ -30,13 +27,13 @@ sourceSets {
 }
 
 ext {
-    isReleaseVersion = !version.endsWith("SNAPSHOT")
     slf4jVersion = "1.7.10"
     ratpackVersion = "1.6.1"
     spockVersion = "1.0-groovy-2.4"
     cglibVersion = "2.2.2"
     objenesisVersion = "2.1"
     groovyVersion = "2.4.19"
+    pomDescription = 'Provides asset-pipeline integration with the ratpack framework.'
 }
 
 java {
@@ -55,60 +52,13 @@ dependencies {
     testImplementation "io.ratpack:ratpack-test:${ratpackVersion}"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'ratpack-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'ratpack-asset-pipeline'
-                    description 'Provides asset-pipeline integration with the ratpack framework.'
-                    url 'https://github.com/bertramdev/ratpack-asset-pipeline'
-                    scm {
-                        url 'https://github.com/bertramdev/ratpack-asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/ratpack-asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/ratpack-asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 test {
     testLogging {
         exceptionFormat = 'full'
         showStandardStreams = true
     }
+}
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

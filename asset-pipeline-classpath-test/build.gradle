@@ -6,12 +6,12 @@ buildscript {
 
     }
 }
-group = 'com.bertramlabs.plugins'
+
+group = 'cloud.wondrify'
 
 apply plugin: 'groovy'
 
 // apply plugin: 'asset-pipeline'
-
 
 version "0.1"
 
@@ -26,13 +26,9 @@ configurations {
 	provided
 }
 
-ext.isReleaseVersion = !version.endsWith('SNAPSHOT')
-
-
 repositories {
 	mavenCentral()
 }
-
 
 dependencies {
 	compileOnly localGroovy()

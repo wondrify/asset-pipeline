@@ -7,16 +7,18 @@ buildscript {
 	}
 }
 
-
-
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
 
-group = 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.11'
 targetCompatibility = '1.11'
+
+ext {
+	pomDescription = 'JVM Asset Pipeline Servlet Adapter.'
+}
+
 repositories {
 	mavenCentral()
 }
@@ -41,7 +43,7 @@ java {
 
 dependencies {
 	implementation    'org.codehaus.groovy:groovy:3.0.20'
-	api     project(':asset-pipeline-core')
+	api  project(':asset-pipeline-core')
 	api 'jakarta.servlet:jakarta.servlet-api:6.0.0'
 	testImplementation 'org.codehaus.groovy:groovy:2.4.19'
     testImplementation 'org.eclipse.jetty:jetty-server:11.0.15'
@@ -61,58 +63,11 @@ test {
 	}
 }
 
-publishing {
-	publications {
-		maven(MavenPublication) {
-			artifactId 'asset-pipeline-servlet'
-			pom.withXml {
-				asNode().children().last() + {
-					resolveStrategy = Closure.DELEGATE_FIRST
-					name 'asset-pipeline-servlet'
-					description 'JVM Asset Pipeline Servlet Adapter.'
-					url 'https://github.com/bertramdev/asset-pipeline-core'
-					scm {
-						url 'https://github.com/bertramdev/asset-pipeline-core'
-						connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
-						developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
-					}
-					licenses {
-						license {
-							name 'The Apache Software License, Version 2.0'
-							url 'http://www.apache.org/license/LICENSE-2.0.txt'
-							distribution 'repo'
-						}
-					}
-					developers {
-						developer {
-							id 'davydotcom'
-							name 'David Estes'
-							email 'davydotcom@gmail.com'
-						}
-					}
-				}
-			}
-			from components.java
-		}
-	}
-
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 task(console, dependsOn: 'classes', type: JavaExec) {
 	main = 'groovy.ui.Console'
 	classpath = sourceSets.main.runtimeClasspath
+}
+
+apply {
+	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

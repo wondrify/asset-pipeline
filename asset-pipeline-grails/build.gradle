@@ -13,27 +13,18 @@ buildscript {
     }
 }
 
+group = 'cloud.wondrify'
 
-
-group "com.bertramlabs.plugins"
-
-// apply plugin: 'maven-publish'
-apply plugin: 'eclipse'
-apply plugin: 'idea'
+apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: "org.grails.grails-plugin"
-
-// Used for publishing to central repository, remove if not needed
-ext {
-    grailsVersion = project.grailsVersion
-    websiteUrl = "http://www.asset-pipeline.com"
-    vcsUrl = "https://github.com/bertramdev/grails-asset-pipeline/tree/grails3"
-    issueTrackerUrl = "https://github.com/bertramdev/grails-asset-pipeline/issues"
-}
 
 sourceCompatibility = 1.11
 targetCompatibility = 1.11
 
+ext {
+    pomDescription = 'The Grails Asset-Pipeling plugin providing asset transpiling to grails.'
+}
 
 java {
     withSourcesJar()
@@ -43,7 +34,7 @@ java {
 repositories {
     mavenLocal()
     mavenCentral()
-   maven { url "https://repo.grails.org/grails/core" }
+    maven { url "https://repo.grails.org/grails/core" }
 }
 
 dependencyManagement {
@@ -57,59 +48,8 @@ grails {
     packageAssets = false
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'asset-pipeline-grails'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'asset-pipeline-grails'
-                    description 'The Grails Asset-Pipeling plugin providing asset transpiling to grails.'
-                    url 'https://github.com/bertramdev/asset-pipeline-core'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline-core'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 dependencies {
-        implementation("org.grails:grails-core")
+    implementation("org.grails:grails-core")
     implementation("org.grails:grails-logging")
     // implementation("org.grails:grails-plugin-databinding")
     // implementation("org.grails:grails-plugin-i18n")
@@ -124,12 +64,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-validation")
     compileOnly("io.micronaut:micronaut-inject-groovy")
     
-    
     testImplementation("io.micronaut:micronaut-inject-groovy")
     testImplementation("org.spockframework:spock-core")
     testImplementation("io.micronaut:micronaut-http-client")
-
-
 
     compileOnly 'javax.servlet:javax.servlet-api:3.1.0'
     implementation project(':asset-pipeline-core'), {
@@ -144,3 +81,6 @@ bootRun {
     jvmArgs('-Dspring.output.ansi.enabled=always')
 }
 
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}

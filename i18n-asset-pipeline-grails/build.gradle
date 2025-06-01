@@ -15,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-
 buildscript {
     ext {
         grailsVersion = project.grailsVersion
@@ -27,14 +25,13 @@ buildscript {
     }
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsVersion"
-        classpath "com.bertramlabs.plugins:asset-pipeline-gradle:2.13.2"
+        classpath "cloud.wondrify:asset-pipeline-gradle:2.13.2"
     }
 }
 
-group 'com.bertramlabs.plugins'
+group = 'cloud.wondrify'
 
-apply plugin: 'eclipse'
-apply plugin: 'idea'
+apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: 'asset-pipeline'
 apply plugin: 'org.grails.grails-plugin'
@@ -44,6 +41,7 @@ apply plugin: 'org.grails.grails-doc'
 ext {
     grailsVersion = project.grailsVersion
     gradleWrapperVersion = project.gradleWrapperVersion
+    pomDescription = 'asset-pipeline plugin to use localized messages in JavaScript.'
 }
 
 java {
@@ -73,9 +71,9 @@ dependencies {
     api "org.grails:grails-web-boot:$grailsVersion"
     api project(':asset-pipeline-core')
     api project(':asset-pipeline-grails')
-    // api "com.bertramlabs.plugins:asset-pipeline-gradle:2.13.2"
-    // api 'com.bertramlabs.plugins:asset-pipeline-grails:2.13.2'
-    // api 'com.bertramlabs.plugins:asset-pipeline-core:2.13.2'
+    // api "cloud.wondrify:asset-pipeline-gradle:2.13.2"
+    // api 'cloud.wondrify:asset-pipeline-grails:2.13.2'
+    // api 'cloud.wondrify:asset-pipeline-core:2.13.2'
 
     console 'org.grails:grails-console'
 
@@ -91,57 +89,10 @@ groovydoc {
     windowTitle = "I18n asset pipeline API v${version}"
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'i18n-asset-pipeline-grails'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'i18n-asset-pipeline-grails'
-                    description 'asset-pipeline plugin to use localized messages in JavaScript.'
-                    url 'https://github.com/bertramdev/asset-pipeline-core'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline-core'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline-core.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline-core.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-
 assets {
     packagePlugin = true
+}
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }

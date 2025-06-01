@@ -1,1 +1,16 @@
-include 'asset-pipeline-core', 'asset-pipeline-gradle', 'asset-pipeline-spring-boot', 'less-asset-pipeline', 'coffee-asset-pipeline', 'sass-asset-pipeline', 'handlebars-asset-pipeline', 'ember-asset-pipeline','asset-pipeline-servlet', 'asset-pipeline-classpath-test',  'asset-pipeline-docs', 'sass-dart-asset-pipeline','asset-pipeline-grails', 'jsx-asset-pipeline'
+include(
+        'asset-pipeline-core',
+        'asset-pipeline-gradle',
+        'asset-pipeline-spring-boot',
+        'less-asset-pipeline',
+        'coffee-asset-pipeline',
+        'sass-asset-pipeline',
+        'handlebars-asset-pipeline',
+        'ember-asset-pipeline',
+        'asset-pipeline-servlet',
+        'asset-pipeline-classpath-test',
+        'asset-pipeline-docs',
+        'sass-dart-asset-pipeline',
+        'asset-pipeline-grails',
+        'jsx-asset-pipeline'
+)

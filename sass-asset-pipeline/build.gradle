@@ -8,19 +8,21 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
-group = 'com.bertramlabs.plugins'
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.11'
 targetCompatibility = '1.11'
+
+ext {
+    pomDescription = 'Provides SASS Compiling using jsass (libsass) support for the Asset-Pipeline library.'
+    pomDevelopers = ['gferon': 'Gabriel Féron']
+}
 
 repositories {
 	mavenLocal()
     mavenCentral()
-    mavenCentral()
-
 }
 
 configurations {
@@ -55,56 +57,6 @@ dependencies {
     testRuntimeOnly 'org.webjars:bootstrap:5.1.3'
 }
 
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'sass-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'sass-asset-pipeline'
-                    description 'Provides SASS Compiling using jsass (libsass) support for the Asset-Pipeline library.'
-                    url 'https://www.asset-pipeline.com'
-                    scm {
-                        url 'https://github.com/bertramdev/sass-asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/sass-asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/sass-asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'gferon'
-                            name 'Gabriel Féron'
-                            email 'feron.gabriel@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
-
 task(console, dependsOn: 'classes', type: JavaExec) {
   main = 'groovy.ui.Console'
   classpath = sourceSets.main.runtimeClasspath
@@ -117,3 +69,6 @@ test {
     }
 }
 
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}

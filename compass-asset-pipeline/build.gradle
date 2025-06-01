@@ -8,13 +8,16 @@ buildscript {
 }
 
 apply plugin: 'groovy'
-apply plugin: 'maven-publish'
 apply plugin: 'java-library'
-apply plugin: 'idea'
-group = 'com.bertramlabs.plugins'
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
+
+group = 'cloud.wondrify'
+
 sourceCompatibility = '1.11'
 targetCompatibility = '1.11'
+
+ext {
+    pomDescription = 'SASS/Compass Compiling support for the Asset-Pipeline library.'
+}
 
 java {
     withSourcesJar()
@@ -24,8 +27,6 @@ java {
 repositories {
 	mavenLocal()
     mavenCentral()
-    mavenCentral()
-
 }
 
 configurations {
@@ -49,61 +50,11 @@ dependencies {
     // api 'org.yaml:snakeyaml:1.26'
     // api 'org.jruby:jruby:9.2.11.1'
 	api 'org.jruby:jruby-complete:9.2.11.1'
-    compile('com.bertramlabs.plugins:jruby-container:0.6.3') {
+    compile('cloud.wondrify:jruby-container:0.6.3') {
         exclude module: 'jruby-complete'
     }
     testImplementation "org.spockframework:spock-core:1.3-groovy-2.4"
 }
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId 'compass-asset-pipeline'
-            pom.withXml {
-                asNode().children().last() + {
-                    resolveStrategy = Closure.DELEGATE_FIRST
-                    name 'compass-asset-pipeline'
-                    description 'Provides SASS/Compass Compiling support for the Asset-Pipeline library.'
-                    url 'https://github.com/bertramdev/sass-asset-pipeline'
-                    scm {
-                        url 'https://github.com/bertramdev/asset-pipeline/compass-asset-pipeline'
-                        connection 'scm:https://bertramdev@github.com/bertramdev/asset-pipeline.git'
-                        developerConnection 'scm:git://github.com/bertramdev/asset-pipeline.git'
-                    }
-                    licenses {
-                        license {
-                            name 'The Apache Software License, Version 2.0'
-                            url 'http://www.apache.org/license/LICENSE-2.0.txt'
-                            distribution 'repo'
-                        }
-                    }
-                    developers {
-                        developer {
-                            id 'davydotcom'
-                            name 'David Estes'
-                            email 'davydotcom@gmail.com'
-                        }
-                    }
-                }
-            }
-            from components.java
-        }
-    }
-    repositories {
-        maven {
-            if( !isReleaseVersion ) {
-                url = "http://nexus.bertramlabs.com/content/repositories/snapshots"
-                if(project.hasProperty('labsNexusUser')) {
-                    credentials {
-                        username = labsNexusUser
-                        password = labsNexusPassword
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 task(console, dependsOn: 'classes', type: JavaExec) {
   main = 'groovy.ui.Console'
@@ -117,4 +68,6 @@ test {
     }
 }
 
-
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
