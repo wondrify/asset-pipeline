@@ -8,13 +8,6 @@ ext {
     pomDescription = 'The Grails Asset-Pipeling plugin providing asset transpiling to grails.'
 }
 
-repositories {
-    mavenLocal()
-    mavenCentral()
-    maven { url = "https://repo.grails.org/grails/core" }
-    maven { url = 'https://repository.apache.org/content/groups/snapshots' }
-}
-
 configurations.configureEach {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
@@ -58,4 +51,20 @@ bootRun {
 apply {
     from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
     from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
+
+tasks.withType(Jar).configureEach { Jar it ->
+    it.exclude 'grails-app/assets/**'
+    it.exclude 'test/**'
+    it.exclude 'META-INF/assets**'
+
+    List excludes = ['Application']
+    excludes.each {
+        exclude "**/${it}*.class"
+    }
+    eachFile { copyDetails ->
+        if (copyDetails.path.contains('grails-plugin.xml')) {
+            filter { line -> excludes.find{line.contains(it)}? null : line}
+        }
+    }
 }

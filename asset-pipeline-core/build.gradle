@@ -2,10 +2,6 @@ apply plugin: 'groovy'
 
 group = 'cloud.wondrify'
 
-repositories {
-    mavenCentral()
-}
-
 ext {
     pomDescription = 'JVM Asset Pipeline library for serving static web assets, bundling, minifying, and extensibility for transpiling.'
 }

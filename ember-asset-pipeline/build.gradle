@@ -7,11 +7,6 @@ ext {
     pomDescription = 'Ember.js Template Compiler (Handlebars.js) for JVM Asset Pipeline.'
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-}
-
 dependencies {
 
 	api project(':asset-pipeline-core')

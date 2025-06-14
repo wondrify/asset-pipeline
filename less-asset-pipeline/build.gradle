@@ -7,11 +7,6 @@ ext {
     pomDescription = 'Provides LESS Compiling support for the Asset-Pipeline library.'
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-}
-
 configurations {
     provided
 }

@@ -20,12 +20,10 @@ buildscript {
         grailsVersion = project.grailsVersion
     }
     repositories {
-        mavenLocal()
+        // mavenLocal()
         maven { url = 'https://repo.grails.org/grails/core' }
-        maven { url = 'https://repository.apache.org/content/groups/snapshots' }
     }
     dependencies {
-        classpath "org.apache.grails.gradle:grails-gradle-plugins:$grailsVersion"
         classpath "com.bertramlabs.plugins:asset-pipeline-gradle:2.13.2"
     }
 }
@@ -43,12 +41,6 @@ ext {
     grailsVersion = project.grailsVersion
     gradleWrapperVersion = project.gradleWrapperVersion
     pomDescription = 'asset-pipeline plugin to use localized messages in JavaScript.'
-}
-
-repositories {
-    mavenLocal()
-    maven { url 'https://repo.grails.org/grails/core' }
-    maven { url = 'https://repository.apache.org/content/groups/snapshots' }
 }
 
 dependencyManagement {

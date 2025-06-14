@@ -23,10 +23,6 @@ configurations {
 	provided
 }
 
-repositories {
-	mavenCentral()
-}
-
 dependencies {
 	compileOnly localGroovy()
 }

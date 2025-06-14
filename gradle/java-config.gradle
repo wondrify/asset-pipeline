@@ -5,3 +5,11 @@ extensions.configure(JavaPluginExtension) {
     it.withJavadocJar()
     it.withSourcesJar()
 }
+
+tasks.withType(Jar).configureEach {
+    manifest.attributes(
+            'Implementation-Title': 'Asset Pipeline',
+            'Implementation-Version': project.version,
+            'Implementation-Vendor': "${project.group}:${findProperty('pomArtifactId') ?: project.name}"
+    )
+}

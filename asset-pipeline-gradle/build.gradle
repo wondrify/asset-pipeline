@@ -6,11 +6,7 @@ group = 'cloud.wondrify'
 
 ext {
 	pomDescription = 'JVM Asset Pipeline Gradle Adapter.'
-}
-
-repositories {
-	mavenLocal()
-	mavenCentral()
+	pomMavenPublicationName = 'pluginMaven'
 }
 
 dependencies {
@@ -62,4 +58,3 @@ apply {
 	from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
 	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
 }
-

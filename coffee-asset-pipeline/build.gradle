@@ -7,13 +7,6 @@ ext {
     pomDescription = 'Coffeescript Transpiler Extension for the JVM Based Asset-Pipeline.'
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-    mavenCentral()
-
-}
-
 configurations {
     provided
 }
