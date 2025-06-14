@@ -25,9 +25,11 @@ import org.grails.plugins.BinaryGrailsPlugin
 import org.grails.web.config.http.GrailsFilters
 import org.springframework.util.ClassUtils
 
+import java.nio.file.Path
+
 @Slf4j
 class AssetPipelineGrailsPlugin extends Plugin {
-    def grailsVersion   = "7.0 > *"
+    def grailsVersion   = "7.0.0-SNAPSHOT > *"
     def title           = "Asset Pipeline Plugin"
     def author          = "David Estes"
     def authorEmail     = "destes@bcap.com"
@@ -106,7 +108,10 @@ class AssetPipelineGrailsPlugin extends Plugin {
         }
 
         if (BuildSettings.TARGET_DIR) {
-            AssetPipelineConfigHolder.config.cacheLocation = new File((File) BuildSettings.TARGET_DIR, ".assetcache").canonicalPath
+            File projectDirectory = BuildSettings.TARGET_DIR
+            File buildDirectory = projectDirectory.toPath().resolve('build').toFile()
+            buildDirectory.mkdirs()
+            AssetPipelineConfigHolder.config.cacheLocation = new File(buildDirectory, ".assetcache").canonicalPath
         }
 
         assetResourceLocator(AssetResourceLocator) { bean ->

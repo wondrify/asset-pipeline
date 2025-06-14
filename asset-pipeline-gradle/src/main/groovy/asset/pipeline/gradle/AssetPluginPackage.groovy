@@ -1,118 +1,83 @@
 package asset.pipeline.gradle
 
-import asset.pipeline.AssetCompiler
 import asset.pipeline.AssetFile
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.fs.FileSystemAssetResolver
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import org.gradle.api.DefaultTask
-import org.gradle.api.file.FileTree
-import org.gradle.api.tasks.InputDirectory
-import org.gradle.api.tasks.PathSensitive
-import org.gradle.api.tasks.PathSensitivity
-import org.gradle.api.tasks.InputFiles
+import org.gradle.api.Project
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
-import org.gradle.api.tasks.CacheableTask
+
+import javax.inject.Inject
 
 /**
  * Created by davydotcom on 4/21/16.
  */
 @CompileStatic
-@CacheableTask  
-class AssetPluginPackage extends DefaultTask {
-    private String destinationDirectoryPath
-    @Delegate() private AssetPipelineExtension pipelineExtension = new AssetPipelineExtensionImpl()
+@CacheableTask
+abstract class AssetPluginPackage extends DefaultTask {
 
-    @InputDirectory
-    @PathSensitive(PathSensitivity.RELATIVE)
-    File getAssetsDir() {
-        def path = pipelineExtension.assetsPath
-        return path ? new File(path) : null
-    }
-
-    void setAssetsDir(File assetsDir) {
-        pipelineExtension.assetsPath = assetsDir.path
-    }
+    @Nested
+    abstract final AssetPipelineExtension config
 
     @OutputDirectory
-    File getDestinationDir() {
-        destinationDirectoryPath ? new File(destinationDirectoryPath) : null
-    }
+    abstract final DirectoryProperty destinationDir
 
-    void setDestinationDir(File dir) {
-        destinationDirectoryPath = dir.canonicalPath
-    }
-
-    @InputFiles
-    @PathSensitive(PathSensitivity.RELATIVE)
-    FileTree getSource() {
-        FileTree src = getProject().files(this.assetsDir).getAsFileTree();
-        return src
+    @Inject
+    AssetPluginPackage(ObjectFactory objects, Project project) {
+        config = project.extensions.findByType(AssetPipelineExtension)
+        destinationDir = objects.directoryProperty()
     }
 
     @TaskAction
     @CompileDynamic
     void compile() {
-        AssetPipelineConfigHolder.config = configOptions
+        AssetPipelineConfigHolder.config = config.configOptions.get()
 
-        FileSystemAssetResolver fsResolver = new FileSystemAssetResolver("manifest",assetsDir.canonicalPath)
+        FileSystemAssetResolver fsResolver = new FileSystemAssetResolver("manifest", config.assetsPath.get().asFile.canonicalPath)
 
-        Collection<AssetFile> fileList = fsResolver.scanForFiles([],[])
-        def manifestNames = []
-        File assetsDir =  new File(destinationDir,"assets")
-        if(assetsDir.exists()) {
+        Collection<AssetFile> fileList = fsResolver.scanForFiles([], [])
+
+        File destination = destinationDir.get().asFile.canonicalFile
+        File assetsDir = new File(destination, "assets")
+        if (assetsDir.exists()) {
             assetsDir.deleteDir()
-            assetsDir.mkdirs()
-        } else {
-            assetsDir.mkdirs()
         }
+        assetsDir.mkdirs()
 
+        List<String> manifestNames = []
         fileList.eachWithIndex { AssetFile assetFile, index ->
-            "Packaging File ${index+1} of ${fileList.size()} - ${assetFile.path}"
+            "Packaging File ${index + 1} of ${fileList.size()} - ${assetFile.path}"
             manifestNames << assetFile.path
-            File outputFile = new File(assetsDir,assetFile.path)
-            if(!outputFile.exists()) {
+            File outputFile = new File(assetsDir, assetFile.path)
+            if (!outputFile.exists()) {
                 outputFile.parentFile.mkdirs()
                 outputFile.createNewFile()
             }
-            InputStream sourceStream
-            OutputStream outputStream
-            try {
-                sourceStream = assetFile.inputStream
-                outputStream = outputFile.newOutputStream()
 
-                outputStream << sourceStream
-            } finally {
-                try {
-                    sourceStream.close()
-                } catch(ex1) {
-                    //silent fail
-                }
-                try {
+            try (InputStream sourceStream = assetFile.inputStream) {
+                try (OutputStream outputStream = outputFile.newOutputStream()) {
+                    outputStream << sourceStream
                     outputStream.flush()
-                    outputStream.close()
-                } catch(ex) {
-                    //silent fail
                 }
-
             }
-
         }
-        File assetList = new File(destinationDir,"assets.list")
-        if(!assetList.exists()) {
+
+        File assetList = new File(destination, "assets.list")
+        if (!assetList.exists()) {
             assetList.parentFile.mkdirs()
             assetList.createNewFile()
         }
-        OutputStream assetListOs
-        try {
-            assetListOs = assetList.newOutputStream()
-            assetListOs <<  manifestNames.join("\n");
-        } finally {
-            assetListOs.flush()
-            assetListOs.close()
-        }
 
+        try (OutputStream assetListOs = assetList.newOutputStream()) {
+            assetListOs << manifestNames.join("\n")
+            assetListOs.flush()
+        }
     }
 }

@@ -45,95 +45,66 @@ class AssetPipelinePlugin implements Plugin<Project> {
     void apply(Project project) {
         createAssetsGradleConfiguration(project)
 
-        def defaultConfiguration = project.extensions.create('assets', AssetPipelineExtensionImpl)
-        def config = AssetPipelineConfigHolder.config != null ? AssetPipelineConfigHolder.config : [:]
-        config.cacheLocation = "${project.buildDir}/.assetcache"
-        if (project.extensions.findByName('grails')) {
-            defaultConfiguration.assetsPath = 'grails-app/assets'
-        } else {
-            defaultConfiguration.assetsPath = "${project.projectDir}/src/assets"
+        AssetPipelineExtension extension = project.extensions.create('assets', AssetPipelineExtension)
+
+        if(!AssetPipelineConfigHolder.config) {
+            AssetPipelineConfigHolder.config = [:]
         }
-        defaultConfiguration.compileDir = "${project.buildDir}/assets"
+        def config = AssetPipelineConfigHolder.config
+        config.cacheLocation = project.layout.buildDirectory.dir('.assetcache').get().asFile.absolutePath
 
-        project.tasks.register('assetCompile', AssetCompile)
-        project.tasks.register('assetPluginPackage', AssetPluginPackage)
-
-        def assetPrecompileTask = project.tasks.named('assetCompile', AssetCompile)
-        def assetPluginTask = project.tasks.named('assetPluginPackage', AssetPluginPackage)
         def assetCleanTask = project.tasks.register('assetClean', Delete)
+        def assetPrecompileTask = project.tasks.register('assetCompile', AssetCompile)
+        def assetPackageTask = project.tasks.register('assetPluginPackage', AssetPluginPackage)
+
         project.configurations.create(ASSET_DEVELOPMENT_CONFIGURATION_NAME)
-        project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "com.bertramlabs.plugins:asset-pipeline-gradle:${getClass().package.implementationVersion}")
+        project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "${getClass().package.implementationVendor}:${getClass().package.implementationVersion}")
 
         project.afterEvaluate {
-            def assetPipeline = project.extensions.getByType(AssetPipelineExtensionImpl)
-            def distributionContainer = project.extensions.findByType(DistributionContainer)
-            def processResources = project.tasks.named('processResources', ProcessResources)
-
             assetCleanTask.configure {
-                delete project.file(assetPipeline.compileDir)
-            }
-            def configDestinationDir = project.file(assetPipeline.compileDir)
-
-            assetPluginTask.configure {
-                it.with {
-                    assetsDir = project.file(assetPipeline.assetsPath)
-                    destinationDir = project.file("${processResources.get().destinationDir}/META-INF")
-                }
+                delete assetPrecompileTask.get().destinationDirectory
             }
 
-            assetPrecompileTask.configure {
-                it.with {
-                    destinationDir = configDestinationDir
-                    assetsDir = project.file(assetPipeline.assetsPath)
-                    minifyJs = assetPipeline.minifyJs
-                    minifyCss = assetPipeline.minifyCss
-                    minifyOptions = assetPipeline.minifyOptions
-                    includes = assetPipeline.includes
-                    excludes = assetPipeline.excludes
-                    excludesGzip = assetPipeline.excludesGzip
-                    configOptions = assetPipeline.configOptions
-                    skipNonDigests = assetPipeline.skipNonDigests
-                    enableDigests = assetPipeline.enableDigests
-                    enableSourceMaps = assetPipeline.enableSourceMaps
-                    resolvers = assetPipeline.resolvers
-                    enableGzip = assetPipeline.enableGzip
-                    verbose = assetPipeline.verbose
-                    maxThreads = assetPipeline.maxThreads
-                }
+            assetPackageTask.configure { AssetPluginPackage task ->
+                def processResources = project.tasks.named('processResources', ProcessResources)
+                task.destinationDir.set(project.file(new File(processResources.get().destinationDir, 'META-INF')))
             }
 
             configureTestRuntimeClasspath(project)
             configureBootRun(project)
 
+            def distributionContainer = project.extensions.findByType(DistributionContainer)
             if (distributionContainer) {
                 distributionContainer.named('main').configure {
                     it.with {
-                        contents.from(assetPipeline.compileDir) {
+                        contents.from(assetPrecompileTask.get().destinationDirectory) {
                             into('app/assets')
                         }
                     }
                 }
             }
 
-            if (assetPipeline.packagePlugin) { // If this is just a lib, we don't want to do assetCompile
+            if (extension.packagePlugin) { // If this is just a lib, we don't want to do assetCompile
+                def processResources = project.tasks.named('processResources', ProcessResources)
                 processResources.configure {
-                    it.dependsOn(assetPluginTask)
+                    it.dependsOn(assetPackageTask)
                 }
-            } else if (!assetPipeline.developmentRuntime && processResources) {
+            } else if (!extension.developmentRuntime && project.tasks.names.contains('processResources')) {
+                def processResources = project.tasks.named('processResources', ProcessResources)
                 processResources.configure {
                     it.with {
                         dependsOn(assetPrecompileTask)
-                        from(assetPipeline.compileDir) {
+                        from(assetPrecompileTask.get().destinationDirectory) {
                             into('assets')
                         }
                     }
                 }
             } else {
-                def assetTasks = [assetPipeline.jarTaskName, 'war', 'shadowJar', 'jar', 'bootWar', 'bootJar']
+                def assetTasks = [extension.jarTaskName, 'war', 'shadowJar', 'jar', 'bootWar', 'bootJar']
                 project.tasks.withType(Jar).matching { it.name in assetTasks }.configureEach {
                     it.with {
                         dependsOn(assetPrecompileTask)
-                        from(assetPipeline.compileDir) {
+                        from(assetPrecompileTask.get().destinationDirectory) {
                             into('assets')
                         }
                     }

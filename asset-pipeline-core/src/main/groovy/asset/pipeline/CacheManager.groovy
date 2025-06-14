@@ -171,7 +171,12 @@ public class CacheManager {
      */
 	public static void save() {
 		synchronized(LOCK_FETCH_OBJECT) {
-	        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation ?: CACHE_LOCATION
+			String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
+			if(!cacheLocation) {
+				log.warn("Asset Pipeline Cache Location is not set. Using default location: ${CACHE_LOCATION}")
+				cacheLocation = CACHE_LOCATION
+			}
+			
 			FileOutputStream fos = new FileOutputStream(cacheLocation);
 	        Map<String, Map<String, Object>> cacheSaveData = [configCacheBustDigest: configCacheBustDigest, cache: cache]
 			ObjectOutputStream oos = new ObjectOutputStream(fos);
@@ -190,14 +195,19 @@ public class CacheManager {
 		if(cache) {
 			return;
 		}
-        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation ?: CACHE_LOCATION
+        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
+		if(!cacheLocation) {
+			log.warn("Asset Pipeline Cache Location is not set. Using default location: ${CACHE_LOCATION}")
+			cacheLocation = CACHE_LOCATION
+		}
+
 		File assetFile = new File(cacheLocation)
 		if(!assetFile.exists()) {
 			return;
 		}
 
 		try {
-			FileInputStream fis = new FileInputStream(cacheLocation);
+			FileInputStream fis = new FileInputStream(cacheLocation)
 		    ObjectInputStream ois = new ObjectInputStream(fis);
 		    def fileCache = ois.readObject()
             if(fileCache?.configCacheBustDigest) {
