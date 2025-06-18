@@ -9,11 +9,6 @@ ext {
     pomDevelopers = ['adamldavis': 'adamd@adamldavis.com']
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-}
-
 configurations {
     provided
 }

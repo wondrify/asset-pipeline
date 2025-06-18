@@ -2,10 +2,6 @@ plugins {
     id 'org.asciidoctor.jvm.convert' version '4.0.4'
 }
 
-repositories {
-    mavenCentral()
-}
-
 asciidoctor {
     baseDir = layout.projectDirectory.dir('src/asciidoc')
     sourceDir = layout.projectDirectory.dir('src/asciidoc')

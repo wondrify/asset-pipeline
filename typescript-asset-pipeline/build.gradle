@@ -7,11 +7,6 @@ ext {
     pomDescription = 'Typescript Transpiler Extension for the JVM Based Asset-Pipeline.'
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-}
-
 configurations {
     provided
 }

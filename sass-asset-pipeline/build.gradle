@@ -8,11 +8,6 @@ ext {
     pomDevelopers = ['gferon': 'Gabriel Féron']
 }
 
-repositories {
-	mavenLocal()
-    mavenCentral()
-}
-
 configurations {
     provided
 }

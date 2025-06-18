@@ -8,4 +8,5 @@ extensions.configure(GrailsPublishExtension) {
     it.title = findProperty('pomTitle') ?: project.name
     it.desc = findProperty('pomDescription') ?: "JVM Asset Pipeline"
     it.developers = findProperty('pomDevelopers') as Map<String, String> ?: [davydotcom: 'David Estes']
+    it.publicationName = findProperty('pomMavenPublicationName') ?: 'maven'
 }

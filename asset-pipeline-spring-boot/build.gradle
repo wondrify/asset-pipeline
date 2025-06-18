@@ -20,12 +20,6 @@ sourceSets {
 	}
 }
 
-repositories {
-	mavenCentral()
-	mavenLocal()
-	mavenCentral()
-}
-
 dependencies {
 
 	api project(':asset-pipeline-core')

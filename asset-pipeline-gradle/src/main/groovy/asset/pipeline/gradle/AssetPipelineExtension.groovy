@@ -1,23 +1,20 @@
-/*
-* Copyright 2014 the original author or authors.
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-*    http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
-
 package asset.pipeline.gradle
 
+import org.gradle.api.Project
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.model.ObjectFactory
+import org.gradle.api.provider.ListProperty
+import org.gradle.api.provider.MapProperty
+import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+
+import javax.inject.Inject
 
 /**
  * Allows configuration of the Gradle plugin
@@ -25,74 +22,96 @@ import org.gradle.api.tasks.Optional
  * @author David Estes
  * @author Graeme Rocher
  */
-interface AssetPipelineExtension {
+abstract class AssetPipelineExtension implements Serializable {
+
+    private static final long serialVersionUID = 0L
+
     @Input
-    boolean getMinifyJs()
-    void setMinifyJs(boolean value)
+    abstract final Property<Boolean> minifyJs
+
     @Input
-    boolean getEnableSourceMaps()
-    void setEnableSourceMaps(boolean value)
+    abstract final Property<Boolean> enableSourceMaps
+
     @Input
-    boolean getMinifyCss()
-    void setMinifyCss(boolean value)
+    abstract final Property<Boolean> minifyCss
+
     @Input
-    boolean getEnableDigests()
-    void setEnableDigests(boolean value)
+    abstract final Property<Boolean> enableDigests
+
     @Input
-    boolean getSkipNonDigests()
-    void setSkipNonDigests(boolean value)
+    abstract final Property<Boolean> skipNonDigests
+
     @Input
-    boolean getEnableGzip()
-    void setEnableGzip(boolean value)
+    abstract final Property<Boolean> enableGzip
+
     @Input
-    boolean getPackagePlugin()
-    void setPackagePlugin(boolean value)
+    abstract final Property<Boolean> packagePlugin
+
     @Input
-    boolean getDevelopmentRuntime()
-    void setDevelopmentRuntime(boolean value)
+    abstract final Property<Boolean> developmentRuntime
+
     @Input
-    boolean getVerbose()
-    void setVerbose(boolean value)
-    @Input
-    @Optional
-    Integer getMaxThreads()
-    void setMaxThreads(Integer value)
-    @Input
-    @Optional
-    String getCompileDir()
-    void setCompileDir(String value)
-    @Input
-    @Optional
-    String getAssetsPath()
-    void setAssetsPath(String value)
-    @Input
-    @Optional
-	String getJarTaskName()
-    void setJarTaskName(String value)
-    @Input
-    @Optional
-    Map getMinifyOptions()
-    void setMinifyOptions(Map value)
-    @Input
-    @Optional
-    Map getConfigOptions()
-    void setConfigOptions(Map value)
+    abstract final Property<Boolean> verbose
 
     @Input
     @Optional
-    List getExcludesGzip()
-    void setExcludesGzip(List value)
-    @Input
-    @Optional
-    List getExcludes()
-    void setExcludes(List value)
-    @Input
-    @Optional
-    List getIncludes()
-    void setIncludes(List value)
-    @Input
-    @Optional
-    List<String> getResolvers()
-    void setResolvers(List<String> value)
+    abstract final Property<Integer> maxThreads
 
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract final DirectoryProperty assetsPath
+
+    @Input
+    @Optional
+    abstract final Property<String> jarTaskName
+
+    @Input
+    abstract final MapProperty<String, Object> minifyOptions
+
+    @Input
+    abstract final MapProperty<String, Object> configOptions
+
+    @Input
+    abstract final ListProperty<String> excludesGzip
+
+    @Input
+    abstract final ListProperty<String> excludes
+
+    @Input
+    abstract final ListProperty<String> includes
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract final ConfigurableFileCollection resolvers
+
+    @Inject
+    AssetPipelineExtension(ObjectFactory objects, Project project) {
+        assetsPath = objects.directoryProperty().convention(
+                project.layout.projectDirectory.dir(
+                        project.extensions.findByName('grails') ?
+                                'grails-app/assets' : 'src/assets'
+                )
+        )
+        configOptions = objects.mapProperty(String, Object).convention([:])
+        developmentRuntime = objects.property(Boolean).convention(true)
+        enableDigests = objects.property(Boolean).convention(true)
+        enableGzip = objects.property(Boolean).convention(true)
+        enableSourceMaps = objects.property(Boolean).convention(true)
+        excludes = objects.listProperty(String).convention([])
+        excludesGzip = objects.listProperty(String).convention([])
+        includes = objects.listProperty(String).convention([])
+        jarTaskName = objects.property(String).convention(null)
+        maxThreads = objects.property(Integer).convention(null)
+        minifyCss = objects.property(Boolean).convention(true)
+        minifyJs = objects.property(Boolean).convention(true)
+        minifyOptions = objects.mapProperty(String, Object).convention([:])
+        packagePlugin = objects.property(Boolean).convention(false)
+        resolvers = objects.fileCollection()
+        skipNonDigests = objects.property(Boolean).convention(true)
+        verbose = objects.property(Boolean).convention(true)
+    }
+
+    void from(String resolverPath) {
+        resolvers.add(resolverPath)
+    }
 }

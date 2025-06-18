@@ -32,13 +32,13 @@ import groovy.util.logging.Slf4j
 // @CompileStatic
 @Slf4j
 public class CacheManager {
-	static final String CACHE_LOCATION = ".assetcache"
-	static final Integer CACHE_DEBOUNCE_MS = 5000 // De-bounce 5 seconds
-	static Map<String, Map<String, Object>> cache = [:]
+    static final String CACHE_LOCATION = ".assetcache"
+    static final Integer CACHE_DEBOUNCE_MS = 5000 // De-bounce 5 seconds
+    static Map<String, Map<String, Object>> cache = [:]
     static String configCacheBustDigest
-	static final Object LOCK_OBJECT = new Object()
-	static final Object LOCK_FETCH_OBJECT = new Object()
-	static CachePersister cachePersister
+    static final Object LOCK_OBJECT = new Object()
+    static final Object LOCK_FETCH_OBJECT = new Object()
+    static CachePersister cachePersister
 
     /**
      * Returns the cache string value of a file if it exists in the cache and is unmodified since last checked
@@ -47,39 +47,39 @@ public class CacheManager {
      * @param originalFileName - Original file name of the file. This is for cache busting bundled assets
      * @return A String value of the cache
      */
-	public static Map<String,Object> findCache(String fileName, String md5, String originalFileName = null) {
-		loadPersistedCache()
+    public static Map<String, Object> findCache(String fileName, String md5, String originalFileName = null) {
+        loadPersistedCache()
         checkCacheValidity()
         def cacheRecord
-        synchronized(LOCK_FETCH_OBJECT) {
-			cacheRecord = cache[fileName]
-			if(cacheRecord && cacheRecord.md5 == md5 && cacheRecord.originalFileName == originalFileName) {
-				def cacheFiles = cacheRecord.dependencies.keySet()
-				def expiredCacheFound = cacheFiles.find { String cacheFileName ->
-					def cacheFile = AssetHelper.fileForUri(cacheFileName)
-					if(!cacheFile) {
-						return true
-					}
-					def depMd5 = AssetHelper.getByteDigest(cacheFile.inputStream.bytes)
-					if(cacheRecord.dependencies[cacheFileName] != depMd5) {
-						return true
-					}
-					return false
-				}
+        synchronized (LOCK_FETCH_OBJECT) {
+            cacheRecord = cache[fileName]
+            if (cacheRecord && cacheRecord.md5 == md5 && cacheRecord.originalFileName == originalFileName) {
+                def cacheFiles = cacheRecord.dependencies.keySet()
+                def expiredCacheFound = cacheFiles.find { String cacheFileName ->
+                    def cacheFile = AssetHelper.fileForUri(cacheFileName)
+                    if (!cacheFile) {
+                        return true
+                    }
+                    def depMd5 = AssetHelper.getByteDigest(cacheFile.inputStream.bytes)
+                    if (cacheRecord.dependencies[cacheFileName] != depMd5) {
+                        return true
+                    }
+                    return false
+                }
 
-				if(expiredCacheFound) {
-					cache.remove(fileName)
-					asyncCacheSave()
-					return null
-				}
-				return cacheRecord
-			} else if (cacheRecord) {
-				cache.remove(fileName)
-				asyncCacheSave()
-				return null
-			}
-		}
-	}
+                if (expiredCacheFound) {
+                    cache.remove(fileName)
+                    asyncCacheSave()
+                    return null
+                }
+                return cacheRecord
+            } else if (cacheRecord) {
+                cache.remove(fileName)
+                asyncCacheSave()
+                return null
+            }
+        }
+    }
 
     /**
      * Creates a cache entry for a file. This includes a name, md5Hash and  processed file text
@@ -88,30 +88,30 @@ public class CacheManager {
      * @param processedFileText The processed text of the file being cached
      * @param originalFileName The original file name of the base file being persisted
      */
-	public static void createCache(String fileName, String md5Hash, String processedFileText, String originalFileName = null) {
-        synchronized(LOCK_FETCH_OBJECT) {
-	        loadPersistedCache()
-	        checkCacheValidity()
-	        def thisCache = cache
-	        def cacheRecord = thisCache[fileName]
-			if(cacheRecord) {
-				thisCache[fileName] = cacheRecord + [
-					md5: md5Hash,
-					originalFileName: originalFileName,
-					processedFileText: processedFileText
-				]
-			} else {
-				thisCache[fileName] = [
-					md5: md5Hash,
-					originalFileName: originalFileName,
-					processedFileText: processedFileText,
-					requireModules: [:],
-					dependencies: [:]
-				]
-			}
-			asyncCacheSave()
-		}
-	}
+    public static void createCache(String fileName, String md5Hash, String processedFileText, String originalFileName = null) {
+        synchronized (LOCK_FETCH_OBJECT) {
+            loadPersistedCache()
+            checkCacheValidity()
+            def thisCache = cache
+            def cacheRecord = thisCache[fileName]
+            if (cacheRecord) {
+                thisCache[fileName] = cacheRecord + [
+                        md5              : md5Hash,
+                        originalFileName : originalFileName,
+                        processedFileText: processedFileText
+                ]
+            } else {
+                thisCache[fileName] = [
+                        md5              : md5Hash,
+                        originalFileName : originalFileName,
+                        processedFileText: processedFileText,
+                        requireModules   : [:],
+                        dependencies     : [:]
+                ]
+            }
+            asyncCacheSave()
+        }
+    }
 
     /**
      * Called during asset processing to add a dependent file to another file cache. This allows for cache busting on
@@ -119,111 +119,121 @@ public class CacheManager {
      * @param fileName The name of the file we are adding a dependency to
      * @param dependentFile the AssetFile object we are adding as a dependency
      */
-	public static void addCacheDependency(String fileName, AssetFile dependentFile) {
-		synchronized(LOCK_FETCH_OBJECT) {
-			def cacheRecord = cache[fileName]
-			if(!cacheRecord) {
-				createCache(fileName, null, null)
-				cacheRecord = cache[fileName]
-			}
+    public static void addCacheDependency(String fileName, AssetFile dependentFile) {
+        synchronized (LOCK_FETCH_OBJECT) {
+            def cacheRecord = cache[fileName]
+            if (!cacheRecord) {
+                createCache(fileName, null, null)
+                cacheRecord = cache[fileName]
+            }
 
-			def newMd5 = dependentFile.getByteDigest()
-			cacheRecord.dependencies[dependentFile.path] = newMd5
-			asyncCacheSave()
-		}
-	}
+            def newMd5 = dependentFile.getByteDigest()
+            cacheRecord.dependencies[dependentFile.path] = newMd5
+            asyncCacheSave()
+        }
+    }
 
 
-	/**
+    /**
      * Called during asset processing to add a dependent module processed to the cache path.
      * @param fileName The name of the file we are adding a dependency to
      * @param moduleName The name of the module we are caching along side
      * @param dependentModuleContent the AssetFile object we are adding as a dependency
      */
-	public static void addCacheModule(String fileName, String moduleName, String dependentModuleContent) {
-		synchronized(LOCK_FETCH_OBJECT) {
-			def cacheRecord = cache[fileName]
-			if(!cacheRecord) {
-				createCache(fileName, null, null)
-				cacheRecord = cache[fileName]
-			}
-			cacheRecord.requireModules[moduleName] = dependentModuleContent
-			asyncCacheSave()
-		}
-	}
+    public static void addCacheModule(String fileName, String moduleName, String dependentModuleContent) {
+        synchronized (LOCK_FETCH_OBJECT) {
+            def cacheRecord = cache[fileName]
+            if (!cacheRecord) {
+                createCache(fileName, null, null)
+                cacheRecord = cache[fileName]
+            }
+            cacheRecord.requireModules[moduleName] = dependentModuleContent
+            asyncCacheSave()
+        }
+    }
 
     /**
      * Asynchronously starts a thread used to persist the cache to disk
      * It also performs a debounce behavior so rapid calls to the save do not cause repeat saves
      */
-	public static void asyncCacheSave() {
-		synchronized(LOCK_OBJECT) {
-			if(!cachePersister) {
-				cachePersister = new CachePersister()
-				cachePersister.start()
-			}	
-		}
-		cachePersister.debounceSave(CACHE_DEBOUNCE_MS);
-	}
+    public static void asyncCacheSave() {
+        synchronized (LOCK_OBJECT) {
+            if (!cachePersister) {
+                cachePersister = new CachePersister()
+                cachePersister.start()
+            }
+        }
+        cachePersister.debounceSave(CACHE_DEBOUNCE_MS);
+    }
 
     /**
      * Called by the async {@link CachePersister} class to save the cache map to disk
      */
-	public static void save() {
-		synchronized(LOCK_FETCH_OBJECT) {
-	        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation ?: CACHE_LOCATION
-			FileOutputStream fos = new FileOutputStream(cacheLocation);
-	        Map<String, Map<String, Object>> cacheSaveData = [configCacheBustDigest: configCacheBustDigest, cache: cache]
-			ObjectOutputStream oos = new ObjectOutputStream(fos);
-			oos.writeObject(cacheSaveData)
-			oos.close()
-		}
-	}
+    public static void save() {
+        synchronized (LOCK_FETCH_OBJECT) {
+            String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
+            if (!cacheLocation) {
+                log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", CACHE_LOCATION)
+                cacheLocation = CACHE_LOCATION
+            }
 
-	/**
-	* Loads an Asset Cache dependency graph for asset-pipeline.
-	* This is currently encoded in JSON
-	*
-	* If the asset cache file does not exist or a cache is already loaded, the cache store is not parsed.
-	*/
-	public static void loadPersistedCache() {
-		if(cache) {
-			return;
-		}
-        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation ?: CACHE_LOCATION
-		File assetFile = new File(cacheLocation)
-		if(!assetFile.exists()) {
-			return;
-		}
+            FileOutputStream fos = new FileOutputStream(cacheLocation);
+            Map<String, Map<String, Object>> cacheSaveData = [configCacheBustDigest: configCacheBustDigest, cache: cache]
+            ObjectOutputStream oos = new ObjectOutputStream(fos);
+            oos.writeObject(cacheSaveData)
+            oos.close()
+        }
+    }
 
-		try {
-			FileInputStream fis = new FileInputStream(cacheLocation);
-		    ObjectInputStream ois = new ObjectInputStream(fis);
-		    def fileCache = ois.readObject()
-            if(fileCache?.configCacheBustDigest) {
+    /**
+     * Loads an Asset Cache dependency graph for asset-pipeline.
+     * This is currently encoded in JSON
+     *
+     * If the asset cache file does not exist or a cache is already loaded, the cache store is not parsed.
+     */
+    public static void loadPersistedCache() {
+        if (cache) {
+            return;
+        }
+        String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
+        if (!cacheLocation) {
+            log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", CACHE_LOCATION)
+            cacheLocation = CACHE_LOCATION
+        }
+
+        File assetFile = new File(cacheLocation)
+        if (!assetFile.exists()) {
+            return;
+        }
+
+        try {
+            FileInputStream fis = new FileInputStream(cacheLocation)
+            ObjectInputStream ois = new ObjectInputStream(fis);
+            def fileCache = ois.readObject()
+            if (fileCache?.configCacheBustDigest) {
                 configCacheBustDigest = fileCache.configCacheBustDigest
             }
-            if(fileCache?.cache) {
-                fileCache.cache.each{ entry ->
+            if (fileCache?.cache) {
+                fileCache.cache.each { entry ->
                     cache[entry.key] = entry.value
                 }
             }
 
-		} catch(ex) {
-			// If there is a parser error from a previous bad cache flush ignore it and move on
-		}
-		
-	}
+        } catch (ex) {
+            // If there is a parser error from a previous bad cache flush ignore it and move on
+        }
+
+    }
 
     /**
      * Checks the config digest name to see if any configurations have changed.
      * If they have the cache needs to be reset and marked as expired
      */
     private static void checkCacheValidity() {
-        if(configCacheBustDigest != AssetPipelineConfigHolder.getDigestString()) {
-        	synchronized(LOCK_FETCH_OBJECT) {
-        		cache.clear()	
-        	}
+        if (configCacheBustDigest != AssetPipelineConfigHolder.getDigestString()) {
+            synchronized (LOCK_FETCH_OBJECT) {
+                cache.clear()
+            }
             configCacheBustDigest = AssetPipelineConfigHolder.getDigestString()
         }
     }
