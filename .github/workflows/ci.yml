@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - '[4-9]+.[0-9]+.x'
+      - 'gradle-clean-up'
 jobs:
   build:
     name: 'Build'
