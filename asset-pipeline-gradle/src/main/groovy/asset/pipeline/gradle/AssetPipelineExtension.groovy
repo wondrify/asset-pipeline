@@ -3,7 +3,6 @@ package asset.pipeline.gradle
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.file.FileCollection
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.provider.MapProperty
@@ -12,7 +11,6 @@ import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Optional
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 
@@ -68,10 +66,10 @@ abstract class AssetPipelineExtension implements Serializable {
     abstract final Property<String> jarTaskName
 
     @Input
-    abstract final MapProperty<String,Object> minifyOptions
+    abstract final MapProperty<String, Object> minifyOptions
 
     @Input
-    abstract final MapProperty<String,Object> configOptions
+    abstract final MapProperty<String, Object> configOptions
 
     @Input
     abstract final ListProperty<String> excludesGzip
@@ -88,24 +86,29 @@ abstract class AssetPipelineExtension implements Serializable {
 
     @Inject
     AssetPipelineExtension(ObjectFactory objects, Project project) {
-        minifyJs = objects.property(Boolean).convention(true)
-        enableSourceMaps = objects.property(Boolean).convention(true)
-        minifyCss = objects.property(Boolean).convention(true)
-        enableDigests = objects.property(Boolean).convention(true)
-        skipNonDigests = objects.property(Boolean).convention(true)
-        enableGzip = objects.property(Boolean).convention(true)
-        packagePlugin = objects.property(Boolean).convention(false)
-        developmentRuntime = objects.property(Boolean).convention(true)
-        verbose = objects.property(Boolean).convention(true)
-        maxThreads = objects.property(Integer).convention(null)
-        assetsPath = objects.directoryProperty().convention(project.layout.projectDirectory.dir(project.extensions.findByName('grails') ? 'grails-app/assets' : 'src/assets'))
-        jarTaskName = objects.property(String).convention(null)
-        minifyOptions = objects.mapProperty(String, Object).convention([:])
+        assetsPath = objects.directoryProperty().convention(
+                project.layout.projectDirectory.dir(
+                        project.extensions.findByName('grails') ?
+                                'grails-app/assets' : 'src/assets'
+                )
+        )
         configOptions = objects.mapProperty(String, Object).convention([:])
-        excludesGzip = objects.listProperty(String).convention([])
+        developmentRuntime = objects.property(Boolean).convention(true)
+        enableDigests = objects.property(Boolean).convention(true)
+        enableGzip = objects.property(Boolean).convention(true)
+        enableSourceMaps = objects.property(Boolean).convention(true)
         excludes = objects.listProperty(String).convention([])
+        excludesGzip = objects.listProperty(String).convention([])
         includes = objects.listProperty(String).convention([])
+        jarTaskName = objects.property(String).convention(null)
+        maxThreads = objects.property(Integer).convention(null)
+        minifyCss = objects.property(Boolean).convention(true)
+        minifyJs = objects.property(Boolean).convention(true)
+        minifyOptions = objects.mapProperty(String, Object).convention([:])
+        packagePlugin = objects.property(Boolean).convention(false)
         resolvers = objects.fileCollection()
+        skipNonDigests = objects.property(Boolean).convention(true)
+        verbose = objects.property(Boolean).convention(true)
     }
 
     void from(String resolverPath) {

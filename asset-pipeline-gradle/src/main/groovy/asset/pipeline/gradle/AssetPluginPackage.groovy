@@ -40,12 +40,12 @@ abstract class AssetPluginPackage extends DefaultTask {
     void compile() {
         AssetPipelineConfigHolder.config = config.configOptions.get()
 
-        FileSystemAssetResolver fsResolver = new FileSystemAssetResolver("manifest", config.assetsPath.get().asFile.canonicalPath)
+        FileSystemAssetResolver fsResolver = new FileSystemAssetResolver('manifest', config.assetsPath.get().asFile.canonicalPath)
 
         Collection<AssetFile> fileList = fsResolver.scanForFiles([], [])
 
         File destination = destinationDir.get().asFile.canonicalFile
-        File assetsDir = new File(destination, "assets")
+        File assetsDir = new File(destination, 'assets')
         if (assetsDir.exists()) {
             assetsDir.deleteDir()
         }
@@ -69,14 +69,14 @@ abstract class AssetPluginPackage extends DefaultTask {
             }
         }
 
-        File assetList = new File(destination, "assets.list")
+        File assetList = new File(destination, 'assets.list')
         if (!assetList.exists()) {
             assetList.parentFile.mkdirs()
             assetList.createNewFile()
         }
 
         try (OutputStream assetListOs = assetList.newOutputStream()) {
-            assetListOs << manifestNames.join("\n")
+            assetListOs << manifestNames.join('\n')
             assetListOs.flush()
         }
     }

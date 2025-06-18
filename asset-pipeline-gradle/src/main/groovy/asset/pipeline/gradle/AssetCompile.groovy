@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 original authors
+ * Copyright 2014-2025 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,6 @@ import org.gradle.api.DefaultTask
 import org.gradle.api.Project
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.file.FileCollection
 import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
@@ -48,7 +47,7 @@ import javax.inject.Inject
  * @author Graeme Rocher
  */
 @CompileStatic
-@CacheableTask   
+@CacheableTask
 abstract class AssetCompile extends DefaultTask {
 
     @Nested
@@ -73,7 +72,7 @@ abstract class AssetCompile extends DefaultTask {
     FileTree getSource() {
         FileTree src = project.files(config.assetsPath).asFileTree
         config.resolvers.files.each { File resolverFile ->
-            if(resolverFile.exists() && resolverFile.directory) {
+            if (resolverFile.exists() && resolverFile.directory) {
                 src += project.files(resolverFile).asFileTree
             }
         }
@@ -84,15 +83,21 @@ abstract class AssetCompile extends DefaultTask {
     AssetCompile(ObjectFactory objects, Project project) {
         config = project.extensions.findByType(AssetPipelineExtension)
         flattenResolvers = objects.property(Boolean).convention(false)
-        assetConfigurationFiles = objects.fileCollection().convention(project.configurations.named(AssetPipelinePlugin.ASSET_CONFIGURATION_NAME))
-        destinationDirectory = objects.directoryProperty().convention(project.layout.projectDirectory.dir('build/assets'))
+        assetConfigurationFiles = objects.fileCollection()
+                .convention(project.configurations.named(AssetPipelinePlugin.ASSET_CONFIGURATION_NAME))
+        destinationDirectory = objects.directoryProperty()
+                .convention(project.layout.projectDirectory.dir('build/assets'))
         classpath = objects.fileCollection().from(project.provider {
             try {
-                def existingConfigurations = ['runtimeClasspath', 'provided', 'assets'].findResults {
-                    project.configurations.names.contains(it)  ? project.configurations.named(it) : null
+                def existingConfigurations = [
+                        'assets',
+                        'provided',
+                        'runtimeClasspath',
+                ].findResults {
+                    project.configurations.names.contains(it) ? project.configurations.named(it) : null
                 }
                 project.files(existingConfigurations)
-            } catch(ignored) {
+            } catch (ignored) {
                 return null
             }
         })
@@ -103,22 +108,22 @@ abstract class AssetCompile extends DefaultTask {
     void compile() {
         AssetPipelineConfigHolder.config = (AssetPipelineConfigHolder.config ?: [:]) + config.configOptions.get()
         AssetPipelineConfigHolder.resolvers = []
-        registerResolvers()     
+        registerResolvers()
         loadAssetSpecifications()
-        
+
         def listener = config.verbose.get() ? new GradleEventListener() : null
 
         Map compilerArgs = [
-                minifyJs: config.minifyJs.get(),
-                minifyCss: config.minifyCss.get(),
-                minifyOptions: config.minifyOptions.get(),
-                compileDir: destinationDirectory.get().asFile.absolutePath,
-                enableGzip: config.enableGzip.get(),
-                skipNonDigests: config.skipNonDigests.get(),
-                enableDigests: config.enableDigests.get(),
-                excludesGzip: config.excludesGzip.getOrElse([]),
+                compileDir      : destinationDirectory.get().asFile.absolutePath,
+                enableDigests   : config.enableDigests.get(),
+                enableGzip      : config.enableGzip.get(),
                 enableSourceMaps: config.enableSourceMaps.get(),
-                maxThreads: config.maxThreads.orNull
+                excludesGzip    : config.excludesGzip.getOrElse([]),
+                maxThreads      : config.maxThreads.orNull,
+                minifyCss       : config.minifyCss.get(),
+                minifyJs        : config.minifyJs.get(),
+                minifyOptions   : config.minifyOptions.get(),
+                skipNonDigests  : config.skipNonDigests.get(),
         ]
         def assetCompiler = new AssetCompiler(compilerArgs, listener)
         assetCompiler.excludeRules.default = config.excludes.get()
@@ -135,16 +140,15 @@ abstract class AssetCompile extends DefaultTask {
             boolean isAssetFolder = resolverFile.exists() && resolverFile.directory
             if (isJarFile) {
                 registerJarResolvers(resolverFile)
-            }
-            else if (isAssetFolder) {
-                def fileResolver = new FileSystemAssetResolver(path, resolverFile.canonicalPath, flattenResolvers.get() as boolean)
+            } else if (isAssetFolder) {
+                def fileResolver = new FileSystemAssetResolver(path, resolverFile.canonicalPath, flattenResolvers.get())
                 AssetPipelineConfigHolder.registerResolver(fileResolver)
             }
         }
 
         this.classpath?.files?.each { registerJarResolvers(it) }
     }
-    
+
     void registerJarResolvers(File jarFile) {
         def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
         if (jarFile.exists() && isJarFile) {
@@ -153,15 +157,14 @@ abstract class AssetCompile extends DefaultTask {
             AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/resources'))
         }
     }
-    
+
     void loadAssetSpecifications() {
         Set<File> processorFiles = assetConfigurationFiles.files
         if (processorFiles) {
             URL[] urls = processorFiles.collect { it.toURI().toURL() }.toArray(new URL[0])
             ClassLoader classLoader = new URLClassLoader(urls as URL[], getClass().classLoader)
             AssetSpecLoader.loadSpecifications(classLoader)
-        }
-        else {
+        } else {
             AssetSpecLoader.loadSpecifications()
         }
     }

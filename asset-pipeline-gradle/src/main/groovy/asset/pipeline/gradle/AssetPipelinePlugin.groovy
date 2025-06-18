@@ -47,7 +47,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
 
         AssetPipelineExtension extension = project.extensions.create('assets', AssetPipelineExtension)
 
-        if(!AssetPipelineConfigHolder.config) {
+        if (!AssetPipelineConfigHolder.config) {
             AssetPipelineConfigHolder.config = [:]
         }
         def config = AssetPipelineConfigHolder.config
@@ -62,7 +62,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
 
         project.afterEvaluate {
             assetCleanTask.configure {
-                delete assetPrecompileTask.get().destinationDirectory
+                delete(assetPrecompileTask.get().destinationDirectory)
             }
 
             assetPackageTask.configure { AssetPluginPackage task ->

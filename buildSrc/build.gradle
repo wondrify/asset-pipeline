@@ -30,14 +30,14 @@ file('../gradle.properties').withInputStream {
 compileJava.options.release = gradleProperties.javaVersion.toString().toInteger()
 
 repositories {
-    mavenLocal()
+    // mavenLocal()
     mavenCentral()
     gradlePluginPortal()
     maven { url = 'https://repo.grails.org/grails/restricted' }
     maven {
         url = 'https://repository.apache.org/content/groups/snapshots'
         content {
-            includeVersionByRegex  'org[.]apache[.]grails.*', '.*','.*SNAPSHOT'
+            includeVersionByRegex('org[.]apache[.]grails.*', '.*', '.*SNAPSHOT')
         }
     }
 }
@@ -46,5 +46,5 @@ dependencies {
     implementation platform("org.apache.grails:grails-gradle-bom:${gradleProperties.grailsVersion}")
     implementation 'org.apache.grails:grails-gradle-plugins'
     implementation 'com.gradle.publish:plugin-publish-plugin:0.15.0'
-    implementation "com.github.node-gradle:gradle-node-plugin:3.1.1"
+    implementation 'com.github.node-gradle:gradle-node-plugin:3.1.1'
 }

@@ -54,17 +54,14 @@ apply {
 }
 
 tasks.withType(Jar).configureEach { Jar it ->
-    it.exclude 'grails-app/assets/**'
-    it.exclude 'test/**'
-    it.exclude 'META-INF/assets**'
+    it.exclude('grails-app/assets/**')
+    it.exclude('test/**')
+    it.exclude('META-INF/assets**')
+    it.exclude('**/Application*.class')
 
-    List excludes = ['Application']
-    excludes.each {
-        exclude "**/${it}*.class"
-    }
     eachFile { copyDetails ->
         if (copyDetails.path.contains('grails-plugin.xml')) {
-            filter { line -> excludes.find{line.contains(it)}? null : line}
+            filter { line -> excludes.find { line.contains(it) } ? null : line }
         }
     }
 }
