@@ -19,20 +19,23 @@ configurations.configureEach {
 
 grails {
     packageAssets = false
+    springDependencyManagement = false
+
 }
 
 dependencies {
 
-    implementation platform("org.apache.grails:grails-bom:$grailsVersion")
-
     implementation project(':asset-pipeline-core')
-    implementation 'org.apache.grails:grails-url-mappings'
+
+    compileOnly platform("org.apache.grails:grails-bom:$grailsVersion")
+    compileOnly 'org.apache.grails:grails-url-mappings'
 
     compileOnly 'com.github.ben-manes.caffeine:caffeine' // Cache
     compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
     compileOnly 'org.apache.grails:grails-core' // Provided as this is a Grails plugin
     compileOnly 'org.apache.grails.views:grails-web-taglib' // For taglib compilation
 
+    testImplementation platform("org.apache.grails:grails-bom:$grailsVersion")
     testImplementation 'org.apache.grails:grails-testing-support-web'
     testImplementation 'org.spockframework:spock-core'
 }
@@ -56,8 +59,6 @@ apply {
 tasks.withType(Jar).configureEach { Jar it ->
     it.exclude('grails-app/assets/**')
     it.exclude('test/**')
-    it.exclude('META-INF/assets**')
-    it.exclude('**/Application*.class')
 
     eachFile { copyDetails ->
         if (copyDetails.path.contains('grails-plugin.xml')) {
