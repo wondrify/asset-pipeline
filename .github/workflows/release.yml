@@ -1,0 +1,188 @@
+name: "Release"
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+env:
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  JAVA_VERSION: '17.0.15' # this must be a specific version for reproducible builds
+jobs:
+  publish:
+    name: "Stage Jar Files"
+    permissions:
+      packages: read  #  pre-release workflow
+      contents: write  #  to create release
+      issues: write  #  to modify milestones
+    runs-on: ubuntu-24.04
+    outputs:
+      release_version: ${{ steps.release_version.outputs.value }}
+      extract_repository_name: ${{ steps.extract_repository_name.outputs.repository_name }}
+    steps:
+      - name: "📝 Store the current release version"
+        id: release_version
+        run: |
+          export RELEASE_VERSION="${GITHUB_REF:11}"
+          echo "Found Release Version: ${RELEASE_VERSION}"
+          echo "value=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
+      - name: "Output Agent IP" # in the event RAO blocks this agent, this can be used to debug it
+        run: curl -s https://api.ipify.org
+      - name: "Extract repository name"
+        id: extract_repository_name
+        run: |
+          echo "repository_name=${GITHUB_REPOSITORY##*/}" >> $GITHUB_OUTPUT
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: v${{ steps.release_version.outputs.value }}
+      - name: 'Ensure Common Build Date' # to ensure a reproducible build
+        run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
+      - name: "Ensure source files use common date"
+        run: |
+          find . -depth \( -type f -o -type d \) -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
+      - name: "🔐 Generate key file for artifact signing"
+        env:
+          SECRING_FILE: ${{ secrets.SECRING_FILE }}
+        run: echo $SECRING_FILE | base64 -d > ${{ github.workspace }}/secring.gpg
+      - name: "☕️ Setup JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: liberica
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: "🐘 Setup Gradle"
+        uses: gradle/actions/setup-gradle@v4
+      - name: "⚙️ Run pre-release"
+        uses: apache/grails-github-actions/pre-release@asf
+        env:
+          RELEASE_VERSION: ${{ steps.release_version.outputs.value }}
+      - name: "📤 Publish to staging repository"
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
+          NEXUS_PUBLISH_STAGING_PROFILE_ID: ${{ secrets.STAGING_PROFILE_ID }}
+          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSPHRASE: ${{ secrets.SECRING_PASSPHRASE }}
+        run: >
+          ./gradlew
+          publishToSonatype
+          closeSonatypeStagingRepository
+      - name: "Generate Build Date file"
+        run: echo "$SOURCE_DATE_EPOCH" >> build/BUILD_DATE.txt
+      - name: "Upload Build Date file"
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631
+        with:
+          files: build/BUILD_DATE.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  gradlePlugin:
+    name: "Release Gradle Plugin"
+    environment: gradlePlugin
+    needs: [publish]
+    runs-on: ubuntu-latest
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: v${{ needs.publish.outputs.release_version }}
+      - name: "Download BUILD_DATE.txt and rename to BUILD_DATE"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          release_url=$(gh release view ${{ github.ref_name }} --json assets --repo ${{ github.repository }} --jq '.assets[] | select(.name == "BUILD_DATE.txt") | .url')
+          curl -L -H "Authorization: token $GH_TOKEN" -o BUILD_DATE "$release_url"
+      - name: "Ensure source files use common date"
+        run: |
+          SOURCE_DATE_EPOCH=$(cat BUILD_DATE)
+          find . -depth \( -type f -o -type d \) -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
+      - name: "☕️ Setup JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: liberica
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: "🐘 Setup Gradle"
+        uses: gradle/actions/setup-gradle@v4
+      - name: "🔐 Generate key file for artifact signing"
+        env:
+          SECRING_FILE: ${{ secrets.SECRING_FILE }}
+        run: echo $SECRING_FILE | base64 -d > ${{ github.workspace }}/secring.gpg
+      - name: "🔨 Release Gradle Plugin"
+        run: >
+          ./gradlew
+          publishPlugins
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSPHRASE: ${{ secrets.SECRING_PASSPHRASE }}
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_SECRET }}
+  release:
+    name: "Close Release"
+    environment: release
+    needs: [publish, gradlePlugin]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - name: "📥 Checkout repository"
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: v${{ needs.publish.outputs.release_version }}
+      - name: "☕️ Setup JDK"
+        uses: actions/setup-java@v4
+        with:
+          distribution: liberica
+          java-version: ${{ env.JAVA_VERSION }}
+      - name: "🐘 Setup Gradle"
+        uses: gradle/actions/setup-gradle@v4
+      - name: "📤 Release staging repository"
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
+          NEXUS_PUBLISH_STAGING_PROFILE_ID: ${{ secrets.STAGING_PROFILE_ID }}
+          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
+        run: >
+          ./gradlew
+          releaseSonatypeStagingRepository
+      - name: "⚙️ Run post-release"
+        uses: apache/grails-github-actions/post-release@asf
+#  docs:
+#    environment: docs
+#    name: "Publish Documentation"
+#    needs: [publish, gradlePlugin, release]
+#    runs-on: ubuntu-latest
+#    permissions:
+#      contents: write # required to publish documentation
+#    steps:
+#      - name: "📥 Checkout repository"
+#        uses: actions/checkout@v4
+#        with:
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          ref: v${{ needs.publish.outputs.release_version }}
+#      - name: "☕️ Setup JDK"
+#        uses: actions/setup-java@v4
+#        with:
+#          java-version: ${{ env.JAVA_VERSION }}
+#          distribution: liberica
+#      - name: "🐘 Setup Gradle"
+#        uses: gradle/actions/setup-gradle@v4
+#      - name: "🔨 Build Documentation"
+#        run: ./gradlew docs
+#        env:
+#          GRAILS_PUBLISH_RELEASE: 'true'
+#      - name: "🚀 Publish to Github Pages"
+#        uses: apache/grails-github-actions/deploy-github-pages@asf
+#        env:
+#          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#          GRADLE_PUBLISH_RELEASE: 'true'
+#          SOURCE_FOLDER: build/docs
+#          VERSION: ${{ needs.publish.outputs.release_version }}
