@@ -84,12 +84,12 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 }
             }
 
-            if (extension.packagePlugin) { // If this is just a lib, we don't want to do assetCompile
+            if (extension.packagePlugin.getOrElse(false)) { // If this is just a lib, we don't want to do assetCompile
                 def processResources = project.tasks.named('processResources', ProcessResources)
                 processResources.configure {
                     it.dependsOn(assetPackageTask)
                 }
-            } else if (!extension.developmentRuntime && project.tasks.names.contains('processResources')) {
+            } else if (!extension.developmentRuntime.getOrElse(false) && project.tasks.names.contains('processResources')) {
                 def processResources = project.tasks.named('processResources', ProcessResources)
                 processResources.configure {
                     it.with {
@@ -100,7 +100,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
                     }
                 }
             } else {
-                def assetTasks = [extension.jarTaskName, 'war', 'shadowJar', 'jar', 'bootWar', 'bootJar']
+                def assetTasks = [extension.jarTaskName.getOrElse(null), 'war', 'shadowJar', 'jar', 'bootWar', 'bootJar']
                 project.tasks.withType(Jar).matching { it.name in assetTasks }.configureEach {
                     it.with {
                         dependsOn(assetPrecompileTask)
