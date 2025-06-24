@@ -86,7 +86,7 @@ abstract class AssetCompile extends DefaultTask {
         assetConfigurationFiles = objects.fileCollection()
                 .convention(project.configurations.named(AssetPipelinePlugin.ASSET_CONFIGURATION_NAME))
         destinationDirectory = objects.directoryProperty()
-                .convention(project.layout.projectDirectory.dir('build/assets'))
+                .convention(project.layout.buildDirectory.dir('assets'))
         classpath = objects.fileCollection().from(project.provider {
             try {
                 def existingConfigurations = [
