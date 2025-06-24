@@ -16,9 +16,10 @@
 
 package asset.pipeline
 
-import java.util.concurrent.ConcurrentHashMap
-import groovy.transform.CompileStatic
 import groovy.util.logging.Slf4j
+
+import java.nio.file.Files
+import java.nio.file.Path
 
 /**
  * A Cache Manager for the Asset-Pipeline runtime. This reduces repeat processing
@@ -173,8 +174,8 @@ public class CacheManager {
         synchronized (LOCK_FETCH_OBJECT) {
             String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
             if (!cacheLocation) {
-                log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", CACHE_LOCATION)
-                cacheLocation = CACHE_LOCATION
+                cacheLocation = getDefaultCacheLocation()
+                log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", cacheLocation)
             }
 
             FileOutputStream fos = new FileOutputStream(cacheLocation);
@@ -182,6 +183,16 @@ public class CacheManager {
             ObjectOutputStream oos = new ObjectOutputStream(fos);
             oos.writeObject(cacheSaveData)
             oos.close()
+        }
+    }
+
+    private static String getDefaultCacheLocation() {
+        Path currentDir = Path.of('')
+        if(Files.exists(currentDir.resolve('build'))) {
+            return currentDir.resolve('build').resolve(CACHE_LOCATION).toString()
+        }
+        else {
+            return currentDir.resolve(CACHE_LOCATION).toString()
         }
     }
 
@@ -193,17 +204,18 @@ public class CacheManager {
      */
     public static void loadPersistedCache() {
         if (cache) {
-            return;
+            return
         }
+
         String cacheLocation = AssetPipelineConfigHolder.config?.cacheLocation
         if (!cacheLocation) {
-            log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", CACHE_LOCATION)
-            cacheLocation = CACHE_LOCATION
+            cacheLocation = getDefaultCacheLocation()
+            log.warn("Asset Pipeline Cache Location is not set. Using default location: {}", cacheLocation)
         }
 
         File assetFile = new File(cacheLocation)
         if (!assetFile.exists()) {
-            return;
+            return
         }
 
         try {

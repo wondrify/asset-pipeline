@@ -105,11 +105,8 @@ class AssetPipelineGrailsPlugin extends Plugin {
                 AssetPipelineConfigHolder.config = assetsConfig
             }
 
-            if (BuildSettings.TARGET_DIR) {
-                File projectDirectory = BuildSettings.TARGET_DIR
-                File buildDirectory = projectDirectory.toPath().resolve('build').toFile()
-                buildDirectory.mkdirs()
-                AssetPipelineConfigHolder.config.cacheLocation = new File(buildDirectory, '.assetcache').canonicalPath
+            if (BuildSettings.TARGET_DIR?.exists()) {
+                AssetPipelineConfigHolder.config.cacheLocation = new File(BuildSettings.TARGET_DIR, CacheManager.CACHE_LOCATION).canonicalPath
             }
 
             assetResourceLocator(AssetResourceLocator) { bean ->
