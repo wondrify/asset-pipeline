@@ -24,8 +24,8 @@ dependencies {
 }
 
 task(console, dependsOn: 'classes', type: JavaExec) {
-main = 'groovy.ui.Console'
-classpath = sourceSets.main.runtimeClasspath
+	main = 'groovy.ui.Console'
+	classpath = sourceSets.main.runtimeClasspath
 }
 
 test {
@@ -37,20 +37,19 @@ test {
 
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
-pluginBundle {
+gradlePlugin {
 	website = 'https://github.com/bertramdev/asset-pipeline-core/'
 	vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
 	description = 'JVM Asset Pipeline Gradle Adapter.'
-	tags = ['assets', 'resources', 'asset-pipeline']
 
 	plugins {
 		assetPipelinePlugin {
 			id = 'cloud.wondrify.asset-pipeline'
 			displayName = 'Asset-Pipeline Plugin'
+			description = findProperty('pomDescription')
+			implementationClass = 'asset.pipeline.gradle.AssetPipelinePlugin'
+			tags.set(['assets', 'resources', 'asset-pipeline'])
 		}
-	}
-	mavenCoordinates {
-		groupId = 'cloud.wondrify'
 	}
 }
 
