@@ -35,7 +35,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: v${{ steps.release_version.outputs.value }}
+          ref: rel-${{ steps.release_version.outputs.value }}
       - name: 'Ensure Common Build Date' # to ensure a reproducible build
         run: echo "SOURCE_DATE_EPOCH=$(git log -1 --pretty=%ct)" >> "$GITHUB_ENV"
       - name: "Ensure source files use common date"
@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: v${{ needs.publish.outputs.release_version }}
+          ref: rel-${{ needs.publish.outputs.release_version }}
       - name: "Download BUILD_DATE.txt and rename to BUILD_DATE"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -136,7 +136,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: v${{ needs.publish.outputs.release_version }}
+          ref: rel-${{ needs.publish.outputs.release_version }}
       - name: "☕️ Setup JDK"
         uses: actions/setup-java@v4
         with:
@@ -173,7 +173,7 @@ jobs:
 #        uses: actions/checkout@v4
 #        with:
 #          token: ${{ secrets.GITHUB_TOKEN }}
-#          ref: v${{ needs.publish.outputs.release_version }}
+#          ref: rel-${{ needs.publish.outputs.release_version }}
 #      - name: "☕️ Setup JDK"
 #        uses: actions/setup-java@v4
 #        with:
