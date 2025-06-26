@@ -56,6 +56,7 @@ jobs:
         uses: apache/grails-github-actions/pre-release@asf
         env:
           RELEASE_VERSION: ${{ steps.release_version.outputs.value }}
+          RELEASE_TAG_PREFIX: 'rel-'
       - name: "📤 Publish to staging repository"
         env:
           GRAILS_PUBLISH_RELEASE: 'true'
@@ -158,6 +159,8 @@ jobs:
 #          releaseSonatypeStagingRepository
       - name: "⚙️ Run post-release"
         uses: apache/grails-github-actions/post-release@asf
+        env:
+          RELEASE_TAG_PREFIX: 'rel-'
 #  docs:
 #    environment: docs
 #    name: "Publish Documentation"
@@ -189,3 +192,4 @@ jobs:
 #          GRADLE_PUBLISH_RELEASE: 'true'
 #          SOURCE_FOLDER: build/docs
 #          VERSION: ${{ needs.publish.outputs.release_version }}
+#          RELEASE_TAG_PREFIX: 'rel-'
