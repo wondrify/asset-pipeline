@@ -152,6 +152,7 @@ jobs:
           NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
         run: >
           ./gradlew
+          findSonatypeStagingRepository
           releaseSonatypeStagingRepository
       - name: "⚙️ Run post-release"
         uses: apache/grails-github-actions/post-release@asf
