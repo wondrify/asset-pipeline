@@ -22,7 +22,7 @@ jobs:
       - name: "📝 Store the current release version"
         id: release_version
         run: |
-          export RELEASE_VERSION="${GITHUB_REF:11}"
+          export RELEASE_VERSION="${{ github.ref_name }}"
           echo "Found Release Version: ${RELEASE_VERSION}"
           echo "value=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
       - name: "Output Agent IP" # in the event RAO blocks this agent, this can be used to debug it
