@@ -58,7 +58,7 @@ jobs:
         uses: apache/grails-github-actions/pre-release@asf
         env:
           RELEASE_VERSION: ${{ steps.release_version.outputs.value }}
-      - name: "📤 Publish to staging repository"
+      - name: "📤 Publish to Maven Central"
         env:
           GRAILS_PUBLISH_RELEASE: 'true'
           NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
