@@ -71,6 +71,7 @@ jobs:
         # https://github.com/gradle-nexus/publish-plugin/issues/379#issuecomment-2940868753
         run: >
           ./gradlew
+          -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
           publishMavenPublicationToSonatypeRepository 
           closeSonatypeStagingRepository
       - name: "Generate Build Date file"
@@ -116,6 +117,7 @@ jobs:
       - name: "🔨 Release Gradle Plugin"
         run: >
           ./gradlew
+          -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
           publishPlugins
         env:
           GRAILS_PUBLISH_RELEASE: 'true'
