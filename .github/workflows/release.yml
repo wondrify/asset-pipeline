@@ -7,6 +7,7 @@ permissions:
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   JAVA_VERSION: '17.0.15' # this must be a specific version for reproducible builds
+  RELEASE_TAG_PREFIX: 'rel-'
 jobs:
   publish:
     name: "Release Jar Files"
@@ -23,6 +24,7 @@ jobs:
         id: release_version
         run: |
           export RELEASE_VERSION="${{ github.ref_name }}"
+          export RELEASE_VERSION=${RELEASE_VERSION:${#RELEASE_TAG_PREFIX}}
           echo "Found Release Version: ${RELEASE_VERSION}"
           echo "value=${RELEASE_VERSION}" >> $GITHUB_OUTPUT
       - name: "Output Agent IP" # in the event RAO blocks this agent, this can be used to debug it
@@ -56,7 +58,6 @@ jobs:
         uses: apache/grails-github-actions/pre-release@asf
         env:
           RELEASE_VERSION: ${{ steps.release_version.outputs.value }}
-          RELEASE_TAG_PREFIX: 'rel-'
       - name: "📤 Publish to staging repository"
         env:
           GRAILS_PUBLISH_RELEASE: 'true'
@@ -159,8 +160,6 @@ jobs:
 #          releaseSonatypeStagingRepository
       - name: "⚙️ Run post-release"
         uses: apache/grails-github-actions/post-release@asf
-        env:
-          RELEASE_TAG_PREFIX: 'rel-'
 #  docs:
 #    environment: docs
 #    name: "Publish Documentation"
@@ -192,4 +191,3 @@ jobs:
 #          GRADLE_PUBLISH_RELEASE: 'true'
 #          SOURCE_FOLDER: build/docs
 #          VERSION: ${{ needs.publish.outputs.release_version }}
-#          RELEASE_TAG_PREFIX: 'rel-'
