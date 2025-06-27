@@ -1,6 +1,6 @@
 Asset Pipeline Core
 ===================
-[![Build Status](https://travis-ci.org/bertramdev/asset-pipeline.svg?branch=master)](https://travis-ci.org/bertramdev/asset-pipeline-core)
+[![Build Status](https://github.com/wondrify/asset-pipeline/actions/workflows/ci.yml/badge.svg?branch=5.0.x)](https://github.com/wondrify/asset-pipeline/actions/workflows/ci.yml)
 
 
 Overview
