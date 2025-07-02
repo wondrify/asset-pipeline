@@ -38,8 +38,8 @@ test {
 // The configuration example below shows the minimum required properties
 // configured to publish your plugin to the plugin portal
 gradlePlugin {
-	website = 'https://github.com/bertramdev/asset-pipeline-core/'
-	vcsUrl = 'https://github.com/bertramdev/asset-pipeline-core/'
+	website = 'http://asset-pipeline.com/'
+	vcsUrl = 'https://github.com/wondrify/asset-pipeline/'
 	description = 'JVM Asset Pipeline Gradle Adapter.'
 
 	plugins {
