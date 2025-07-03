@@ -72,7 +72,8 @@ jobs:
         run: >
           ./gradlew
           -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
-          publishAllPublicationsToSonatypeRepository 
+          publishMavenPublicationToSonatypeRepository
+          publishPluginMavenPublicationToMavenRepository 
           closeAndReleaseSonatypeStagingRepository
       - name: "Generate Build Date file"
         run: echo "$SOURCE_DATE_EPOCH" >> build/BUILD_DATE.txt
