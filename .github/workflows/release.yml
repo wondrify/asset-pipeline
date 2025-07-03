@@ -67,14 +67,12 @@ jobs:
           NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
           SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
           SIGNING_PASSPHRASE: ${{ secrets.SECRING_PASSPHRASE }}
-        # the newer maven central places a restriction on commands coming from the same IP so it's impossible to have separate staging / publish steps:
-        # https://github.com/gradle-nexus/publish-plugin/issues/379#issuecomment-2940868753
         run: >
           ./gradlew
           -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
           publishMavenPublicationToSonatypeRepository
           publishPluginMavenPublicationToMavenRepository 
-          closeAndReleaseSonatypeStagingRepository
+          closeSonatypeStagingRepository
       - name: "Generate Build Date file"
         run: echo "$SOURCE_DATE_EPOCH" >> build/BUILD_DATE.txt
       - name: "Upload Build Date file"
@@ -148,19 +146,17 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
       - name: "🐘 Setup Gradle"
         uses: gradle/actions/setup-gradle@v4
-# the newer maven central places a restriction on commands coming from the same IP so it's impossible to have separate staging / publish steps:
-# https://github.com/gradle-nexus/publish-plugin/issues/379#issuecomment-2940868753
-#      - name: "📤 Release staging repository"
-#        env:
-#          GRAILS_PUBLISH_RELEASE: 'true'
-#          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
-#          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
-#          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
-#          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
-#        run: >
-#          ./gradlew
-#          findSonatypeStagingRepository
-#          releaseSonatypeStagingRepository
+      - name: "📤 Release staging repository"
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
+          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
+        run: >
+          ./gradlew
+          findSonatypeStagingRepository
+          releaseSonatypeStagingRepository
       - name: "⚙️ Run post-release"
         uses: apache/grails-github-actions/post-release@asf
 #  docs:
