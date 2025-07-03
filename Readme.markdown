@@ -21,9 +21,9 @@ The Asset-Pipeline is a plugin used for managing and processing static assets in
 Documentation
 ------------
 
-* [API Doc](http://www.asset-pipeline.com/apidoc/index.html)
-* [Usage Guide](http://www.asset-pipeline.com/manual/)
-* [Website](http://www.asset-pipeline.com)
+* [API Doc](http://asset-pipeline.com/apidoc/index.html)
+* [Usage Guide](http://asset-pipeline.com/manual/)
+* [Website](http://asset-pipeline.com)
 
 
 Gradle Usage
@@ -40,7 +40,7 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath "com.bertramlabs.plugins:asset-pipeline-gradle:2.10.1"
+    classpath "cloud.wondrify:asset-pipeline-gradle:5.0.10"
   }
 }
 
@@ -171,8 +171,8 @@ dependencies {
 Documentation
 -------------
 
-* [API Doc](http://www.asset-pipeline.com/apidoc/index.html)
-* [Doc](http://www.asset-pipeline.com/manual/index.html)
+* [API Doc](http://asset-pipeline.com/apidoc/index.html)
+* [Doc](http://asset-pipeline.com/manual/index.html)
 
 
 For Grails 3 asset-pipeline has to be provided both for Grails and Gradle. An example configuration could be: 
@@ -181,23 +181,23 @@ For Grails 3 asset-pipeline has to be provided both for Grails and Gradle. An ex
 // Add the Gradle plugin to the build dependencies and apply it to the build process
 buildscript {
     dependencies {        
-        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:2.10.1'
+        classpath 'cloud.wondrify:asset-pipeline-gradle:5.0.10'
     }
 }
 apply plugin: 'asset-pipeline'
 
 // The plugin could also be applied with the newer syntax 
 // plugins {
-//     id "com.bertramlabs.asset-pipeline" version "2.10.1"
+//     id "cloud.wondrify.asset-pipeline" version "5.0.10"
 // }
 
 dependencies {        
     // Add the Grails Plugin to the runtime dependencies
-    runtime 'com.bertramlabs.plugins:asset-pipeline-grails:2.10.1'
+    runtime 'cloud.wondrify:asset-pipeline-grails:5.0.10'
     
     // Define needed asset-pipeline plugins with the special assets-scope 
-    assets 'com.bertramlabs.plugins:less-asset-pipeline:2.10.1'
-    assets 'com.bertramlabs.plugins:sass-asset-pipeline:2.10.1'
+    assets 'cloud.wondrify:less-asset-pipeline:5.0.10'
+    assets 'cloud.wondrify:sass-asset-pipeline:5.0.10'
 }
 ```
 
@@ -221,7 +221,7 @@ sourceSets {
 
 dependencies {
   provided 'org.codehaus.groovy:groovy-all:2.0.7'
-  compile "com.bertramlabs.plugins:asset-pipeline-core:2.10.1"
+  compile "cloud.wondrify:asset-pipeline-core:5.0.10"
 }
 ```
 
