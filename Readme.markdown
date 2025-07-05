@@ -44,7 +44,7 @@ buildscript {
   }
 }
 
-apply plugin: 'com.bertramlabs.asset-pipeline'
+apply plugin: 'cloud.wondrify.asset-pipeline'
 
 assets {
   minifyJs = true
@@ -82,7 +82,7 @@ assets {
 
 dependencies {
   // Example additional LESS support
-  // assets 'com.bertramlabs.plugins:less-asset-pipeline:{}'
+  // assets 'cloud.wondrify:less-asset-pipeline:{}'
 }
 
 ```
