@@ -40,7 +40,7 @@ buildscript {
     mavenCentral()
   }
   dependencies {
-    classpath "cloud.wondrify:asset-pipeline-gradle:5.0.11"
+    classpath "cloud.wondrify:asset-pipeline-gradle:5.0.12"
   }
 }
 
@@ -181,23 +181,23 @@ For Grails 3 asset-pipeline has to be provided both for Grails and Gradle. An ex
 // Add the Gradle plugin to the build dependencies and apply it to the build process
 buildscript {
     dependencies {        
-        classpath 'cloud.wondrify:asset-pipeline-gradle:5.0.11'
+        classpath 'cloud.wondrify:asset-pipeline-gradle:5.0.12'
     }
 }
 apply plugin: 'asset-pipeline'
 
 // The plugin could also be applied with the newer syntax 
 // plugins {
-//     id "cloud.wondrify.asset-pipeline" version "5.0.11"
+//     id "cloud.wondrify.asset-pipeline" version "5.0.12"
 // }
 
 dependencies {        
     // Add the Grails Plugin to the runtime dependencies
-    runtime 'cloud.wondrify:asset-pipeline-grails:5.0.11'
+    runtime 'cloud.wondrify:asset-pipeline-grails:5.0.12'
     
     // Define needed asset-pipeline plugins with the special assets-scope 
-    assets 'cloud.wondrify:less-asset-pipeline:5.0.11'
-    assets 'cloud.wondrify:sass-asset-pipeline:5.0.11'
+    assets 'cloud.wondrify:less-asset-pipeline:5.0.12'
+    assets 'cloud.wondrify:sass-asset-pipeline:5.0.12'
 }
 ```
 
@@ -221,7 +221,7 @@ sourceSets {
 
 dependencies {
   provided 'org.codehaus.groovy:groovy-all:2.0.7'
-  compile "cloud.wondrify:asset-pipeline-core:5.0.11"
+  compile "cloud.wondrify:asset-pipeline-core:5.0.12"
 }
 ```
 
