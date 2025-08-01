@@ -107,6 +107,10 @@ public class AssetCompiler {
 	 * <li>-z Compression</li>
 	 * <li>-m SourceMaps</li>
 	 * <li>-n Skip Non Digests</li>
+	 * <li>-E Exclude Patterns</li>
+	 * <li>-Z Exclude GZIP Patterns</li>
+	 * <li>-I Include Patterns</li>
+	 * <li>-h, --help Show this help message</li>
 	 * <li>-J Additional Compiler options input as JSON (e.g. -J '{"minifyJs":true, "minifyCss":true, "minifyOptions":{"excludes":["*.js"]}}')</li>
 
 	 * </ul>
@@ -135,8 +139,8 @@ public class AssetCompiler {
 			if(arg.startsWith('-')) {
 				def option = arg.substring(1)
 				switch(option) {
-					case '--help':
-					case '-h':
+					case '-help':
+					case 'h':
 						println """
 Usage: asset-compile [options]
 Options:
@@ -148,9 +152,13 @@ Options:
 	-z                        Enable gzip compression for compiled assets
 	-m                        Enable source maps for compiled assets
 	-n                        Skip non-digested files
+	-E <excludePattern>       Exclude files matching this pattern from compilation (can be specified multiple times)
+	-Z <excludeGzipPattern>   Exclude files matching this pattern from gzip compression (can be specified multiple times)
+	-I <includePattern>       Include files matching this pattern in compilation (can be specified multiple times)
 	-J <jsonString>           Additional compiler options in JSON format
 """
 						System.exit(0)
+						break
 					case 'o':
 						compilerArgs.compileDir = args[++x]
 						break
@@ -180,6 +188,27 @@ Options:
 						break
 					case 'n':
 						compilerArgs.skipNonDigests = true
+						break
+					case 'E':
+						def excludePattern = args[++x]
+						if(!compilerArgs.excludes) {
+							compilerArgs.excludes = []
+						}
+						compilerArgs.excludes << excludePattern
+						break
+					case 'Z':
+						def excludeGzipPattern = args[++x]
+						if(!compilerArgs.excludesGzip) {
+							compilerArgs.excludesGzip = []
+						}
+						compilerArgs.excludesGzip << excludeGzipPattern
+						break
+					case 'I':
+						def includePattern = args[++x]
+						if(!compilerArgs.includes) {
+							compilerArgs.includes = []
+						}
+						compilerArgs.includes << includePattern
 						break
 					case 'J':
 						def jsonString = args[++x]
