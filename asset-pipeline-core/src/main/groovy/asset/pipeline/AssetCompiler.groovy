@@ -135,6 +135,22 @@ public class AssetCompiler {
 			if(arg.startsWith('-')) {
 				def option = arg.substring(1)
 				switch(option) {
+					case '--help':
+					case '-h':
+						println """
+Usage: asset-compile [options]
+Options:
+	-h, --help                Show this help message
+	-o <compileDir>           Directory to compile assets into
+	-i <sourceDir>            Source directory for assets (can be specified multiple times)
+	-j <jarFile>              JAR file to register as a source resolver (can be specified multiple times)
+	-d                        Enable digests for compiled assets
+	-z                        Enable gzip compression for compiled assets
+	-m                        Enable source maps for compiled assets
+	-n                        Skip non-digested files
+	-J <jsonString>           Additional compiler options in JSON format
+"""
+						System.exit(0)
 					case 'o':
 						compilerArgs.compileDir = args[++x]
 						break
