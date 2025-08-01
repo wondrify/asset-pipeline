@@ -27,17 +27,12 @@ import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
-import org.gradle.api.provider.Property
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.process.ExecOperations
 import org.gradle.process.ExecResult
 import org.gradle.process.JavaExecSpec
-
 import javax.inject.Inject
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.Paths
 
 /**
  * Abstract Gradle task for compiling templates, using GroovyPageForkedCompiler
@@ -53,12 +48,6 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     @Nested
     abstract final AssetPipelineExtension config
 
-    @Input
-    @Optional
-    final Property<String> packageName
-
-
-
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
     final ConfigurableFileCollection assetClassPath
@@ -66,10 +55,6 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
     final DirectoryProperty srcDir
-
-    @Input
-    @Optional
-    final Property<String> serverpath
 
     private ExecOperations execOperations
 
@@ -79,10 +64,7 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     AssetForkedCompileTask(ExecOperations execOperations, ObjectFactory objectFactory) {
         config = project.extensions.findByType(AssetPipelineExtension)
         this.execOperations = execOperations
-        packageName = objectFactory.property(String).convention(project.name ?: project.projectDir.canonicalFile.name)
         srcDir = config.assetsPath
-//        compileOptions = objectFactory.newInstance(ViewCompileOptions.class)
-        serverpath = objectFactory.property(String)
 
         this.setDestinationDir(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')).asFile);
         buildDir = project.layout.buildDirectory.asFile.get()
@@ -157,15 +139,11 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
                         }
 
 
-
-
-
                         List<String> arguments = [
                                 "-i",
                                 srcDir.get().asFile.canonicalPath,
                                 "-o",
                                 destinationDirectory.get().asFile.canonicalPath,
-                                //TODO: Fill out more
                         ]
 
                         prepareArguments(arguments)
@@ -198,7 +176,6 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
             configurationJson.put("resolvers", config.resolvers.files.collect { it.canonicalPath })
             configurationJson.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
             configurationJson.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
-
             String json = JsonOutput.toJson(configurationJson);
             arguments.add("-J")
             arguments.add(json)
@@ -213,7 +190,6 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
 
 
     void registerResolvers(List<String> arguments) {
-
         config.resolvers.files.each { File resolverFile ->
             boolean isJarFile = resolverFile.exists() && resolverFile.file && resolverFile.name.endsWith('.jar')
             boolean isAssetFolder = resolverFile.exists() && resolverFile.directory
