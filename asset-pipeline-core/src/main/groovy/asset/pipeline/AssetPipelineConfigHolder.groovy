@@ -7,7 +7,7 @@ import asset.pipeline.fs.AssetResolver
  * Also Provides Helper methods for loading in config from properties
  * @author David Estes
  */
-class AssetPipelineConfigHolder {
+public class AssetPipelineConfigHolder {
     public static Collection<AssetResolver> resolvers = []
     public static Properties manifest
     public static Map config = [:]

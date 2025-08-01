@@ -10,9 +10,11 @@ import org.gradle.api.provider.Property
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Nested
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.compile.GroovyForkOptions
 
 import javax.inject.Inject
 
@@ -23,6 +25,10 @@ import javax.inject.Inject
  * @author Graeme Rocher
  */
 abstract class AssetPipelineExtension implements Serializable {
+
+    @Nested
+    @Optional
+    GroovyForkOptions forkOptions
 
     private static final long serialVersionUID = 0L
 

@@ -82,6 +82,7 @@ abstract class AssetCompile extends DefaultTask {
     @Inject
     AssetCompile(ObjectFactory objects, Project project) {
         config = project.extensions.findByType(AssetPipelineExtension)
+
         flattenResolvers = objects.property(Boolean).convention(false)
         assetConfigurationFiles = objects.fileCollection()
                 .convention(project.configurations.named(AssetPipelinePlugin.ASSET_CONFIGURATION_NAME))

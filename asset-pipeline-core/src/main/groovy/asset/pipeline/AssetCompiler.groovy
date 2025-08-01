@@ -18,6 +18,9 @@ package asset.pipeline
 import asset.pipeline.processors.ClosureCompilerProcessor
 import asset.pipeline.utils.MultiOutputStream
 import asset.pipeline.processors.CssMinifyPostProcessor
+import asset.pipeline.fs.JarAssetResolver
+import asset.pipeline.fs.FileSystemAssetResolver
+import groovy.json.JsonSlurper
 import groovy.util.logging.Slf4j
 
 import java.util.zip.GZIPOutputStream
@@ -36,7 +39,7 @@ import java.util.concurrent.CompletionService
  * @author Graeme Rocher
  */
 @Slf4j
-class AssetCompiler {
+public class AssetCompiler {
 	def includeRules = [:]
 	def excludeRules = [:]
 
@@ -81,6 +84,7 @@ class AssetCompiler {
 		if(!options.containsKey('skipNonDigests')) {
 			options.skipNonDigests = false
 		}
+
 		// Load in additional assetSpecs
 		options.specs?.each { spec ->
 			def specClass = this.class.classLoader.loadClass(spec)
@@ -97,27 +101,106 @@ class AssetCompiler {
 	 * Arguments
 	 * <ul>
 	 * <li>-o compileDir</li>
-	 * <li>-i sourceDir (List of SourceDirs)</li>
-	 * <li>-j List of Source Jars (, delimited)</li>
+	 * <li>-i sourceDir (List of SourceDirs pass multiple for more than one with -i)</li>
+	 * <li>-j List of Source Jars (pass multiple -j arguments for more than one)</li>
 	 * <li>-d Digests</li>
 	 * <li>-z Compression</li>
 	 * <li>-m SourceMaps</li>
 	 * <li>-n Skip Non Digests</li>
-	 * <li>-c Config Location</li>
-	 * <li>command - compile,watch</li>
+	 * <li>-J Additional Compiler options input as JSON (e.g. -J '{"minifyJs":true, "minifyCss":true, "minifyOptions":{"excludes":["*.js"]}}')</li>
+
 	 * </ul>
-	 * This is NOT YET IMPLEMENTED
+	 *
 	 */
 	static void main(String[] args) {
-		def properties = new java.util.Properties()
-		System.properties.each { k, v ->
-			if(k.startsWith('asset.pipeline')) {
-				def newKey = k.substring('asset.pipeline'.size())
-				println "Key ${k} - ${v}"
+
+		Boolean sourceSpecified = false;
+		Boolean flattenResolvers = false
+		// def properties = System.getProperties()
+		Map compilerArgs = [
+						compileDir      : null,
+						enableDigests   : false,
+						enableGzip      : false,
+						enableSourceMaps: false,
+						excludesGzip    : [],
+						maxThreads      : null,
+						minifyCss       : false,
+						minifyJs        : false,
+						minifyOptions   : null,
+						skipNonDigests  : false,
+		]
+
+		for(int x = 0 ; x < args.length; x++) {
+			def arg = args[x]
+			if(arg.startsWith('-')) {
+				def option = arg.substring(1)
+				switch(option) {
+					case 'o':
+						compilerArgs.compileDir = args[++x]
+						break
+					case 'i':
+						if(!sourceSpecified) {
+							def mainFileResolver = new FileSystemAssetResolver('application', args[++x])
+							AssetPipelineConfigHolder.registerResolver(mainFileResolver)
+							sourceSpecified = true
+						} else {
+							String path = args[++x]
+							def fileResolver = new FileSystemAssetResolver(path, path)
+							AssetPipelineConfigHolder.registerResolver(fileResolver)
+						}
+						break
+					case 'j':
+						registerJarResolvers(new File(args[++x]))
+
+						break
+					case 'd':
+						compilerArgs.enableDigests = true
+						break
+					case 'z':
+						compilerArgs.enableGzip = true
+						break
+					case 'm':
+						compilerArgs.enableSourceMaps = true
+						break
+					case 'n':
+						compilerArgs.skipNonDigests = true
+						break
+					case 'J':
+						def jsonString = args[++x]
+						try {
+							def json = new JsonSlurper().parseText(jsonString)
+							compilerArgs.putAll(json)
+						} catch(Exception e) {
+							log.error("Error parsing JSON options: ${jsonString}", e)
+							System.exit(1)
+						}
+						break
+
+				}
 			}
 		}
-		// def properties = System.getProperties()
-		def assetCompiler = new AssetCompiler()
+		def assetCompiler = new AssetCompiler(compilerArgs)
+		assetCompiler.excludeRules.default = compilerArgs.excludes ?: []
+		assetCompiler.includeRules.default = compilerArgs.includes ?: []
+		if(compilerArgs.get("configOptions")) {
+			AssetPipelineConfigHolder.config = (AssetPipelineConfigHolder.config ?: [:]) + compilerArgs.get("configOptions")
+		} else {
+			AssetPipelineConfigHolder.config = [:]
+		}
+		if(compilerArgs.cacheLocation) {
+			AssetPipelineConfigHolder.config.cacheLocation = compilerArgs.cacheLocation
+		}
+		try {
+			assetCompiler.compile();
+		} catch(Exception e) {
+			log.error("Error compiling assets", e)
+			System.err.println("Error compiling assets: ${e.message}")
+			e.printStackTrace(System.err)
+			System.exit(1)
+		}
+
+		System.exit(0);
+
 	}
 
 	void compile() {
@@ -447,6 +530,15 @@ class AssetCompiler {
 
 		propertiesToRemove.each {
 			manifestProperties.remove(it)
+		}
+	}
+
+	static void registerJarResolvers(File jarFile) {
+		def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
+		if (jarFile.exists() && isJarFile) {
+			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/assets'))
+			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/static'))
+			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/resources'))
 		}
 	}
 }

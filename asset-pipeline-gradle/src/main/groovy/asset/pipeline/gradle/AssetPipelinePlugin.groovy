@@ -43,6 +43,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
     static final String ASSET_DEVELOPMENT_CONFIGURATION_NAME = 'assetDevelopmentRuntime'
 
     void apply(Project project) {
+
         createAssetsGradleConfiguration(project)
 
         AssetPipelineExtension extension = project.extensions.create('assets', AssetPipelineExtension)
@@ -54,7 +55,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
         config.cacheLocation = project.layout.buildDirectory.dir('.assetcache').get().asFile.absolutePath
 
         def assetCleanTask = project.tasks.register('assetClean', Delete)
-        def assetPrecompileTask = project.tasks.register('assetCompile', AssetCompile)
+        def assetPrecompileTask = project.tasks.register('assetCompile', AssetForkedCompileTask)
         def assetPackageTask = project.tasks.register('assetPluginPackage', AssetPluginPackage)
 
         project.configurations.create(ASSET_DEVELOPMENT_CONFIGURATION_NAME)
@@ -68,6 +69,20 @@ class AssetPipelinePlugin implements Plugin<Project> {
             assetPackageTask.configure { AssetPluginPackage task ->
                 def processResources = project.tasks.named('processResources', ProcessResources)
                 task.destinationDir.set(project.file(new File(processResources.get().destinationDir, 'META-INF')))
+            }
+            assetPrecompileTask.configure { AssetForkedCompileTask task ->
+
+                task.classpath = project.files(
+                        project.configurations.named(ASSET_CONFIGURATION_NAME).get(),
+                        project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get(),
+                        project.configurations.named(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME).get(),
+                        project.buildscript.getConfigurations().named("classpath").get()
+
+                )
+
+
+                    //add the BUILD classpath to the assetCompile task
+
             }
 
             configureTestRuntimeClasspath(project)
