@@ -80,6 +80,8 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 )
             }
 
+            println("Build Script Classpaths: ${project.buildscript.getConfigurations().named("classpath").get().asPath}")
+
             configureTestRuntimeClasspath(project)
             configureBootRun(project)
 
