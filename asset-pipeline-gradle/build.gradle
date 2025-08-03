@@ -14,7 +14,7 @@ dependencies {
     api project(':asset-pipeline-core')
 
     // Gradle Plugin must be compiled with Groovy 3
-    api "org.codehaus.groovy:groovy:$groovy3Version"
+    compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
     compileOnly gradleApi()
 
     // These will be used by the Asset Pipeline Gradle Plugin for pre-compiling assets
