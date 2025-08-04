@@ -11,7 +11,7 @@ ext {
 
 dependencies {
 
-    api project(':asset-pipeline-core')
+    implementation project(':asset-pipeline-core')
 
     // Gradle Plugin must be compiled with Groovy 3
     compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
@@ -19,8 +19,8 @@ dependencies {
 
     // These will be used by the Asset Pipeline Gradle Plugin for pre-compiling assets
     // and when running bootRun task (in development)
-    api "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
-    api "org.graalvm.js:js-community:$graalvmVersion"
+    runtimeOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
+    runtimeOnly "org.graalvm.js:js-community:$graalvmVersion"
 }
 
 task(console, dependsOn: 'classes', type: JavaExec) {

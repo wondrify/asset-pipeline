@@ -70,17 +70,18 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 def processResources = project.tasks.named('processResources', ProcessResources)
                 task.destinationDir.set(project.file(new File(processResources.get().destinationDir, 'META-INF')))
             }
+
             assetPrecompileTask.configure { AssetForkedCompileTask task ->
                 task.classpath = project.files(
-                        project.configurations.named(ASSET_CONFIGURATION_NAME).get(),
-                        project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME).get(),
-                        project.configurations.named(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME).get(),
-                        project.buildscript.getConfigurations().named("classpath").get()
-
+                        project.configurations.named(ASSET_CONFIGURATION_NAME),
+                        project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME),
+                        project.configurations.named(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME),
+                        project.buildscript.getConfigurations().named("classpath"),
+                        project.provider {
+                            ((URLClassLoader) AssetPipelinePlugin.classLoader).URLs.collect { new File(it.toURI()) }
+                        }
                 )
             }
-
-            println("Build Script Classpaths: ${project.buildscript.getConfigurations().named("classpath").get().asPath}")
 
             configureTestRuntimeClasspath(project)
             configureBootRun(project)

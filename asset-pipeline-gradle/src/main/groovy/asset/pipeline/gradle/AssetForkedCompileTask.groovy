@@ -35,11 +35,10 @@ import org.gradle.process.JavaExecSpec
 import javax.inject.Inject
 
 /**
- * Abstract Gradle task for compiling templates, using GroovyPageForkedCompiler
- * This Task is a Forked Java Task that is configurable with fork options provided
- * by
+ * Forked Execution task for compiling static assets using the Asset Pipeline AssetCompiler.
+ * This runs it in a separate JVM process, allowing for better isolation and performance.
  * @author David Estes
- * @since 4.0
+ * @since 5.0
  */
 @CompileStatic
 @CacheableTask
