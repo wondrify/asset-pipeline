@@ -64,24 +64,11 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
         config = project.extensions.findByType(AssetPipelineExtension)
         this.execOperations = execOperations
         srcDir = config.assetsPath
-
+        assetClassPath = objectFactory.fileCollection()
         this.setDestinationDir(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')).asFile);
         buildDir = project.layout.buildDirectory.asFile.get()
 
-        assetClassPath = objectFactory.fileCollection().from(project.provider {
-            try {
-                def existingConfigurations = [
-                        'assets',
-                        'provided',
-                        'runtimeClasspath',
-                ].findResults {
-                    project.configurations.names.contains(it) ? project.configurations.named(it) : null
-                }
-                project.files(existingConfigurations)
-            } catch (ignored) {
-                return null
-            }
-        })
+
     }
 
 
