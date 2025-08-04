@@ -156,6 +156,7 @@ Options:
 	-Z <excludeGzipPattern>   Exclude files matching this pattern from gzip compression (can be specified multiple times)
 	-I <includePattern>       Include files matching this pattern in compilation (can be specified multiple times)
 	-J <jsonString>           Additional compiler options in JSON format
+	-B <base64JsonString>     Additional compiler options in base64 encoded JSON format
 """
 						System.exit(0)
 						break
@@ -217,6 +218,17 @@ Options:
 							compilerArgs.putAll(json)
 						} catch(Exception e) {
 							log.error("Error parsing JSON options: ${jsonString}", e)
+							System.exit(1)
+						}
+						break
+					case 'B':
+						def base64JsonString = args[++x]
+						try {
+							def jsonStringDecoded = new String(base64JsonString.decodeBase64())
+							def json = new JsonSlurper().parseText(jsonStringDecoded)
+							compilerArgs.putAll(json)
+						} catch(Exception e) {
+							log.error("Error parsing Base64 JSON options: ${base64JsonString}", e)
 							System.exit(1)
 						}
 						break

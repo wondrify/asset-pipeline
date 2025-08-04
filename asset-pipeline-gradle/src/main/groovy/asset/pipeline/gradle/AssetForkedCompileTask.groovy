@@ -163,8 +163,10 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
             configurationJson.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
             configurationJson.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
             String json = JsonOutput.toJson(configurationJson);
-            arguments.add("-J")
-            arguments.add(json)
+            arguments.add("-B")
+            //base64 encoding the JSON to avoid issues with special characters in the command line
+            String base64Json = json.bytes.encodeBase64().toString()
+            arguments.add(base64Json)
 
         }
     }
