@@ -14,8 +14,13 @@ allprojects {
     }
 }
 
+ext {
+    publishedProjects = []
+}
+
 subprojects { project ->
     if (project.name != 'asset-pipeline-classpath-test' && project.name != 'asset-pipeline-docs' && project.name != 'asset-pipeline-site') {
+        publishedProjects << project.name
         apply plugin: 'org.apache.grails.gradle.grails-publish'
     }
 }

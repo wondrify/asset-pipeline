@@ -1,4 +1,4 @@
-import org.grails.gradle.plugin.publishing.GrailsPublishExtension
+import org.apache.grails.gradle.publish.GrailsPublishExtension
 
 extensions.configure(GrailsPublishExtension) {
     // Explicit `it` is required here
