@@ -45,6 +45,7 @@ repositories {
 dependencies {
     implementation platform("org.apache.grails:grails-gradle-bom:${gradleProperties.grailsVersion}")
     implementation 'org.apache.grails:grails-gradle-plugins'
+    implementation 'org.apache.grails.gradle:grails-publish'
     implementation 'com.gradle.publish:plugin-publish-plugin:1.3.1'
     implementation 'com.github.node-gradle:gradle-node-plugin:3.1.1'
 }

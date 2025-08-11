@@ -1,0 +1,25 @@
+plugins {
+    id 'java-platform'
+}
+
+group = 'cloud.wondrify'
+
+javaPlatform {
+    allowDependencies()
+}
+
+dependencies {
+    constraints {
+        for (Project subproject : rootProject.subprojects) {
+            if (subproject.path == project.path || !(subproject.name in rootProject.ext.publishedProjects)) {
+                continue // ignore self
+            }
+
+            api project(":${subproject.path}")
+        }
+    }
+}
+
+apply {
+    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+}
