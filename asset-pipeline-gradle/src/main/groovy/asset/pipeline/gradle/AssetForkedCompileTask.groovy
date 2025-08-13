@@ -65,10 +65,8 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
         this.execOperations = execOperations
         srcDir = config.assetsPath
         assetClassPath = objectFactory.fileCollection()
-        this.setDestinationDir(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')).asFile);
+        this.destinationDirectory.set(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')))
         buildDir = project.layout.buildDirectory.asFile.get()
-
-
     }
 
 
