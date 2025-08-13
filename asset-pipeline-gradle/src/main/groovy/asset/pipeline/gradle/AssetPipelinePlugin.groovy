@@ -68,7 +68,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
 
             assetPackageTask.configure { AssetPluginPackage task ->
                 def processResources = project.tasks.named('processResources', ProcessResources)
-                task.destinationDir.set(project.file(new File(processResources.get().destinationDir, 'META-INF')))
+                task.destinationDirectory.set(project.file(new File(processResources.get().destinationDir, 'META-INF')))
             }
 
             assetPrecompileTask.configure { AssetForkedCompileTask task ->

@@ -27,12 +27,12 @@ abstract class AssetPluginPackage extends DefaultTask {
     abstract final AssetPipelineExtension config
 
     @OutputDirectory
-    abstract final DirectoryProperty destinationDir
+    abstract final DirectoryProperty destinationDirectory
 
     @Inject
     AssetPluginPackage(ObjectFactory objects, Project project) {
         config = project.extensions.findByType(AssetPipelineExtension)
-        destinationDir = objects.directoryProperty()
+        destinationDirectory = objects.directoryProperty()
     }
 
     @TaskAction
@@ -44,7 +44,7 @@ abstract class AssetPluginPackage extends DefaultTask {
 
         Collection<AssetFile> fileList = fsResolver.scanForFiles([], [])
 
-        File destination = destinationDir.get().asFile.canonicalFile
+        File destination = destinationDirectory.get().asFile.canonicalFile
         File assetsDir = new File(destination, 'assets')
         if (assetsDir.exists()) {
             assetsDir.deleteDir()
