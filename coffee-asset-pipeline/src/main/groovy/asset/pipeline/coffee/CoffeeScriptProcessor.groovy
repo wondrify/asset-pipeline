@@ -58,7 +58,7 @@ class CoffeeScriptProcessor extends AbstractProcessor {
 		if(!compilerScript) {
 			synchronized($LOCK) {
 				if(!compilerScript) {
-					def coffeeScriptJsResource = classLoader.getResource('asset/pipeline/coffee/coffee-script-1.7.1.js')
+					def coffeeScriptJsResource = classLoader.getResource('asset/pipeline/coffee/coffee-script-2.7.0.js')
 					compilerScript = cx.compileString(coffeeScriptJsResource.getText('UTF-8'),coffeeScriptJsResource.file,1,null)
 				}
 			}
