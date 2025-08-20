@@ -15,6 +15,10 @@ dependencies {
                 continue // ignore self
             }
 
+            if (subproject.name == 'asset-pipeline-gradle') {
+                continue // gradle dependencies are separate from build dependencies so do not include them in the bom
+            }
+
             api project(":${subproject.path}")
         }
     }
