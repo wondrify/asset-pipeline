@@ -22,7 +22,7 @@ dependencies {
     api project(':asset-pipeline-core')
     api "org.mozilla:rhino:$rhinoVersion"
     api "com.github.sommeri:less4j:$less4jVersion"
-    api 'com.google.protobuf:protobuf-java:3.21.12'
+    api "com.google.protobuf:protobuf-java:$protobufVersion"
     implementation "com.github.sommeri:less4j-javascript:$less4jJsVersion", {
         // An old forked version of Rhino is included in less4j-javascript
         exclude group: 'ro.isdc.wro4j', module: 'rhino'
