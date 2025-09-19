@@ -25,7 +25,6 @@ import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.workers.WorkerExecutor
@@ -42,35 +41,30 @@ import javax.inject.Inject
 abstract class AssetForkedCompileTask extends AbstractCompile {
 
     @Nested
-    AssetPipelineExtension getConfig() {
-        return project.extensions.findByType(AssetPipelineExtension)
-    }
+    abstract final AssetPipelineExtension config
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
-    abstract ConfigurableFileCollection getAssetClassPath()
+    final ConfigurableFileCollection assetClassPath
 
     @InputDirectory
     @PathSensitive(PathSensitivity.RELATIVE)
-    abstract DirectoryProperty getInputDirectory()
-
-    @Internal
-    abstract ListProperty<String> getJarResolvers()
-
-    @Internal
-    abstract ListProperty<String> getAdditionalInputs()
+    final DirectoryProperty srcDir
 
     private WorkerExecutor workerExecutor
 
+    private File buildDir
+
     @Inject
     AssetForkedCompileTask(WorkerExecutor workerExecutor, ObjectFactory objectFactory) {
+        config = project.extensions.findByType(AssetPipelineExtension)
         this.workerExecutor = workerExecutor
-
-        // Configure lazy properties - config will be resolved when accessed
-        def configExtension = project.extensions.findByType(AssetPipelineExtension)
-        inputDirectory.convention(configExtension.assetsPath)
+        srcDir = config.assetsPath
+        assetClassPath = objectFactory.fileCollection()
         this.destinationDirectory.set(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')))
+        buildDir = project.layout.buildDirectory.asFile.get()
     }
+
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
@@ -87,13 +81,13 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     @Override
     void setSource(Object source) {
         if(Directory.isAssignableFrom(source.class)) {
-            this.inputDirectory.set(source as Directory)
+            this.srcDir.set(source as Directory)
         }
         else if(File.isAssignableFrom(source.class)) {
-            this.inputDirectory.set(source as File)
+            this.srcDir.set(source as File)
         }
         else if(DirectoryProperty.isAssignableFrom(source.class)) {
-            this.inputDirectory.set(source as DirectoryProperty)
+            this.srcDir.set(source as DirectoryProperty)
         }
         else {
             throw new RuntimeException("Unsupported source type: ${source.class.name}")
@@ -108,28 +102,27 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
 
     protected void compile() {
         // Prepare worker parameters
-        List<String> additionalInputsList = []
-        List<String> jarResolversList = []
+        def additionalInputs = []
+        def jarResolvers = []
 
         // Collect additional input directories and jar resolvers
         config.resolvers.files.each { File resolverFile ->
             boolean isJarFile = resolverFile.exists() && resolverFile.file && resolverFile.name.endsWith('.jar')
             boolean isAssetFolder = resolverFile.exists() && resolverFile.directory
             if (isJarFile) {
-                jarResolversList.add(resolverFile.canonicalPath)
+                jarResolvers.add(resolverFile.canonicalPath)
             } else if (isAssetFolder) {
-                additionalInputsList.add(resolverFile.canonicalPath)
+                additionalInputs.add(resolverFile.canonicalPath)
             }
         }
 
         // Add classpath jars
-        this.assetClassPath?.filter { File it -> it.name.endsWith('.jar') || it.name.endsWith('.zip') }?.each { File jarFile ->
-            jarResolversList.add(jarFile.canonicalPath)
+        this.assetClassPath?.files?.each { File jarFile ->
+            def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
+            if (jarFile.exists() && isJarFile) {
+                jarResolvers.add(jarFile.canonicalPath)
+            }
         }
-
-        // Set the lazy properties
-        jarResolvers.set(jarResolversList)
-        additionalInputs.set(additionalInputsList)
 
         // Prepare configuration JSON
         String configurationJson = null
@@ -149,8 +142,8 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
             configurationMap.put("includes", config.includes.getOrElse([]))
             configurationMap.put("resolvers", config.resolvers.files.collect { it.canonicalPath })
             configurationMap.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
-            configurationMap.put("cacheLocation", new File(project.layout.buildDirectory.asFile.get(), '.assetcache').canonicalPath)
-            String json = JsonOutput.toJson(configurationMap)
+            configurationMap.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
+            String json = JsonOutput.toJson(configurationMap);
             //base64 encoding the JSON to avoid issues with special characters in the command line
             configurationJson = json.bytes.encodeBase64().toString()
         }
@@ -161,36 +154,38 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
             if (jvmArgs) {
                 workerExecutor.processIsolation { workerSpec ->
                     workerSpec.classpath.from(getClasspath())
-                    workerSpec.forkOptions.jvmArgs(jvmArgs as List<String>)
-                    workerSpec.forkOptions.maxHeapSize = config.forkOptions.memoryMaximumSize
-                    workerSpec.forkOptions.minHeapSize = config.forkOptions.memoryInitialSize
+                    workerSpec.forkOptions { forkOptions ->
+                        forkOptions.jvmArgs(jvmArgs)
+                        forkOptions.maxHeapSize = config.forkOptions.memoryMaximumSize
+                        forkOptions.minHeapSize = config.forkOptions.memoryInitialSize
+                    }
                 }.submit(AssetCompilerWorker) { parameters ->
-                    parameters.inputDirectory = inputDirectory.get().asFile.canonicalPath
+                    parameters.inputDirectory = srcDir.get().asFile.canonicalPath
                     parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
                     parameters.configurationJson = configurationJson
-                    parameters.jarResolvers = jarResolvers.get()
-                    parameters.additionalInputs = additionalInputs.get()
+                    parameters.jarResolvers = jarResolvers as List<String>
+                    parameters.additionalInputs = additionalInputs as List<String>
                 }
             } else {
                 workerExecutor.classLoaderIsolation { workerSpec ->
                     workerSpec.classpath.from(getClasspath())
                 }.submit(AssetCompilerWorker) { parameters ->
-                    parameters.inputDirectory = inputDirectory.get().asFile.canonicalPath
+                    parameters.inputDirectory = srcDir.get().asFile.canonicalPath
                     parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
                     parameters.configurationJson = configurationJson
-                    parameters.jarResolvers = jarResolvers.get()
-                    parameters.additionalInputs = additionalInputs.get()
+                    parameters.jarResolvers = jarResolvers as List<String>
+                    parameters.additionalInputs = additionalInputs as List<String>
                 }
             }
         } else {
             workerExecutor.classLoaderIsolation { workerSpec ->
                 workerSpec.classpath.from(getClasspath())
             }.submit(AssetCompilerWorker) { parameters ->
-                parameters.inputDirectory = inputDirectory.get().asFile.canonicalPath
+                parameters.inputDirectory = srcDir.get().asFile.canonicalPath
                 parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
                 parameters.configurationJson = configurationJson
-                parameters.jarResolvers = jarResolvers.get()
-                parameters.additionalInputs = additionalInputs.get()
+                parameters.jarResolvers = jarResolvers as List<String>
+                parameters.additionalInputs = additionalInputs as List<String>
             }
         }
 
