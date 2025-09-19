@@ -21,7 +21,6 @@ package asset.pipeline.gradle
 import groovy.json.JsonOutput
 import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
-import org.gradle.api.Action
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
@@ -29,14 +28,12 @@ import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.tasks.*
 import org.gradle.api.tasks.compile.AbstractCompile
-import org.gradle.process.ExecOperations
-import org.gradle.process.ExecResult
-import org.gradle.process.JavaExecSpec
+import org.gradle.workers.WorkerExecutor
 import javax.inject.Inject
 
 /**
- * Forked Execution task for compiling static assets using the Asset Pipeline AssetCompiler.
- * This runs it in a separate JVM process, allowing for better isolation and performance.
+ * Worker API based task for compiling static assets using the Asset Pipeline AssetCompiler.
+ * This uses Gradle Worker API to avoid command line length issues on Windows.
  * @author David Estes
  * @since 5.0
  */
@@ -55,14 +52,14 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     @PathSensitive(PathSensitivity.RELATIVE)
     final DirectoryProperty srcDir
 
-    private ExecOperations execOperations
+    private WorkerExecutor workerExecutor
 
     private File buildDir
 
     @Inject
-    AssetForkedCompileTask(ExecOperations execOperations, ObjectFactory objectFactory) {
+    AssetForkedCompileTask(WorkerExecutor workerExecutor, ObjectFactory objectFactory) {
         config = project.extensions.findByType(AssetPipelineExtension)
-        this.execOperations = execOperations
+        this.workerExecutor = workerExecutor
         srcDir = config.assetsPath
         assetClassPath = objectFactory.fileCollection()
         this.destinationDirectory.set(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')))
@@ -105,96 +102,100 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     }
 
     protected void compile() {
-        ExecResult result = execOperations.javaexec(
-                new Action<JavaExecSpec>() {
-                    @Override
-                    @CompileDynamic
-                    void execute(JavaExecSpec javaExecSpec) {
-                        javaExecSpec.mainClass.set(getCompilerName())
-                        javaExecSpec.setClasspath(getClasspath())
+        // Prepare worker parameters
+        def additionalInputs = []
+        def jarResolvers = []
 
-                        def jvmArgs = config.forkOptions?.jvmArgs
-                        if (jvmArgs) {
-                            javaExecSpec.jvmArgs(jvmArgs)
-                        }
-                        if(config.forkOptions) {
-                            javaExecSpec.setMaxHeapSize(config.forkOptions.memoryMaximumSize)
-                            javaExecSpec.setMinHeapSize(config.forkOptions.memoryInitialSize)
-                        }
-
-
-                        List<String> arguments = [
-                                "-i",
-                                srcDir.get().asFile.canonicalPath,
-                                "-o",
-                                destinationDirectory.get().asFile.canonicalPath,
-                        ]
-
-                        prepareArguments(arguments)
-                        javaExecSpec.args(arguments)
-                    }
-
-                }
-        )
-        result.assertNormalExitValue()
-
-    }
-
-    void prepareArguments(List<String> arguments) {
-        // no-op
-        registerResolvers(arguments)
-        if(config) {
-            LinkedHashMap<String,Object> configurationJson = new LinkedHashMap<>()
-            configurationJson.put("configOptions", config.configOptions.get())
-            configurationJson.put("enableDigests", config.enableDigests.get())
-            configurationJson.put("enableGzip", config.enableGzip.get())
-            configurationJson.put("enableSourceMaps", config.enableSourceMaps.get())
-            configurationJson.put("excludesGzip", config.excludesGzip.getOrElse([]))
-            configurationJson.put("maxThreads", config.maxThreads.orNull)
-            configurationJson.put("minifyCss", config.minifyCss.get())
-            configurationJson.put("minifyJs", config.minifyJs.get())
-            configurationJson.put("skipNonDigests", config.skipNonDigests.get())
-            configurationJson.put("minifyOptions", config.minifyOptions.get())
-            configurationJson.put("excludes", config.excludes.getOrElse([]))
-            configurationJson.put("includes", config.includes.getOrElse([]))
-            configurationJson.put("resolvers", config.resolvers.files.collect { it.canonicalPath })
-            configurationJson.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
-            configurationJson.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
-            String json = JsonOutput.toJson(configurationJson);
-            arguments.add("-B")
-            //base64 encoding the JSON to avoid issues with special characters in the command line
-            String base64Json = json.bytes.encodeBase64().toString()
-            arguments.add(base64Json)
-
+        // Collect additional input directories and jar resolvers
+        config.resolvers.files.each { File resolverFile ->
+            boolean isJarFile = resolverFile.exists() && resolverFile.file && resolverFile.name.endsWith('.jar')
+            boolean isAssetFolder = resolverFile.exists() && resolverFile.directory
+            if (isJarFile) {
+                jarResolvers.add(resolverFile.canonicalPath)
+            } else if (isAssetFolder) {
+                additionalInputs.add(resolverFile.canonicalPath)
+            }
         }
+
+        // Add classpath jars
+        this.assetClassPath?.files?.each { File jarFile ->
+            def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
+            if (jarFile.exists() && isJarFile) {
+                jarResolvers.add(jarFile.canonicalPath)
+            }
+        }
+
+        // Prepare configuration JSON
+        String configurationJson = null
+        if(config) {
+            LinkedHashMap<String,Object> configurationMap = new LinkedHashMap<>()
+            configurationMap.put("configOptions", config.configOptions.get())
+            configurationMap.put("enableDigests", config.enableDigests.get())
+            configurationMap.put("enableGzip", config.enableGzip.get())
+            configurationMap.put("enableSourceMaps", config.enableSourceMaps.get())
+            configurationMap.put("excludesGzip", config.excludesGzip.getOrElse([]))
+            configurationMap.put("maxThreads", config.maxThreads.orNull)
+            configurationMap.put("minifyCss", config.minifyCss.get())
+            configurationMap.put("minifyJs", config.minifyJs.get())
+            configurationMap.put("skipNonDigests", config.skipNonDigests.get())
+            configurationMap.put("minifyOptions", config.minifyOptions.get())
+            configurationMap.put("excludes", config.excludes.getOrElse([]))
+            configurationMap.put("includes", config.includes.getOrElse([]))
+            configurationMap.put("resolvers", config.resolvers.files.collect { it.canonicalPath })
+            configurationMap.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
+            configurationMap.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
+            String json = JsonOutput.toJson(configurationMap);
+            //base64 encoding the JSON to avoid issues with special characters in the command line
+            configurationJson = json.bytes.encodeBase64().toString()
+        }
+
+        // Execute using Worker API
+        if(config.forkOptions) {
+            def jvmArgs = config.forkOptions?.jvmArgs
+            if (jvmArgs) {
+                workerExecutor.processIsolation { workerSpec ->
+                    workerSpec.classpath.from(getClasspath())
+                    workerSpec.forkOptions { forkOptions ->
+                        forkOptions.jvmArgs(jvmArgs)
+                        forkOptions.maxHeapSize = config.forkOptions.memoryMaximumSize
+                        forkOptions.minHeapSize = config.forkOptions.memoryInitialSize
+                    }
+                }.submit(AssetCompilerWorker) { parameters ->
+                    parameters.inputDirectory = srcDir.get().asFile.canonicalPath
+                    parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
+                    parameters.configurationJson = configurationJson
+                    parameters.jarResolvers = jarResolvers as List<String>
+                    parameters.additionalInputs = additionalInputs as List<String>
+                }
+            } else {
+                workerExecutor.classLoaderIsolation { workerSpec ->
+                    workerSpec.classpath.from(getClasspath())
+                }.submit(AssetCompilerWorker) { parameters ->
+                    parameters.inputDirectory = srcDir.get().asFile.canonicalPath
+                    parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
+                    parameters.configurationJson = configurationJson
+                    parameters.jarResolvers = jarResolvers as List<String>
+                    parameters.additionalInputs = additionalInputs as List<String>
+                }
+            }
+        } else {
+            workerExecutor.classLoaderIsolation { workerSpec ->
+                workerSpec.classpath.from(getClasspath())
+            }.submit(AssetCompilerWorker) { parameters ->
+                parameters.inputDirectory = srcDir.get().asFile.canonicalPath
+                parameters.outputDirectory = destinationDirectory.get().asFile.canonicalPath
+                parameters.configurationJson = configurationJson
+                parameters.jarResolvers = jarResolvers as List<String>
+                parameters.additionalInputs = additionalInputs as List<String>
+            }
+        }
+
+        // Wait for worker to complete
+        workerExecutor.await()
     }
 
     @Input
     protected String getCompilerName() {
         'asset.pipeline.AssetCompiler'
-    }
-
-
-    void registerResolvers(List<String> arguments) {
-        config.resolvers.files.each { File resolverFile ->
-            boolean isJarFile = resolverFile.exists() && resolverFile.file && resolverFile.name.endsWith('.jar')
-            boolean isAssetFolder = resolverFile.exists() && resolverFile.directory
-            if (isJarFile) {
-                registerJarResolvers(arguments,resolverFile)
-            } else if (isAssetFolder) {
-                arguments.add("-i")
-                arguments.add(resolverFile.canonicalPath)
-            }
-        }
-
-        this.assetClassPath?.files?.each { registerJarResolvers(arguments,it) }
-    }
-
-    void registerJarResolvers(List<String> arguments, File jarFile) {
-        def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
-        if (jarFile.exists() && isJarFile) {
-            arguments.add("-j")
-            arguments.add(jarFile.canonicalPath)
-        }
     }
 }
