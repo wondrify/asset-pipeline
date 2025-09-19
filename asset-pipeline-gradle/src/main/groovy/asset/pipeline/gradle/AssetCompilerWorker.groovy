@@ -29,7 +29,7 @@ import org.gradle.workers.WorkParameters
 @CompileStatic
 abstract class AssetCompilerWorker implements WorkAction<AssetCompilerWorker.Parameters> {
 
-    interface Parameters extends WorkParameters {
+    static interface Parameters extends WorkParameters {
         /**
          * Input directory containing assets to compile
          */
