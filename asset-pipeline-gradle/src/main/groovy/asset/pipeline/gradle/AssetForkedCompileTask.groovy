@@ -32,10 +32,8 @@ import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.process.ExecOperations
 import org.gradle.process.ExecResult
 import org.gradle.process.JavaExecSpec
-import java.util.jar.Attributes
-import java.util.jar.JarOutputStream
-import java.util.jar.Manifest
 import javax.inject.Inject
+import java.util.jar.JarFile
 
 /**
  * Forked Execution task for compiling static assets using the Asset Pipeline AssetCompiler.
@@ -108,17 +106,13 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     }
 
     protected void compile() {
-        // Create a temporary classpath jar to avoid command line length issues on Windows
-        File classpathJar = createClasspathJar()
-
         ExecResult result = execOperations.javaexec(
                 new Action<JavaExecSpec>() {
                     @Override
                     @CompileDynamic
                     void execute(JavaExecSpec javaExecSpec) {
                         javaExecSpec.mainClass.set(getCompilerName())
-                        // Use the classpath jar instead of the full classpath
-                        javaExecSpec.setClasspath(project.files(classpathJar))
+                        javaExecSpec.setClasspath(getClasspath())
 
                         def jvmArgs = config.forkOptions?.jvmArgs
                         if (jvmArgs) {
@@ -128,6 +122,7 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
                             javaExecSpec.setMaxHeapSize(config.forkOptions.memoryMaximumSize)
                             javaExecSpec.setMinHeapSize(config.forkOptions.memoryInitialSize)
                         }
+
 
                         List<String> arguments = [
                                 "-i",
@@ -142,31 +137,8 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
 
                 }
         )
-
-        classpathJar.delete()
-
         result.assertNormalExitValue()
-    }
 
-    private File createClasspathJar() {
-        File tempDir = new File(project.layout.buildDirectory.asFile.get(), 'tmp/assetPipeline')
-        tempDir.mkdirs()
-        File classpathJar = new File(tempDir, 'classpath.jar')
-
-        String classPath = getClasspath().files.collect { file ->
-            // Convert to URI to handle spaces and special characters
-            file.toURI().toString()
-        }.join(' ')
-
-        Manifest manifest = new Manifest()
-        manifest.mainAttributes.put(Attributes.Name.MANIFEST_VERSION, '1.0')
-        manifest.mainAttributes.put(Attributes.Name.CLASS_PATH, classPath)
-
-        classpathJar.withOutputStream { fileOut ->
-            new JarOutputStream(fileOut, manifest).close()
-        }
-
-        return classpathJar
     }
 
     void prepareArguments(List<String> arguments) {
@@ -222,8 +194,21 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     void registerJarResolvers(List<String> arguments, File jarFile) {
         def isJarFile = jarFile.name.endsWith('.jar') || jarFile.name.endsWith('.zip')
         if (jarFile.exists() && isJarFile) {
-            arguments.add("-j")
-            arguments.add(jarFile.canonicalPath)
+            JarFile jar = null
+            try {
+                jar = new JarFile(jarFile)
+                // Only add the jar if it has the expected asset folders used by
+                // AssetCompile.registerJarResolvers() and AssetCompiler.registerJarResolvers()
+                if (['META-INF/assets/', 'META-INF/static/', 'META-INF/resources/'].any { jar.getJarEntry(it) != null }) {
+                    arguments.add("-j")
+                    arguments.add(jarFile.canonicalPath)
+                }
+            } catch (Exception e) {
+                // If we can't read the jar, skip it
+                return
+            } finally {
+                jar?.close()
+            }
         }
     }
 }
