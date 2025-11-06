@@ -143,6 +143,10 @@ class ClosureCompilerProcessor {
 				return LanguageMode.ECMASCRIPT_2019
 			case 'ES2020':
 				return LanguageMode.ECMASCRIPT_2020	
+			case 'ES2021':
+				return LanguageMode.ECMASCRIPT_2021
+			case 'UNSTABLE':
+				return LanguageMode.UNSTABLE
 			default:
 				return LanguageMode.ECMASCRIPT_2020
 		}
