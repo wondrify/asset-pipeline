@@ -90,8 +90,11 @@ abstract class AssetPipelineExtension implements Serializable {
     @PathSensitive(PathSensitivity.RELATIVE)
     abstract final ConfigurableFileCollection resolvers
 
+    private final Project project
+
     @Inject
     AssetPipelineExtension(ObjectFactory objects, Project project) {
+        this.project = project
         assetsPath = objects.directoryProperty().convention(
                 project.layout.projectDirectory.dir(
                         project.extensions.findByName('grails') ?
@@ -117,7 +120,11 @@ abstract class AssetPipelineExtension implements Serializable {
         verbose = objects.property(Boolean).convention(true)
     }
 
+    /**
+     * Legacy helper method to maintain behavior from previous asset pipeline versions
+     * @param resolverPath the path to find the resolver
+     */
     void from(String resolverPath) {
-        resolvers.add(resolverPath)
+        resolvers.from(project.file(resolverPath))
     }
 }
