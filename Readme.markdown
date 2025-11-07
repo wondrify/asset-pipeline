@@ -212,7 +212,7 @@ To enable WebJar version resolution in Grails applications, add the webjars-loca
 
 ```groovy
 dependencies {
-    implementation "org.webjars:webjars-locator-core:0.59"
+    implementation "org.webjars:webjars-locator-core"
 
     // Add your webjar dependencies
     implementation "org.webjars.npm:jquery:3.7.1"
