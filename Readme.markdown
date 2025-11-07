@@ -201,6 +201,86 @@ dependencies {
 }
 ```
 
+WebJar Support
+--------------
+
+The Asset Pipeline plugin provides automatic version resolution for WebJars, eliminating the need to hardcode version numbers in your views.
+
+### Setup
+
+To enable WebJar version resolution in Grails applications, add the webjars-locator-core dependency:
+
+```groovy
+dependencies {
+    implementation "org.webjars:webjars-locator-core:0.59"
+
+    // Add your webjar dependencies
+    implementation "org.webjars.npm:jquery:3.7.1"
+    implementation "org.webjars.npm:bootstrap:5.3.0"
+}
+```
+
+### Usage in Grails
+
+In your GSP files, you can now reference WebJars without specifying package names or versions:
+
+```gsp
+<!-- Version automatically resolved from classpath -->
+<!-- IMPORTANT: Use file path WITHOUT package name -->
+<asset:javascript src="webjars/dist/jquery.js"/>
+<asset:javascript src="webjars/js/jquery.fileupload.js"/>
+<asset:stylesheet href="webjars/dist/css/bootstrap.css"/>
+
+<!-- Explicit versions still work (backward compatible) -->
+<asset:javascript src="webjars/jquery/3.7.1/dist/jquery.js"/>
+```
+
+**Important**: The WebJarAssetLocator searches across **all** webjars for files matching the given path, so you **do not** include the package name. For example:
+- `webjars/dist/jquery.js` (searches all webjars for `dist/jquery.js`)
+- `webjars/jquery/dist/jquery.js` (incorrect - includes package name)
+
+### How It Works
+
+When the asset-pipeline plugin encounters a WebJar path without a version:
+
+1. Detects version-less paths (e.g., `webjars/dist/jquery.js`)
+2. Uses WebJarAssetLocator to search all webjars for matching file path (`dist/jquery.js`)
+3. Resolves to versioned path (e.g., `webjars/jquery/3.7.1/dist/jquery.js`)
+4. Caches resolved paths for performance
+
+The locator finds the file in the webjar's `META-INF/resources/webjars/{package}/{version}/` directory and returns the full path with version included.
+
+If `webjars-locator-core` is not on the classpath, WebJar paths are used as-is (graceful degradation).
+
+### Benefits
+
+- **No version maintenance in views**: Update dependencies in `build.gradle` without changing GSP files
+- **No package names needed**: Simpler paths - just specify the file path within the webjar
+- **Eliminates 404 errors**: No mismatched versions between dependencies and view references
+- **Cleaner code**: Shorter, more maintainable asset references
+- **Performance**: Resolved paths are cached for fast lookups
+- **Backward compatible**: Explicit versions with package names continue to work
+
+### Example
+
+**Before:**
+```gsp
+<asset:javascript src="webjars/jquery/3.7.1/dist/jquery.js"/>
+<asset:javascript src="webjars/jquery-form/4.3.0/src/jquery.form.js"/>
+<asset:javascript src="webjars/bootstrap/5.3.0/dist/js/bootstrap.bundle.js"/>
+<asset:stylesheet href="webjars/bootstrap/5.3.0/dist/css/bootstrap.css"/>
+```
+
+**After:**
+```gsp
+<asset:javascript src="webjars/dist/jquery.js"/>
+<asset:javascript src="webjars/src/jquery.form.js"/>
+<asset:javascript src="webjars/dist/js/bootstrap.bundle.js"/>
+<asset:stylesheet href="webjars/dist/css/bootstrap.css"/>
+```
+
+When you upgrade jQuery from 3.7.1 to 3.7.2, just update `build.gradle` - no view changes needed!
+
 Contributions
 -------------
 All contributions are of course welcome as this is an ACTIVE project. Any help with regards to reviewing platform compatibility, adding more tests, and general cleanup is most welcome.
