@@ -281,6 +281,65 @@ If `webjars-locator-core` is not on the classpath, WebJar paths are used as-is (
 
 When you upgrade jQuery from 3.7.1 to 3.7.2, just update `build.gradle` - no view changes needed!
 
+### Excluding WebJars from Compilation
+
+By default, all webjar assets are included during asset compilation. If you only want to compile specific webjar files (e.g., to reduce build output size), you can use the `excludeWebjarsByDefault` option:
+
+```groovy
+assets {
+    excludeWebjarsByDefault = true  // Automatically excludes webjars/**
+
+    includes = [
+        // Only include specific webjar files you need
+        'webjars/angular/*/angular.js',
+        'webjars/jquery/*/dist/jquery.js',
+        'webjars/bootstrap/*/dist/js/bootstrap.bundle.js',
+        'webjars/bootstrap/*/dist/css/bootstrap.css',
+    ]
+
+    // You can still exclude other non-webjar assets
+    excludes = [
+        '*.map',
+        'test/**'
+    ]
+}
+```
+
+**How it works:**
+- When `excludeWebjarsByDefault = true`, the pattern `webjars/**` is automatically added to the excludes list
+- You then use `includes` to whitelist only the specific webjar files you want to compile
+- The `excludes` list can still be used for other exclusion patterns (like `*.map`)
+- This is useful when you have many webjar dependencies but only need to compile a few specific files
+
+**Without excludeWebjarsByDefault** (manual approach):
+```groovy
+assets {
+    excludes = [
+        'webjars/angularjs/**',
+        'webjars/jquery/**',
+        'webjars/bootstrap/**',
+        // ... list every webjar manually
+    ]
+    includes = [
+        'webjars/angular/*/angular.js',
+        'webjars/jquery/*/dist/jquery.js',
+        // ...
+    ]
+}
+```
+
+**With excludeWebjarsByDefault** (automatic):
+```groovy
+assets {
+    excludeWebjarsByDefault = true  // Much simpler!
+    includes = [
+        'webjars/angular/*/angular.js',
+        'webjars/jquery/*/dist/jquery.js',
+        // ...
+    ]
+}
+```
+
 Contributions
 -------------
 All contributions are of course welcome as this is an ACTIVE project. Any help with regards to reviewing platform compatibility, adding more tests, and general cleanup is most welcome.

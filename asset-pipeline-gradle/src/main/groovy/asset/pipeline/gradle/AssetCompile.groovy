@@ -127,7 +127,7 @@ abstract class AssetCompile extends DefaultTask {
                 skipNonDigests  : config.skipNonDigests.get(),
         ]
         def assetCompiler = new AssetCompiler(compilerArgs, listener)
-        assetCompiler.excludeRules.default = config.excludes.get()
+        assetCompiler.excludeRules.default = config.effectiveExcludes
         assetCompiler.includeRules.default = config.includes.get()
         assetCompiler.compile()
     }
