@@ -236,4 +236,79 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 		then:
 			applyTemplate("<asset:deferredScripts/>") == '<script type="text/javascript">alert("foo");</script>'
 	}
+
+	// WebJar resolution tests
+
+	void "resolveWebjarPath handles non-webjar paths"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('js/application.js')
+		then:
+			result == 'js/application.js'
+	}
+
+	void "resolveWebjarPath handles null paths"() {
+		when:
+			final def result = tagLib.resolveWebjarPath(null)
+		then:
+			result == null
+	}
+
+	void "resolveWebjarPath handles already-versioned webjar paths"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('webjars/jquery/3.7.1/jquery.min.js')
+		then:
+			result == 'webjars/jquery/3.7.1/jquery.min.js'
+	}
+
+	void "resolveWebjarPath handles already-versioned webjar paths with beta versions"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('webjars/bootstrap/5.3.0-beta.2/dist/css/bootstrap.css')
+		then:
+			result == 'webjars/bootstrap/5.3.0-beta.2/dist/css/bootstrap.css'
+	}
+
+	void "resolveWebjarPath resolves version-less jQuery path correctly"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+		then:
+			// Should resolve to versioned path with jQuery 3.7.1
+			result.startsWith('webjars/jquery/')
+			result.contains('/dist/jquery.min.js')
+			result =~ /webjars\/jquery\/\d+\.\d+/
+	}
+
+	void "resolveWebjarPath resolves version-less Bootstrap CSS path correctly"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('webjars/dist/css/bootstrap.css')
+		then:
+			// Should resolve to versioned path with Bootstrap 5.3.0
+			result.startsWith('webjars/bootstrap/')
+			result.contains('/dist/css/bootstrap.css')
+			result =~ /webjars\/bootstrap\/\d+\.\d+/
+	}
+
+	void "resolveWebjarPath caches resolved paths"() {
+		when:
+			// First call should resolve and cache
+			final def result1 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+			// Second call should come from cache
+			final def result2 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+		then:
+			result1 == result2
+			result1.startsWith('webjars/jquery/')
+	}
+
+	void "resolveWebjarPath handles empty string"() {
+		when:
+			final def result = tagLib.resolveWebjarPath('')
+		then:
+			result == ''
+	}
+
+	void "clearWebJarCache clears the cache"() {
+		when:
+			tagLib.clearWebJarCache()
+		then:
+			notThrown(Exception)
+	}
 }

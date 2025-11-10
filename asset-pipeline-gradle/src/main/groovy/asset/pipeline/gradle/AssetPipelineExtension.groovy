@@ -15,6 +15,7 @@ import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.PathSensitive
 import org.gradle.api.tasks.PathSensitivity
 import org.gradle.api.tasks.compile.GroovyForkOptions
+import org.gradle.api.tasks.Internal
 
 import javax.inject.Inject
 
@@ -58,6 +59,9 @@ abstract class AssetPipelineExtension implements Serializable {
 
     @Input
     abstract final Property<Boolean> verbose
+
+    @Input
+    abstract final Property<Boolean> excludeWebjarsByDefault
 
     @Input
     @Optional
@@ -106,6 +110,7 @@ abstract class AssetPipelineExtension implements Serializable {
         enableDigests = objects.property(Boolean).convention(true)
         enableGzip = objects.property(Boolean).convention(true)
         enableSourceMaps = objects.property(Boolean).convention(true)
+        excludeWebjarsByDefault = objects.property(Boolean).convention(false)
         excludes = objects.listProperty(String).convention([])
         excludesGzip = objects.listProperty(String).convention([])
         includes = objects.listProperty(String).convention([])
@@ -126,5 +131,26 @@ abstract class AssetPipelineExtension implements Serializable {
      */
     void from(String resolverPath) {
         resolvers.from(project.file(resolverPath))
+    }
+
+    /**
+     * Returns the effective excludes list, automatically adding 'webjars/**' if
+     * excludeWebjarsByDefault is enabled.
+     *
+     * @return The complete list of exclusion patterns
+     */
+    @Internal
+    List<String> getEffectiveExcludes() {
+        List<String> effectiveExcludes = []
+
+        // Add automatic webjar exclusion if enabled
+        if (excludeWebjarsByDefault.get()) {
+            effectiveExcludes.add('webjars/**')
+        }
+
+        // Add user-defined excludes
+        effectiveExcludes.addAll(excludes.getOrElse([]))
+
+        return effectiveExcludes
     }
 }
