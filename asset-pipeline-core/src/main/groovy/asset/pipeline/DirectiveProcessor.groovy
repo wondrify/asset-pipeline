@@ -261,6 +261,7 @@ class DirectiveProcessor {
     /**
     * Directive which allows inclusion of individual files
     * Example: //=require sample.js
+    * Example (WebJar): //=require webjars/dist/jquery.js
     */
     def requireFileDirective(command, file, tree) {
         def fileName = command[1]
@@ -272,6 +273,9 @@ class DirectiveProcessor {
             }
         }
         else {
+            // Resolve WebJar paths before attempting to locate the file
+            fileName = AssetHelper.resolveWebjarPath(fileName)
+
             def newFile
             if( fileName.startsWith( AssetHelper.DIRECTIVE_FILE_SEPARATOR ) ) {
                 newFile = AssetHelper.fileForUri( fileName, this.contentType, null, this.baseFile )

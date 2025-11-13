@@ -239,6 +239,38 @@ In your GSP files, you can now reference WebJars without specifying package name
 - `webjars/dist/jquery.js` (searches all webjars for `dist/jquery.js`)
 - `webjars/jquery/dist/jquery.js` (incorrect - includes package name)
 
+### Usage with Require Directives
+
+WebJar version resolution also works with require directives in JavaScript and CSS files:
+
+**JavaScript:**
+```javascript
+//= require webjars/dist/jquery.js
+//= require webjars/dist/js/bootstrap.bundle.js
+```
+
+**CSS:**
+```css
+/*
+ *= require webjars/dist/css/bootstrap.css
+ *= require webjars/font/bootstrap-icons.css
+ */
+```
+
+**Before (with explicit versions):**
+```javascript
+//= require webjars/jquery/3.7.1/dist/jquery.js
+//= require webjars/bootstrap/5.3.0/dist/js/bootstrap.bundle.js
+```
+
+**After (version-less):**
+```javascript
+//= require webjars/dist/jquery.js
+//= require webjars/dist/js/bootstrap.bundle.js
+```
+
+When you upgrade dependencies in `build.gradle`, your require directives automatically resolve to the new versions - no code changes needed!
+
 ### How It Works
 
 When the asset-pipeline plugin encounters a WebJar path without a version:
