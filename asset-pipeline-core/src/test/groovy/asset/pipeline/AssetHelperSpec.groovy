@@ -167,19 +167,57 @@ class AssetHelperSpec extends Specification {
 
     void "resolveWebjarPath caches resolved paths"() {
         when:
+            // Clear cache first to ensure clean state
+            AssetHelper.clearWebJarCache()
+
             // First call should resolve and cache
             def result1 = AssetHelper.resolveWebjarPath('webjars/dist/jquery.min.js')
-            // Second call should come from cache
+
+            // Manually inspect cache to verify it was populated
+            def cacheField = AssetHelper.getDeclaredField('WEBJAR_CACHE')
+            cacheField.setAccessible(true)
+            def cache = cacheField.get(null) as Map
+            def cachedValue = cache.get('webjars/dist/jquery.min.js')
+
+            // Second call should return the cached value
             def result2 = AssetHelper.resolveWebjarPath('webjars/dist/jquery.min.js')
+
         then:
-            result1 == result2
+            // Verify first resolution worked
             result1.startsWith('webjars/jquery/')
+            result1.contains('/dist/jquery.min.js')
+
+            // Verify cache was populated
+            cachedValue != null
+            cachedValue == result1
+
+            // Verify second call returns same cached value
+            result2 == result1
+            result2 == cachedValue
     }
 
     void "clearWebJarCache clears the cache"() {
         when:
+            // First populate the cache
+            AssetHelper.resolveWebjarPath('webjars/dist/jquery.min.js')
+
+            // Verify cache has entries
+            def cacheField = AssetHelper.getDeclaredField('WEBJAR_CACHE')
+            cacheField.setAccessible(true)
+            def cache = cacheField.get(null) as Map
+            def sizeBeforeClear = cache.size()
+
+            // Clear the cache
             AssetHelper.clearWebJarCache()
+
+            // Check cache size after clearing
+            def sizeAfterClear = cache.size()
+
         then:
-            notThrown(Exception)
+            // Verify cache had entries before clearing
+            sizeBeforeClear > 0
+
+            // Verify cache is empty after clearing
+            sizeAfterClear == 0
     }
 }

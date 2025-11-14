@@ -289,13 +289,33 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 
 	void "resolveWebjarPath caches resolved paths"() {
 		when:
+			// Clear cache first to ensure clean state
+			tagLib.clearWebJarCache()
+
 			// First call should resolve and cache
 			final def result1 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
-			// Second call should come from cache
+
+			// Access private cache field to verify it was populated
+			def cacheField = tagLib.class.getDeclaredField('WEBJAR_CACHE')
+			cacheField.setAccessible(true)
+			def cache = cacheField.get(null) as Map
+			def cachedValue = cache.get('webjars/dist/jquery.min.js')
+
+			// Second call should return the cached value
 			final def result2 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+
 		then:
-			result1 == result2
+			// Verify first resolution worked
 			result1.startsWith('webjars/jquery/')
+			result1.contains('/dist/jquery.min.js')
+
+			// Verify cache was populated
+			cachedValue != null
+			cachedValue == result1
+
+			// Verify second call returns same cached value
+			result2 == result1
+			result2 == cachedValue
 	}
 
 	void "resolveWebjarPath handles empty string"() {
@@ -307,8 +327,26 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 
 	void "clearWebJarCache clears the cache"() {
 		when:
+			// First populate the cache
+			tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+
+			// Access cache to check size
+			def cacheField = tagLib.class.getDeclaredField('WEBJAR_CACHE')
+			cacheField.setAccessible(true)
+			def cache = cacheField.get(null) as Map
+			def sizeBeforeClear = cache.size()
+
+			// Clear the cache
 			tagLib.clearWebJarCache()
+
+			// Check cache size after clearing
+			def sizeAfterClear = cache.size()
+
 		then:
-			notThrown(Exception)
+			// Verify cache had entries before clearing
+			sizeBeforeClear > 0
+
+			// Verify cache is empty after clearing
+			sizeAfterClear == 0
 	}
 }
