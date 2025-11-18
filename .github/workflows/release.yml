@@ -48,7 +48,7 @@ jobs:
           SECRING_FILE: ${{ secrets.SECRING_FILE }}
         run: echo $SECRING_FILE | base64 -d > ${{ github.workspace }}/secring.gpg
       - name: "☕️ Setup JDK"
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: liberica
           java-version: ${{ env.JAVA_VERSION }}
@@ -103,7 +103,7 @@ jobs:
           SOURCE_DATE_EPOCH=$(cat BUILD_DATE)
           find . -depth \( -type f -o -type d \) -exec touch -d "@${SOURCE_DATE_EPOCH}" {} +
       - name: "☕️ Setup JDK"
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: liberica
           java-version: ${{ env.JAVA_VERSION }}
@@ -140,7 +140,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: rel-${{ needs.publish.outputs.release_version }}
       - name: "☕️ Setup JDK"
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: liberica
           java-version: ${{ env.JAVA_VERSION }}
@@ -173,7 +173,7 @@ jobs:
 #          token: ${{ secrets.GITHUB_TOKEN }}
 #          ref: rel-${{ needs.publish.outputs.release_version }}
 #      - name: "☕️ Setup JDK"
-#        uses: actions/setup-java@v4
+#        uses: actions/setup-java@v5
 #        with:
 #          java-version: ${{ env.JAVA_VERSION }}
 #          distribution: liberica
