@@ -262,6 +262,7 @@ class DirectiveProcessor {
     * Directive which allows inclusion of individual files
     * Example: //=require sample.js
     * Example (WebJar): //=require webjars/dist/jquery.js
+    * Example (WebJar without extension): //=require webjars/dist/css/bootstrap
     */
     def requireFileDirective(command, file, tree) {
         def fileName = command[1]
@@ -274,7 +275,8 @@ class DirectiveProcessor {
         }
         else {
             // Resolve WebJar paths before attempting to locate the file
-            fileName = AssetHelper.resolveWebjarPath(fileName)
+            // Pass contentType to enable extension inference for paths without extensions
+            fileName = AssetHelper.resolveWebjarPath(fileName, this.contentType)
 
             def newFile
             if( fileName.startsWith( AssetHelper.DIRECTIVE_FILE_SEPARATOR ) ) {

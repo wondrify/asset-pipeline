@@ -328,6 +328,9 @@ public class AssetHelper {
      *   Input:  webjars/dist/css/bootstrap.css
      *   Output: webjars/bootstrap/5.3.0/dist/css/bootstrap.css
      *
+     *   Input:  webjars/dist/css/bootstrap (contentType: 'text/css')
+     *   Output: webjars/bootstrap/5.3.0/dist/css/bootstrap.css
+     *
      * Non-webjar paths are returned unchanged:
      *   Input:  js/application.js
      *   Output: js/application.js
@@ -336,10 +339,11 @@ public class AssetHelper {
      *   Input:  webjars/jquery/3.7.1/dist/jquery.min.js
      *   Output: webjars/jquery/3.7.1/dist/jquery.min.js
      *
-     * @param path Original path (may or may not include version)
+     * @param path Original path (may or may not include version or extension)
+     * @param contentType Optional content type to infer extension if path lacks one (e.g., 'text/css', 'application/javascript')
      * @return Resolved path with version, or original path if not a webjar or already versioned
      */
-    static String resolveWebjarPath(String path) {
+    static String resolveWebjarPath(String path, String contentType = null) {
         if (!path) {
             return path
         }
@@ -369,32 +373,89 @@ public class AssetHelper {
         // Resolve version using WebJarAssetLocator (if available)
         Object locator = webJarLocatorInitialized ? webJarLocator : initializeWebJarLocator()
         if (locator) {
-            try {
-                // Remove 'webjars/' prefix - locator expects path without it
-                String partialPath = pathToProcess.substring(8)
+            // Remove 'webjars/' prefix - locator expects path without it
+            String partialPath = pathToProcess.substring(8)
 
-                // WebJarAssetLocator.getFullPath() returns: META-INF/resources/webjars/jquery/3.7.1/dist/jquery.js
-                // Need to strip META-INF/resources/ prefix
-                String resolvedPath = locator.getFullPath(partialPath)
-                if (resolvedPath.startsWith("META-INF/resources/")) {
-                    resolvedPath = resolvedPath.substring(19) // Remove "META-INF/resources/"
+            // Try to resolve with the path as-is first
+            String resolvedPath = tryResolveWebjarWithLocator(locator, partialPath, pathToProcess, hasLeadingSlash)
+            if (resolvedPath != null) {
+                return resolvedPath
+            }
+
+            // If that failed and path doesn't have an extension, try adding extensions based on contentType
+            if (!hasFileExtension(partialPath) && contentType) {
+                List<String> extensionsToTry = getExtensionsForContentType(contentType)
+                for (String ext in extensionsToTry) {
+                    String pathWithExt = partialPath + '.' + ext
+                    resolvedPath = tryResolveWebjarWithLocator(locator, pathWithExt, pathToProcess, hasLeadingSlash)
+                    if (resolvedPath != null) {
+                        return resolvedPath
+                    }
                 }
-
-                // Cache the resolved path (without leading slash)
-                WEBJAR_CACHE[pathToProcess] = resolvedPath
-
-                // Add leading slash back if original had it
-                String result = hasLeadingSlash ? "/" + resolvedPath : resolvedPath
-
-                log.debug("Resolved webjar path: ${path} -> ${result}")
-                return result
-
-            } catch (Exception e) {
-                log.debug("Could not resolve webjar path: ${path}. ${e.message}")
             }
         }
 
         return path
+    }
+
+    /**
+     * Helper method to attempt webjar resolution with the locator.
+     * Returns the resolved path if successful, null otherwise.
+     */
+    private static String tryResolveWebjarWithLocator(Object locator, String partialPath, String originalPathToProcess, boolean hasLeadingSlash) {
+        try {
+            // WebJarAssetLocator.getFullPath() returns: META-INF/resources/webjars/jquery/3.7.1/dist/jquery.js
+            // Need to strip META-INF/resources/ prefix
+            String resolvedPath = locator.getFullPath(partialPath)
+            if (resolvedPath.startsWith("META-INF/resources/")) {
+                resolvedPath = resolvedPath.substring(19) // Remove "META-INF/resources/"
+            }
+
+            // Cache the resolved path (without leading slash)
+            WEBJAR_CACHE[originalPathToProcess] = resolvedPath
+
+            // Add leading slash back if original had it
+            String result = hasLeadingSlash ? "/" + resolvedPath : resolvedPath
+
+            log.debug("Resolved webjar path: webjars/${partialPath} -> ${result}")
+            return result
+
+        } catch (Exception e) {
+            log.debug("Could not resolve webjar path: webjars/${partialPath}. ${e.message}")
+            return null
+        }
+    }
+
+    /**
+     * Checks if a path has a file extension.
+     * Checks for common asset file extensions (.js, .css, .min.js, .min.css, etc.)
+     */
+    private static boolean hasFileExtension(String path) {
+        if (!path) {
+            return false
+        }
+        // Check if path ends with a known asset extension
+        def knownExtensions = ['.js', '.css', '.min.js', '.min.css', '.mjs', '.cjs']
+        return knownExtensions.any { ext -> path.endsWith(ext) }
+    }
+
+    /**
+     * Returns a list of file extensions to try based on the content type.
+     */
+    private static List<String> getExtensionsForContentType(String contentType) {
+        if (!contentType) {
+            return []
+        }
+        switch (contentType) {
+            case 'text/css':
+                return ['css']
+            case 'application/javascript':
+            case 'application/x-javascript':
+            case 'text/javascript':
+                return ['js']
+            default:
+                return []
+        }
     }
 
     /**
