@@ -159,22 +159,10 @@ class AssetHelperSpec extends Specification {
         when:
             def result = AssetHelper.resolveWebjarPath('webjars/dist/css/bootstrap.css')
         then:
+            // Should resolve to versioned path with Bootstrap 5.3.0
             result.startsWith('webjars/bootstrap/')
             result.contains('/dist/css/bootstrap.css')
             result =~ /webjars\/bootstrap\/\d+\.\d+/
-    }
-
-    void "resolveWebjarPath resolves extension-less paths correctly"() {
-        when:
-            def cssResult = AssetHelper.resolveWebjarPath('webjars/dist/css/bootstrap', 'text/css')
-            def jsResult = AssetHelper.resolveWebjarPath('webjars/dist/jquery.min', 'application/javascript')
-        then:
-            cssResult.startsWith('webjars/bootstrap/')
-            cssResult.contains('/dist/css/bootstrap.css')
-            cssResult =~ /webjars\/bootstrap\/\d+\.\d+/
-            jsResult.startsWith('webjars/jquery/')
-            jsResult.contains('/dist/jquery.min.js')
-            jsResult =~ /webjars\/jquery\/\d+\.\d+/
     }
 
     void "resolveWebjarPath caches resolved paths"() {

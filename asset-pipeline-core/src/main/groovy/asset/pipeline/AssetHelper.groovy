@@ -37,13 +37,7 @@ public class AssetHelper {
     static final Collection<Class<AssetFile>> assetSpecs = AssetSpecLoader.loadSpecifications()
     static final String QUOTED_FILE_SEPARATOR = Pattern.quote(File.separator)
     static final String DIRECTIVE_FILE_SEPARATOR = '/'
-    static final Map<String, List<String>> CONTENT_TYPE_EXTENSIONS = Collections.unmodifiableMap([
-            'application/javascript': ['.js', 'cjs', 'js.es6','js.es7','js.es8','js.es','bjs','mjs'],
-            'application/x-javascript': ['.js', 'cjs', 'js.es6','js.es7','js.es8','js.es','bjs','mjs'],
-            'text/css': ['.css'],
-            'text/javascript': ['.js', 'cjs', 'js.es6','js.es7','js.es8','js.es','bjs','mjs'],
-            'text/html': ['.html', '.htm']
-    ])
+
     /**
      * Resolve an {@link AssetFile} for the given URI
      *
@@ -345,7 +339,7 @@ public class AssetHelper {
      * @param path Original path (may or may not include version)
      * @return Resolved path with version, or original path if not a webjar or already versioned
      */
-    static String resolveWebjarPath(String path, String contentType = null) {
+    static String resolveWebjarPath(String path) {
         if (!path) {
             return path
         }
@@ -370,15 +364,6 @@ public class AssetHelper {
         if (WEBJAR_CACHE.containsKey(pathToProcess)) {
             String cached = WEBJAR_CACHE[pathToProcess]
             return hasLeadingSlash ? "/" + cached : cached
-        }
-
-        // Add any missing extension
-        if (contentType) {
-            def exts = CONTENT_TYPE_EXTENSIONS[contentType] ?: []
-            def hasExtension = exts.any { ext -> pathToProcess.endsWith(ext) }
-            if (!hasExtension && exts) {
-                pathToProcess += exts.first()
-            }
         }
 
         // Resolve version using WebJarAssetLocator (if available)
