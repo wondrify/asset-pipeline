@@ -28,7 +28,6 @@ dependencies {
 
     // Needs to be compiled with Groovy 3 as it is used by the Gradle Plugin
     compileOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
-    compileOnly "com.google.guava:guava:33.4.6-jre" // required for closure-compiler-unshaded - com.google.common.base.Predicate is missing otherwise
     compileOnly "org.codehaus.groovy:groovy:$groovy3Version"
     compileOnly "org.codehaus.groovy:groovy-json:$groovy3Version"
     compileOnly "org.codehaus.groovy:groovy-templates:$groovy3Version"
