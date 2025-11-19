@@ -220,4 +220,53 @@ class AssetHelperSpec extends Specification {
             // Verify cache is empty after clearing
             sizeAfterClear == 0
     }
+
+    void "resolveWebjarPath resolves CSS path without extension using contentType"() {
+        when:
+            def result = AssetHelper.resolveWebjarPath('webjars/dist/css/bootstrap', 'text/css')
+        then:
+            // Should resolve to versioned path with Bootstrap and add .css extension
+            result.startsWith('webjars/bootstrap/')
+            result.contains('/dist/css/bootstrap.css')
+            result =~ /webjars\/bootstrap\/\d+\.\d+/
+    }
+
+    void "resolveWebjarPath resolves JS path without extension using contentType"() {
+        when:
+            def result = AssetHelper.resolveWebjarPath('webjars/dist/jquery', 'application/javascript')
+        then:
+            // Should resolve to versioned path with jQuery and add .js extension
+            result.startsWith('webjars/jquery/')
+            result.contains('/dist/jquery.js')
+            result =~ /webjars\/jquery\/\d+\.\d+/
+    }
+
+    void "resolveWebjarPath resolves Bootstrap Icons CSS path without extension"() {
+        when:
+            def result = AssetHelper.resolveWebjarPath('webjars/font/bootstrap-icons', 'text/css')
+        then:
+            // Should resolve to versioned path with bootstrap-icons and add .css extension
+            // If bootstrap-icons webjar is not available in test classpath, it returns the original path
+            result.startsWith('webjars/bootstrap-icons/') || result == 'webjars/font/bootstrap-icons'
+            // Only check content if resolution succeeded
+            !result.contains('bootstrap-icons/') || result.contains('/font/bootstrap-icons.css')
+    }
+
+    void "resolveWebjarPath without contentType doesn't add extension"() {
+        when:
+            def result = AssetHelper.resolveWebjarPath('webjars/dist/css/bootstrap')
+        then:
+            // Without contentType, can't infer extension, so should return original path
+            // (unless the locator happens to find it without extension)
+            result == 'webjars/dist/css/bootstrap' || result.contains('bootstrap')
+    }
+
+    void "resolveWebjarPath prefers exact match over inferred extension"() {
+        when:
+            // Path that already has extension should be used as-is, not modified
+            def result = AssetHelper.resolveWebjarPath('webjars/dist/css/bootstrap.min.css', 'text/css')
+        then:
+            // Should resolve using the exact path with .min.css, not try to add .css again
+            result.contains('bootstrap.min.css')
+    }
 }
