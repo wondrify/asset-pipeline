@@ -274,7 +274,7 @@ class DirectiveProcessor {
         }
         else {
             // Resolve WebJar paths before attempting to locate the file
-            fileName = AssetHelper.resolveWebjarPath(fileName)
+            fileName = AssetHelper.resolveWebjarPath(fileName, this.contentType)
 
             def newFile
             if( fileName.startsWith( AssetHelper.DIRECTIVE_FILE_SEPARATOR ) ) {
