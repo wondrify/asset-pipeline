@@ -344,21 +344,26 @@ public class AssetHelper {
             return path
         }
 
+        // Handle paths with leading slash (DirectiveProcessor retries with leading slash if file not found)
+        boolean hasLeadingSlash = path.startsWith('/')
+        String pathToProcess = hasLeadingSlash ? path.substring(1) : path
+
         // Only process webjar paths
-        if (!path.startsWith('webjars/')) {
+        if (!pathToProcess.startsWith('webjars/')) {
             return path
         }
 
         // Check if already has version (pattern: webjars/package/1.2.3/...)
         // Match version like: 1.2.3, 1.0.0-alpha1, 5.3.0-beta.2, etc.
-        if (path =~ /webjars\/[^\/]+\/\d+\.\d+[^\/]*\//) {
+        if (pathToProcess =~ /webjars\/[^\/]+\/\d+\.\d+[^\/]*\//) {
             log.debug("Path already contains version: ${path}")
             return path
         }
 
         // Check cache first
-        if (WEBJAR_CACHE.containsKey(path)) {
-            return WEBJAR_CACHE[path]
+        if (WEBJAR_CACHE.containsKey(pathToProcess)) {
+            String cached = WEBJAR_CACHE[pathToProcess]
+            return hasLeadingSlash ? "/" + cached : cached
         }
 
         // Resolve version using WebJarAssetLocator (if available)
@@ -366,7 +371,7 @@ public class AssetHelper {
         if (locator) {
             try {
                 // Remove 'webjars/' prefix - locator expects path without it
-                String partialPath = path.substring(8)
+                String partialPath = pathToProcess.substring(8)
 
                 // WebJarAssetLocator.getFullPath() returns: META-INF/resources/webjars/jquery/3.7.1/dist/jquery.js
                 // Need to strip META-INF/resources/ prefix
@@ -375,11 +380,14 @@ public class AssetHelper {
                     resolvedPath = resolvedPath.substring(19) // Remove "META-INF/resources/"
                 }
 
-                // Cache the resolved path
-                WEBJAR_CACHE[path] = resolvedPath
+                // Cache the resolved path (without leading slash)
+                WEBJAR_CACHE[pathToProcess] = resolvedPath
 
-                log.debug("Resolved webjar path: ${path} -> ${resolvedPath}")
-                return resolvedPath
+                // Add leading slash back if original had it
+                String result = hasLeadingSlash ? "/" + resolvedPath : resolvedPath
+
+                log.debug("Resolved webjar path: ${path} -> ${result}")
+                return result
 
             } catch (Exception e) {
                 log.debug("Could not resolve webjar path: ${path}. ${e.message}")
