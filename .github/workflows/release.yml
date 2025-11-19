@@ -6,7 +6,7 @@ permissions:
   contents: write
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  JAVA_VERSION: '17.0.15' # this must be a specific version for reproducible builds
+  JAVA_VERSION: '21.0.9' # this must be a specific version for reproducible builds
   RELEASE_TAG_PREFIX: 'rel-'
 jobs:
   publish:

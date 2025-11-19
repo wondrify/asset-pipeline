@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ 17 ]
+        java: [ 21 ]
         os: [ ubuntu-latest ]
     runs-on: ubuntu-24.04
     steps:
@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-java@v5
         with:
           distribution: liberica
-          java-version: 17
+          java-version: 21
       - name: "🐘 Setup Gradle"
         uses: gradle/actions/setup-gradle@v4
       - name: "Set up Node.js"
