@@ -21,6 +21,7 @@ dependencies {
     // and when running bootRun task (in development)
     runtimeOnly "com.google.javascript:closure-compiler-unshaded:$closureCompilerVersion"
     runtimeOnly "org.graalvm.js:js-community:$graalvmVersion"
+	runtimeOnly "org.webjars:webjars-locator-core:$webjarsLocatorCoreVersion"
 }
 
 task(console, dependsOn: 'classes', type: JavaExec) {
