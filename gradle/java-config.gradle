@@ -10,6 +10,7 @@ tasks.withType(Jar).configureEach {
     manifest.attributes(
             'Implementation-Title': 'Asset Pipeline',
             'Implementation-Version': project.version,
-            'Implementation-Vendor': "${project.group}:${findProperty('pomArtifactId') ?: project.name}"
+            'Implementation-Vendor': "${project.group}:${findProperty('pomArtifactId') ?: project.name}",
+            'Webjars-Locator-Version': project.findProperty('webjarsLocatorVersion') ?: '0.59'
     )
 }
