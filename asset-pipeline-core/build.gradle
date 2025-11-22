@@ -33,14 +33,14 @@ dependencies {
     compileOnly "org.codehaus.groovy:groovy-templates:$groovy3Version"
     compileOnly "org.graalvm.polyglot:polyglot:$graalvmVersion"
     compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
-    compileOnly "org.webjars:webjars-locator-core:0.59" // WebJar version resolution
+    compileOnly "org.webjars:webjars-locator-core:$webjarsLocatorVersion" // WebJar version resolution
 
     testImplementation project(':asset-pipeline-classpath-test')
     testImplementation "org.apache.groovy:groovy:$groovy4Version"
     testImplementation "org.spockframework:spock-core:$spockVersion"
 
     // WebJar testing dependencies
-    testImplementation "org.webjars:webjars-locator-core:0.59"
+    testImplementation "org.webjars:webjars-locator-core:$webjarsLocatorVersion"
     testImplementation "org.webjars.npm:jquery:3.7.1"
     testImplementation "org.webjars.npm:bootstrap:5.3.0"
 

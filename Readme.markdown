@@ -208,17 +208,19 @@ The Asset Pipeline plugin provides automatic version resolution for WebJars, eli
 
 ### Setup
 
-To enable WebJar version resolution in Grails applications, add the webjars-locator-core dependency:
+The Asset Pipeline plugin **automatically** adds `webjars-locator-core` when it detects WebJar dependencies in your project. Simply add your WebJar dependencies:
 
 ```groovy
 dependencies {
-    implementation "org.webjars:webjars-locator-core"
+    // The plugin automatically adds webjars-locator-core for you
 
-    // Add your webjar dependencies
-    implementation "org.webjars.npm:jquery:3.7.1"
-    implementation "org.webjars.npm:bootstrap:5.3.0"
+    // Just add your webjar dependencies
+    assetDevelopmentRuntime "org.webjars.npm:jquery:3.7.1"
+    assetDevelopmentRuntime "org.webjars.npm:bootstrap:5.3.0"
 }
 ```
+
+**Note:** Use `assetDevelopmentRuntime` instead of `implementation` to keep WebJars out of your production JAR/WAR. The webjars are only needed during development and asset compilation.
 
 ### Usage in Grails
 
@@ -273,8 +275,12 @@ When you upgrade dependencies in `build.gradle`, your require directives automat
 
 ### How It Works
 
-When the asset-pipeline plugin encounters a WebJar path without a version:
+**Automatic Dependency Management:**
+1. The plugin scans your project for `org.webjars:*` dependencies during configuration
+2. If WebJars are detected, it automatically adds `webjars-locator-core:0.59` to `assetDevelopmentRuntime`
+3. No manual configuration needed - it just works!
 
+**Version Resolution:**
 1. Detects version-less paths (e.g., `webjars/dist/jquery.js`)
 2. Uses WebJarAssetLocator to search all webjars for matching file path (`dist/jquery.js`)
 3. Resolves to versioned path (e.g., `webjars/jquery/3.7.1/dist/jquery.js`)
@@ -282,14 +288,14 @@ When the asset-pipeline plugin encounters a WebJar path without a version:
 
 The locator finds the file in the webjar's `META-INF/resources/webjars/{package}/{version}/` directory and returns the full path with version included.
 
-If `webjars-locator-core` is not on the classpath, WebJar paths are used as-is (graceful degradation).
-
 ### Benefits
 
+- **Zero configuration**: Plugin automatically detects and configures WebJar support
 - **No version maintenance in views**: Update dependencies in `build.gradle` without changing GSP files
 - **No package names needed**: Simpler paths - just specify the file path within the webjar
 - **Eliminates 404 errors**: No mismatched versions between dependencies and view references
 - **Cleaner code**: Shorter, more maintainable asset references
+- **Production optimized**: WebJars excluded from production JAR/WAR when using `assetDevelopmentRuntime`
 - **Performance**: Resolved paths are cached for fast lookups
 - **Backward compatible**: Explicit versions with package names continue to work
 
