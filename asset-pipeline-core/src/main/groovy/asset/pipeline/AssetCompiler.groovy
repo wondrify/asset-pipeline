@@ -459,6 +459,7 @@ Options:
 			threadPool.shutdown()
 		}
 		// eventListener?.triggerEvent("StatusUpdate", "Saving Manifest")
+		addVersionlessWebjarManifestEntries()
 		saveManifest()
 		eventListener?.triggerEvent("StatusUpdate", "Finished Precompiling Assets")
 	}
@@ -596,6 +597,49 @@ Options:
 			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/assets'))
 			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/static'))
 			AssetPipelineConfigHolder.registerResolver(new JarAssetResolver(jarFile.name, jarFile.canonicalPath, 'META-INF/resources'))
+		}
+	}
+
+	/**
+	 * Add version-less webjar manifest entries for easier runtime resolution.
+	 * Converts: webjars/jquery/3.7.1/dist/jquery.js -> also creates webjars/dist/jquery.js entry
+	 *
+	 * This allows production applications to use versionless paths like webjars/dist/jquery.js
+	 * without requiring webjars-locator-core at runtime. The mapping is established at compile time.
+	 */
+	private void addVersionlessWebjarManifestEntries() {
+		def webjarEntries = [:]
+		def collisions = []
+
+		manifestProperties.each { key, value ->
+			if (key.toString().startsWith('webjars/')) {
+				// Match pattern: webjars/{package}/{version}/{path}
+				// Version must be at least major.minor (e.g., 3.7, 3.7.1, 5.3.0-beta.2)
+				if (key =~ /webjars\/[^\/]+\/\d+\.\d+[^\/]*\//) {
+					// Extract version-less path: webjars/jquery/3.7.1/dist/jquery.js -> webjars/dist/jquery.js
+					def versionlessKey = key.toString().replaceFirst(/webjars\/[^\/]+\/\d+\.\d+[^\/]*\//, 'webjars/')
+
+					if (webjarEntries.containsKey(versionlessKey) && webjarEntries[versionlessKey] != value) {
+						collisions << [path: versionlessKey, existing: key, new: key]
+					}
+
+					webjarEntries[versionlessKey] = value
+				}
+			}
+		}
+
+		webjarEntries.each { key, value ->
+			manifestProperties.setProperty(key, value.toString())
+		}
+
+		if (webjarEntries) {
+			log.info("Added ${webjarEntries.size()} version-less webjar manifest entries")
+		}
+
+		if (collisions) {
+			collisions.each { collision ->
+				log.warn("WebJar path collision detected for '${collision.path}' - multiple webjars provide this file")
+			}
 		}
 	}
 }

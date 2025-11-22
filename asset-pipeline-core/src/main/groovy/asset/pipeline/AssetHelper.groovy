@@ -55,6 +55,21 @@ public class AssetHelper {
                 return file
             }
         }
+
+        // If not found and this looks like a webjar path without version, try resolving it
+        String uriToCheck = uri?.startsWith('/') ? uri.substring(1) : uri
+        if (!file && uriToCheck && uriToCheck.startsWith('webjars/') && !(uriToCheck =~ /webjars\/[^\/]+\/\d+\.\d+[^\/]*\//)) {
+            String resolvedUri = resolveWebjarPath(uri, contentType)
+            if (resolvedUri != uri) {
+                for (resolver in AssetPipelineConfigHolder.resolvers) {
+                    file = resolver.getAsset(resolvedUri, contentType, ext, baseFile)
+                    if (file) {
+                        return file
+                    }
+                }
+            }
+        }
+
         return null
     }
 
