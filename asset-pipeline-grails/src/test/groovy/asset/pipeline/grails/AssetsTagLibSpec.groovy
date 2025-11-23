@@ -236,4 +236,46 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 		then:
 			applyTemplate("<asset:deferredScripts/>") == '<script type="text/javascript">alert("foo");</script>'
 	}
+
+	void "asset javascript tag does not throw exception with versionless webjar paths"() {
+		when:
+			tagLib.javascript(src: 'webjars/dist/jquery.js')
+		then:
+			notThrown(Exception)
+	}
+
+	void "asset stylesheet tag does not throw exception with versionless webjar paths"() {
+		when:
+			tagLib.stylesheet(href: 'webjars/dist/css/bootstrap.css')
+		then:
+			notThrown(Exception)
+	}
+
+	void "asset javascript tag does not throw exception with versioned webjar paths"() {
+		when:
+			tagLib.javascript(src: 'webjars/jquery/3.7.1/dist/jquery.js')
+		then:
+			notThrown(Exception)
+	}
+
+	void "asset stylesheet tag does not throw exception with versioned webjar paths"() {
+		when:
+			tagLib.stylesheet(href: 'webjars/bootstrap/5.3.0/dist/css/bootstrap.css')
+		then:
+			notThrown(Exception)
+	}
+
+	void "asset tag handles non-webjar paths normally"() {
+		given:
+			final def jsAsset = "asset-pipeline/test/test.js"
+			final def cssAsset = "asset-pipeline/test/test.css"
+		when:
+			def jsResult = tagLib.javascript(src: jsAsset)
+			def cssResult = tagLib.stylesheet(href: cssAsset)
+		then:
+			jsResult.contains('<script')
+			jsResult.contains('src=')
+			cssResult.contains('<link')
+			cssResult.contains('href=')
+	}
 }
