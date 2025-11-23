@@ -92,13 +92,6 @@ class AssetPipelinePlugin implements Plugin<Project> {
             configureTestRuntimeClasspath(project)
             configureBootRun(project)
 
-            // Automatically add webjars-locator-core if project has webjar dependencies
-            if (detectWebJarDependencies(project)) {
-                String webjarsLocatorVersion = getWebJarsLocatorVersion()
-                project.logger.info('asset-pipeline: WebJar dependencies detected, adding webjars-locator-core:{} to {}', webjarsLocatorVersion, ASSET_DEVELOPMENT_CONFIGURATION_NAME)
-                project.dependencies.add(ASSET_DEVELOPMENT_CONFIGURATION_NAME, "org.webjars:webjars-locator-core:${webjarsLocatorVersion}")
-            }
-
             def distributionContainer = project.extensions.findByType(DistributionContainer)
             if (distributionContainer) {
                 distributionContainer.named('main').configure {
@@ -163,36 +156,6 @@ class AssetPipelinePlugin implements Plugin<Project> {
         project.plugins.withId('org.springframework.boot') {
             ['bootRun', 'bootTestRun'].each { String taskName ->
                 project.tasks.named(taskName, JavaExec, configureBootRun)
-            }
-        }
-    }
-
-    /**
-     * Gets the webjars-locator-core version from the JAR manifest.
-     * Falls back to '0.59' if not found in manifest.
-     */
-    private String getWebJarsLocatorVersion() {
-        try {
-            String version = getClass().package.getImplementationAttributes()?.getValue('Webjars-Locator-Version')
-            return version ?: '0.59'
-        } catch (Exception e) {
-            return '0.59'
-        }
-    }
-
-    /**
-     * Detects if the project has any org.webjars dependencies.
-     * Scans all configurations for dependencies with group starting with 'org.webjars'.
-     */
-    private static boolean detectWebJarDependencies(Project project) {
-        return project.configurations.any { config ->
-            try {
-                config.dependencies.any { dep ->
-                    dep.group?.startsWith('org.webjars')
-                }
-            } catch (Exception e) {
-                project.logger.debug('asset-pipeline: Could not scan configuration {} for webjar dependencies: {}', config.name, e.message)
-                false
             }
         }
     }

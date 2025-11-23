@@ -208,13 +208,11 @@ The Asset Pipeline plugin provides automatic version resolution for WebJars, eli
 
 ### Setup
 
-The Asset Pipeline plugin **automatically** adds `webjars-locator-core` when it detects WebJar dependencies in your project. Simply add your WebJar dependencies:
+The Asset Pipeline plugin includes `webjars-locator-core` for automatic WebJar version resolution. Simply add your WebJar dependencies:
 
 ```groovy
 dependencies {
-    // The plugin automatically adds webjars-locator-core for you
-
-    // Just add your webjar dependencies
+    // Add your webjar dependencies
     assetDevelopmentRuntime "org.webjars.npm:jquery:3.7.1"
     assetDevelopmentRuntime "org.webjars.npm:bootstrap:5.3.0"
 }
@@ -275,11 +273,6 @@ When you upgrade dependencies in `build.gradle`, your require directives automat
 
 ### How It Works
 
-**Automatic Dependency Management:**
-1. The plugin scans your project for `org.webjars:*` dependencies during configuration
-2. If WebJars are detected, it automatically adds `webjars-locator-core:0.59` to `assetDevelopmentRuntime`
-3. No manual configuration needed - it just works!
-
 **Version Resolution:**
 1. Detects version-less paths (e.g., `webjars/dist/jquery.js`)
 2. Uses WebJarAssetLocator to search all webjars for matching file path (`dist/jquery.js`)
@@ -290,7 +283,6 @@ The locator finds the file in the webjar's `META-INF/resources/webjars/{package}
 
 ### Benefits
 
-- **Zero configuration**: Plugin automatically detects and configures WebJar support
 - **No version maintenance in views**: Update dependencies in `build.gradle` without changing GSP files
 - **No package names needed**: Simpler paths - just specify the file path within the webjar
 - **Eliminates 404 errors**: No mismatched versions between dependencies and view references
