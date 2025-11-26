@@ -5,9 +5,7 @@ import asset.pipeline.AssetPipeline
 import asset.pipeline.AssetPipelineConfigHolder
 import grails.core.GrailsApplication
 import org.grails.buffer.GrailsPrintWriter
-import groovy.util.logging.Slf4j
 
-@Slf4j
 class AssetsTagLib {
 
 	static namespace = 'asset'
@@ -15,11 +13,6 @@ class AssetsTagLib {
 
 	static final ASSET_REQUEST_MEMO = "asset-pipeline.memo"
 	private static final LINE_BREAK = System.getProperty('line.separator') ?: '\n'
-
-	// WebJar support - lazy initialization and caching
-	@Lazy
-	private Object webJarLocator = initializeWebJarLocator()
-	private static final Map<String, String> WEBJAR_CACHE = [:].asSynchronized()
 
 	GrailsApplication grailsApplication
 	def assetProcessorService
@@ -83,9 +76,6 @@ class AssetsTagLib {
 		if (srcOverride) {
 			src = srcOverride
 		}
-
-		// Resolve webjar version if needed
-		src = resolveWebjarPath(src)
 
 		def uniqMode = attrs.remove('uniq') != null
 
@@ -181,102 +171,5 @@ class AssetsTagLib {
 
 	private paramsToHtmlAttr(attrs) {
 		attrs.collect {key, value -> "${key}=\"${value.toString().replace('"', '\\"')}\""}?.join(' ')
-	}
-
-	/**
-	 * Initializes WebJarAssetLocator if available on classpath.
-	 * Returns null if webjars-locator-core is not present.
-	 */
-	private Object initializeWebJarLocator() {
-		try {
-			Class<?> locatorClass = Class.forName('org.webjars.WebJarAssetLocator')
-			return locatorClass.getDeclaredConstructor().newInstance()
-		} catch (ClassNotFoundException | NoClassDefFoundError e) {
-			log.debug("WebJar locator not available - version resolution disabled")
-			return null
-		}
-	}
-
-	/**
-	 * Resolves a webjar path by automatically detecting the version.
-	 *
-	 * IMPORTANT: Do NOT include the package name in the path. The locator searches
-	 * across all webjars for the matching file path.
-	 *
-	 * Examples:
-	 *   Input:  webjars/dist/jquery.min.js
-	 *   Output: webjars/jquery/3.7.1/dist/jquery.min.js
-	 *
-	 *   Input:  webjars/dist/css/bootstrap.css
-	 *   Output: webjars/bootstrap/5.3.0/dist/css/bootstrap.css
-	 *
-	 * Non-webjar paths are returned unchanged:
-	 *   Input:  js/application.js
-	 *   Output: js/application.js
-	 *
-	 * Paths that already have versions are returned unchanged:
-	 *   Input:  webjars/jquery/3.7.1/dist/jquery.min.js
-	 *   Output: webjars/jquery/3.7.1/dist/jquery.min.js
-	 *
-	 * @param path Original path (may or may not include version)
-	 * @return Resolved path with version, or original path if not a webjar or already versioned
-	 */
-	private String resolveWebjarPath(String path) {
-		if (!path) {
-			return path
-		}
-
-		// Only process webjar paths
-		if (!path.startsWith('webjars/')) {
-			return path
-		}
-
-		// Check if already has version (pattern: webjars/package/1.2.3/...)
-		// Match version like: 1.2.3, 1.0.0-alpha1, 5.3.0-beta.2, etc.
-		if (path =~ /webjars\/[^\/]+\/\d+\.\d+[^\/]*\//) {
-			log.debug("Path already contains version: ${path}")
-			return path
-		}
-
-		// Check cache first
-		if (WEBJAR_CACHE.containsKey(path)) {
-			return WEBJAR_CACHE[path]
-		}
-
-		// Resolve version using WebJarAssetLocator (if available)
-		if (webJarLocator) {
-			try {
-				// Remove 'webjars/' prefix - locator expects path without it
-				def partialPath = path.substring(8)
-
-				// WebJarAssetLocator.getFullPath() returns: META-INF/resources/webjars/jquery/3.7.1/dist/jquery.js
-				// Need to strip META-INF/resources/ prefix
-				def resolvedPath = webJarLocator.getFullPath(partialPath)
-				if (resolvedPath.startsWith("META-INF/resources/")) {
-					resolvedPath = resolvedPath.substring(19) // Remove "META-INF/resources/"
-				}
-				def fullPath = resolvedPath
-
-				// Cache the resolved path
-				WEBJAR_CACHE[path] = fullPath
-
-				log.debug("Resolved webjar path: ${path} -> ${fullPath}")
-				return fullPath
-
-			} catch (Exception e) {
-				log.debug("Could not resolve webjar path: ${path}. ${e.message}")
-			}
-		}
-
-		return path
-	}
-
-	/**
-	 * Utility method to clear the webjar resolution cache.
-	 * Useful for development when switching webjar versions.
-	 */
-	void clearWebJarCache() {
-		WEBJAR_CACHE.clear()
-		log.info("Cleared webjar path resolution cache")
 	}
 }

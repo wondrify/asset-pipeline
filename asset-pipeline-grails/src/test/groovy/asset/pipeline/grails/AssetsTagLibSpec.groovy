@@ -237,116 +237,45 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 			applyTemplate("<asset:deferredScripts/>") == '<script type="text/javascript">alert("foo");</script>'
 	}
 
-	// WebJar resolution tests
-
-	void "resolveWebjarPath handles non-webjar paths"() {
+	void "asset javascript tag does not throw exception with versionless webjar paths"() {
 		when:
-			final def result = tagLib.resolveWebjarPath('js/application.js')
+			tagLib.javascript(src: 'webjars/dist/jquery.js')
 		then:
-			result == 'js/application.js'
+			notThrown(Exception)
 	}
 
-	void "resolveWebjarPath handles null paths"() {
+	void "asset stylesheet tag does not throw exception with versionless webjar paths"() {
 		when:
-			final def result = tagLib.resolveWebjarPath(null)
+			tagLib.stylesheet(href: 'webjars/dist/css/bootstrap.css')
 		then:
-			result == null
+			notThrown(Exception)
 	}
 
-	void "resolveWebjarPath handles already-versioned webjar paths"() {
+	void "asset javascript tag does not throw exception with versioned webjar paths"() {
 		when:
-			final def result = tagLib.resolveWebjarPath('webjars/jquery/3.7.1/jquery.min.js')
+			tagLib.javascript(src: 'webjars/jquery/3.7.1/dist/jquery.js')
 		then:
-			result == 'webjars/jquery/3.7.1/jquery.min.js'
+			notThrown(Exception)
 	}
 
-	void "resolveWebjarPath handles already-versioned webjar paths with beta versions"() {
+	void "asset stylesheet tag does not throw exception with versioned webjar paths"() {
 		when:
-			final def result = tagLib.resolveWebjarPath('webjars/bootstrap/5.3.0-beta.2/dist/css/bootstrap.css')
+			tagLib.stylesheet(href: 'webjars/bootstrap/5.3.0/dist/css/bootstrap.css')
 		then:
-			result == 'webjars/bootstrap/5.3.0-beta.2/dist/css/bootstrap.css'
+			notThrown(Exception)
 	}
 
-	void "resolveWebjarPath resolves version-less jQuery path correctly"() {
+	void "asset tag handles non-webjar paths normally"() {
+		given:
+			final def jsAsset = "asset-pipeline/test/test.js"
+			final def cssAsset = "asset-pipeline/test/test.css"
 		when:
-			final def result = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
+			def jsResult = tagLib.javascript(src: jsAsset)
+			def cssResult = tagLib.stylesheet(href: cssAsset)
 		then:
-			// Should resolve to versioned path with jQuery 3.7.1
-			result.startsWith('webjars/jquery/')
-			result.contains('/dist/jquery.min.js')
-			result =~ /webjars\/jquery\/\d+\.\d+/
-	}
-
-	void "resolveWebjarPath resolves version-less Bootstrap CSS path correctly"() {
-		when:
-			final def result = tagLib.resolveWebjarPath('webjars/dist/css/bootstrap.css')
-		then:
-			// Should resolve to versioned path with Bootstrap 5.3.0
-			result.startsWith('webjars/bootstrap/')
-			result.contains('/dist/css/bootstrap.css')
-			result =~ /webjars\/bootstrap\/\d+\.\d+/
-	}
-
-	void "resolveWebjarPath caches resolved paths"() {
-		when:
-			// Clear cache first to ensure clean state
-			tagLib.clearWebJarCache()
-
-			// First call should resolve and cache
-			final def result1 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
-
-			// Access private cache field to verify it was populated
-			def cacheField = tagLib.class.getDeclaredField('WEBJAR_CACHE')
-			cacheField.setAccessible(true)
-			def cache = cacheField.get(null) as Map
-			def cachedValue = cache.get('webjars/dist/jquery.min.js')
-
-			// Second call should return the cached value
-			final def result2 = tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
-
-		then:
-			// Verify first resolution worked
-			result1.startsWith('webjars/jquery/')
-			result1.contains('/dist/jquery.min.js')
-
-			// Verify cache was populated
-			cachedValue != null
-			cachedValue == result1
-
-			// Verify second call returns same cached value
-			result2 == result1
-			result2 == cachedValue
-	}
-
-	void "resolveWebjarPath handles empty string"() {
-		when:
-			final def result = tagLib.resolveWebjarPath('')
-		then:
-			result == ''
-	}
-
-	void "clearWebJarCache clears the cache"() {
-		when:
-			// First populate the cache
-			tagLib.resolveWebjarPath('webjars/dist/jquery.min.js')
-
-			// Access cache to check size
-			def cacheField = tagLib.class.getDeclaredField('WEBJAR_CACHE')
-			cacheField.setAccessible(true)
-			def cache = cacheField.get(null) as Map
-			def sizeBeforeClear = cache.size()
-
-			// Clear the cache
-			tagLib.clearWebJarCache()
-
-			// Check cache size after clearing
-			def sizeAfterClear = cache.size()
-
-		then:
-			// Verify cache had entries before clearing
-			sizeBeforeClear > 0
-
-			// Verify cache is empty after clearing
-			sizeAfterClear == 0
+			jsResult.contains('<script')
+			jsResult.contains('src=')
+			cssResult.contains('<link')
+			cssResult.contains('href=')
 	}
 }

@@ -74,6 +74,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
             assetPrecompileTask.configure { AssetForkedCompileTask task ->
                 task.classpath = project.files(
                         project.configurations.named(ASSET_CONFIGURATION_NAME),
+                        project.configurations.named(ASSET_DEVELOPMENT_CONFIGURATION_NAME),
                         project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME),
                         project.configurations.named(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME),
                         project.provider {
@@ -82,6 +83,7 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 )
                 task.assetClassPath.from(project.files(
                         project.configurations.named(ASSET_CONFIGURATION_NAME),
+                        project.configurations.named(ASSET_DEVELOPMENT_CONFIGURATION_NAME),
                         project.configurations.named(JavaPlugin.RUNTIME_CLASSPATH_CONFIGURATION_NAME),
                         project.configurations.named(JavaPlugin.COMPILE_CLASSPATH_CONFIGURATION_NAME)
                 ))
