@@ -72,7 +72,8 @@ class SassAssetFileLoader {
      * @return
      */
     AssetFile getAssetFromScssImport(String parent, String importUrl) {
-        Path parentPath = Paths.get(parent)
+        Path parentPath = importMap[parent] ? Paths.get(getAssetFromScssImport(importMap[parent], parent).path) : Paths.get(parent)
+
         Path relativeRootPath = parentPath.parent ?: Paths.get('.')
         Path importUrlPath = Paths.get(importUrl)
 
