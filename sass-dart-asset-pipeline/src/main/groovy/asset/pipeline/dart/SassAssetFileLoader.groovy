@@ -20,6 +20,7 @@ class SassAssetFileLoader {
     AssetFile baseFile
 
     Map<String, String> importMap = [:]
+    Map<String, String> resolvedPaths = [:]
 
     SassAssetFileLoader(AssetFile assetFile) {
         this.baseFile = assetFile
@@ -72,7 +73,8 @@ class SassAssetFileLoader {
      * @return
      */
     AssetFile getAssetFromScssImport(String parent, String importUrl) {
-        Path parentPath = Paths.get(parent)
+        Path parentPath = importMap[parent] ? Paths.get(resolvedPaths[String.join("/",importMap[parent], parent)]) : Paths.get(parent)
+
         Path relativeRootPath = parentPath.parent ?: Paths.get('.')
         Path importUrlPath = Paths.get(importUrl)
 
@@ -87,8 +89,10 @@ class SassAssetFileLoader {
 
         for (String stylesheetPath : possibleStylesheets) {
             String standardPathStyle = stylesheetPath?.replaceAll(QUOTED_FILE_SEPARATOR, DIRECTIVE_FILE_SEPARATOR)
+            standardPathStyle = AssetHelper.resolveWebjarPath(standardPathStyle)
             AssetFile assetFile = AssetHelper.fileForFullName(standardPathStyle.toString())
             if (assetFile) {
+                resolvedPaths[String.join("/", parent, importUrl)] = assetFile.path
                 log.debug "$parent imported $assetFile.path"
                 return assetFile
             }
