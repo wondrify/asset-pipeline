@@ -33,6 +33,7 @@ dependencies {
     testImplementation "org.apache.groovy:groovy:$groovy4Version"
     testImplementation "org.spockframework:spock-core:$spockVersion"
 
+    testRuntimeOnly "org.webjars:webjars-locator-core:$webjarsLocatorVersion"
     testRuntimeOnly "org.slf4j:slf4j-simple:$slf4jVersion"
     testRuntimeOnly "org.webjars:bootstrap:$bootstrapCssVersion"
 }

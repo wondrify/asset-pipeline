@@ -87,6 +87,7 @@ class SassAssetFileLoader {
 
         for (String stylesheetPath : possibleStylesheets) {
             String standardPathStyle = stylesheetPath?.replaceAll(QUOTED_FILE_SEPARATOR, DIRECTIVE_FILE_SEPARATOR)
+            standardPathStyle = AssetHelper.resolveWebjarPath(standardPathStyle)
             AssetFile assetFile = AssetHelper.fileForFullName(standardPathStyle.toString())
             if (assetFile) {
                 log.debug "$parent imported $assetFile.path"
