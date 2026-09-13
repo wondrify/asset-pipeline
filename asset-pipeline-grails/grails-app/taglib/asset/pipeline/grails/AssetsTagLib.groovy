@@ -1,14 +1,11 @@
 package asset.pipeline.grails
 
-import grails.gsp.TagLib
-
 import asset.pipeline.AssetHelper
 import asset.pipeline.AssetPipeline
 import asset.pipeline.AssetPipelineConfigHolder
 import grails.core.GrailsApplication
 import org.grails.buffer.GrailsPrintWriter
 
-@TagLib
 class AssetsTagLib {
 
 	static namespace = 'asset'

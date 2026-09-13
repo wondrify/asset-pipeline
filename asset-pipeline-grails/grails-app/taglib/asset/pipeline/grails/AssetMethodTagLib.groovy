@@ -3,10 +3,7 @@ package asset.pipeline.grails
 
 import static asset.pipeline.grails.UrlBase.*
 
-import grails.gsp.TagLib
 
-
-@TagLib
 class AssetMethodTagLib {
 
 	static namespace           = 'g'
