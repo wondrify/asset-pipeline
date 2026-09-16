@@ -14,7 +14,8 @@ include(
         'sass-dart-asset-pipeline',
         'asset-pipeline-grails',
         'jsx-asset-pipeline',
-        'i18n-asset-pipeline-grails'
+        'i18n-asset-pipeline-grails',
+        'asset-pipeline-gsp'
 )
 
 // org.groocss:groocss:1.0-M1 is no longer available, was on https://jcenter.bintray.com/

@@ -17,17 +17,33 @@ package asset.pipeline
 
 import asset.pipeline.fs.ClasspathAssetResolver
 import asset.pipeline.fs.FileSystemAssetResolver
-import asset.pipeline.grails.AssetResourceLocator
+import asset.pipeline.grails.AssetPipelineBeanDefinitionRegistrar
+import asset.pipeline.grails.AssetProcessorService
+import asset.pipeline.grails.AssetSupportingCachingLinkGenerator
+import asset.pipeline.grails.AssetSupportingLinkGenerator
+import grails.config.Settings
 import grails.plugins.Plugin
 import grails.util.BuildSettings
+import grails.util.Environment
+import grails.web.mapping.LinkGenerator
 import groovy.util.logging.Slf4j
+import org.grails.config.NavigableMap
 import org.grails.plugins.BinaryGrailsPlugin
-import org.grails.web.config.http.GrailsFilters
-import org.springframework.util.ClassUtils
+import org.springframework.beans.factory.BeanRegistrar
+import org.springframework.boot.autoconfigure.AutoConfiguration
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
+
+import java.util.function.Consumer
+import java.util.function.Function
 
 @Slf4j
+// An ordering hint, not a dependency: everything used below comes from grails-web-url-mappings,
+// while the class named lives in grails-url-mappings, which this plugin declares compileOnly.
+@AutoConfiguration(beforeName = 'org.grails.plugins.web.mapping.UrlMappingsAutoConfiguration')
+@ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class AssetPipelineGrailsPlugin extends Plugin {
-    def grailsVersion = '7.0.0 > *'
+
+    def grailsVersion = '8.0.0 > *'
     def title = 'Asset Pipeline Plugin'
     def author = 'David Estes'
     def description = 'The Asset-Pipeline is a plugin used for managing and processing static assets in Grails applications. Asset-Pipeline functions include processing and minification of both CSS and JavaScript files. It is also capable of being extended to compile custom static assets, such as CoffeeScript.'
@@ -42,6 +58,38 @@ class AssetPipelineGrailsPlugin extends Plugin {
     ]
     def developers = [[name: 'Brian Wheeler']]
     def loadAfter = ['url-mappings']
+
+
+    /**
+     * The beans this plugin contributes, compiled into a sibling AssetPipelineAutoConfiguration.
+     *
+     * <p>That sibling is a plain auto-configuration listed in AutoConfiguration.imports, so it is
+     * read wherever Spring Boot reads auto-configurations, including an application that renders
+     * GSP without being a Grails application and runs no plugin lifecycle at all. What such an
+     * application needs beyond these - the tag libraries themselves - is asset-pipeline-gsp.
+     */
+    def beans = {
+
+        field('cacheUrls', Boolean).value('${' + Settings.WEB_LINK_GENERATOR_USE_CACHE + ':#{null}}')
+        field('serverURL', String).value('${' + Settings.SERVER_URL + ':#{null}}')
+
+        bean(AssetProcessorService).conditionalOnMissingBean()
+
+        // Declared the way grails-url-mappings declares its own, so an application that has one
+        // keeps it. Nothing narrower: AssetProcessorService reads contextPath and serverBaseURL off
+        // this for every asset url it builds, so where it is absent the first assetPath() fails.
+        bean('grailsLinkGenerator', LinkGenerator)
+                .conditionalOnMissingBeanName()
+                { AssetProcessorService assetProcessorService ->
+                    boolean useCache = cacheUrls == null ?
+                            !Environment.isDevelopmentMode() && !Environment.getCurrent().isReloadEnabled() :
+                            cacheUrls
+                    useCache ?
+                            new AssetSupportingCachingLinkGenerator(serverURL, assetProcessorService) :
+                            new AssetSupportingLinkGenerator(serverURL, assetProcessorService)
+                }
+
+    }
 
     void doWithApplicationContext() {
         //Register Plugin Paths
@@ -66,15 +114,19 @@ class AssetPipelineGrailsPlugin extends Plugin {
         AssetPipelineConfigHolder.registerResolver(new ClasspathAssetResolver('classpath', 'META-INF/resources'))
     }
 
-    Closure doWithSpring() {
-        { ->
+    /**
+     * The pipeline settings and manifest, which are read from the application rather than
+     * registered as beans. A BeanRegistrar runs pre-refresh, in the early plugin registration
+     * phase, and unlike the beans DSL it can reach the plugin's own grailsApplication and
+     * applicationContext.
+     */
+    BeanRegistrar beanRegistrar() {
+        { registry, environment ->
             def application = grailsApplication
-            def config = application.config
-            def assetsConfig = config.getProperty('grails.assets', Map, [:])
+            def assetsConfig = application.config.getProperty('grails.assets', Map, [:])
 
             def manifestProps = new Properties()
             def manifestFile
-
 
             try {
                 manifestFile = applicationContext.getResource("assets/manifest.properties")
@@ -99,41 +151,21 @@ class AssetPipelineGrailsPlugin extends Plugin {
                 }
             }
 
-            if (assetsConfig instanceof org.grails.config.NavigableMap) {
-                AssetPipelineConfigHolder.config = assetsConfig.toFlatConfig()
-            } else {
-                AssetPipelineConfigHolder.config = assetsConfig
-            }
+            AssetPipelineConfigHolder.config = assetsConfig instanceof NavigableMap ?
+                    assetsConfig.toFlatConfig() : assetsConfig
 
             if (BuildSettings.TARGET_DIR?.exists()) {
-                AssetPipelineConfigHolder.config['cacheLocation'] = new File(BuildSettings.TARGET_DIR, CacheManager.CACHE_LOCATION).canonicalPath
+                AssetPipelineConfigHolder.config['cacheLocation'] =
+                        new File(BuildSettings.TARGET_DIR, CacheManager.CACHE_LOCATION).canonicalPath
             }
 
-            assetResourceLocator(AssetResourceLocator) { bean ->
-                bean.parent = "abstractGrailsResourceLocator"
-            }
-
-            def mapping = assetsConfig.containsKey('mapping') ? assetsConfig.mapping?.toString() : 'assets'
-
-            ClassLoader classLoader = application.classLoader
-            Class registrationBean = ClassUtils.isPresent("org.springframework.boot.web.servlet.FilterRegistrationBean", classLoader) ?
-                    ClassUtils.forName("org.springframework.boot.web.servlet.FilterRegistrationBean", classLoader) :
-                    ClassUtils.forName("org.springframework.boot.context.embedded.FilterRegistrationBean", classLoader)
-            assetPipelineFilter(registrationBean) {
-                order = GrailsFilters.ASSET_PIPELINE_FILTER.order
-                // Use a nested bean definition rather than a constructed instance. A bean
-                // definition is metadata, and Spring AOT turns it into generated Java source;
-                // there is no way to generate code that rebuilds an arbitrary pre-built object,
-                // so `new AssetPipelineFilter()` fails ahead-of-time processing with
-                // UnsupportedTypeValueCodeGenerationException.
-                filter = bean(AssetPipelineFilter)
-                if (!mapping) {
-                    urlPatterns = ["/*".toString()]
-                } else {
-                    urlPatterns = ["/${mapping}/*".toString()]
-                }
-
-            }
-        }
+            registry.registerBean('assetPipelineBeanDefinitionRegistrar',
+                    AssetPipelineBeanDefinitionRegistrar, { spec ->
+                        spec.infrastructure()
+                        spec.supplier({ context ->
+                            new AssetPipelineBeanDefinitionRegistrar(assetsConfig)
+                        } as Function)
+                    } as Consumer)
+        } as BeanRegistrar
     }
 }

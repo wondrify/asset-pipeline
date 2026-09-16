@@ -30,9 +30,32 @@ dependencies {
 	implementation "org.springframework:spring-core:$springVersion"
 	implementation "org.springframework:spring-web:$springVersion"
 	implementation "org.springframework.boot:spring-boot:$springBootVersion"
+	implementation "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion"
 
 	compileOnly "org.apache.groovy:groovy:$groovy5Version"
 	compileOnly "org.slf4j:slf4j-api:$slf4jVersion"
+
+	// Spring Boot manages its own test stack, and Spock comes from its bom as it does elsewhere here.
+	testImplementation platform("org.springframework.boot:spring-boot-dependencies:$springBootVersion")
+	testImplementation platform("org.spockframework:spock-bom:$spock5Version")
+
+	testImplementation "org.apache.groovy:groovy:$groovy5Version"
+	testImplementation 'org.spockframework:spock-core'
+	testImplementation 'org.springframework.boot:spring-boot-test'
+	// Spring Boot's context runner hands the test an AssertJ-backed context, so AssertJ is on the
+	// test path whether or not a test asserts with it.
+	testImplementation 'org.assertj:assertj-core'
+	testImplementation "jakarta.servlet:jakarta.servlet-api:$servletApiVersion"
+	testImplementation "org.slf4j:slf4j-api:$slf4jVersion" // @Slf4j on AssetPipelineService needs it at run time
+	testRuntimeOnly "org.slf4j:slf4j-nop:$slf4jVersion"
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher' // required by Gradle 9
+}
+
+tasks.withType(Test).configureEach {
+	useJUnitPlatform()
+	testLogging {
+		events('passed', 'skipped', 'failed')
+	}
 }
 
 tasks.register('console', JavaExec) {

@@ -1,1 +1,3 @@
-asset.pipeline.grails.AssetPipelineAutoConfiguration
+# Generated from the beans closure on AssetPipelineGrailsPlugin, in the descriptor package rather
+# than asset.pipeline.grails; it is not a source file in this module.
+asset.pipeline.AssetPipelineAutoConfiguration
