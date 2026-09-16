@@ -27,10 +27,10 @@ import grails.util.BuildSettings
 import grails.util.Environment
 import grails.web.mapping.LinkGenerator
 import groovy.util.logging.Slf4j
+import org.grails.config.NavigableMap
 import org.grails.plugins.BinaryGrailsPlugin
 import org.springframework.beans.factory.BeanRegistrar
 import org.springframework.boot.autoconfigure.AutoConfiguration
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
 
 import java.util.function.Consumer

@@ -34,13 +34,14 @@ dependencies {
 
     compileOnly platform("org.apache.grails:grails-bom:$grailsVersion")
     compileOnly 'org.apache.grails:grails-core'
-    compileOnly 'org.apache.grails.views:grails-web-gsp-taglib' // StandaloneTagLibraryLookup
+    // grails.artefact.TagLibrary, which the Grails compiler gives the plugin's tag libraries as a supertype
+    compileOnly 'org.apache.grails.views:grails-web-gsp-taglib'
     compileOnly 'org.springframework.boot:spring-boot-autoconfigure'
     compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
 
     testImplementation platform("org.apache.grails:grails-bom:$grailsVersion")
     testImplementation 'org.apache.grails:grails-core'
-    testImplementation 'org.apache.grails.views:grails-web-gsp-taglib'
+    testImplementation 'org.apache.grails.views:grails-web-gsp-taglib' // StandaloneTagLibraryLookup
     // UrlMappingsHolder, which GspAutoConfiguration contributes to a standalone application and the
     // plugin's link generator autowires
     testImplementation 'org.apache.grails:grails-url-mappings'
