@@ -149,4 +149,22 @@ class FileSystemAssetResolverSpec extends Specification {
 			mjsFile?.delete()
 	}
 
+	void "a wildcard directory resolves to the directory that holds the file, not only the first one listed: #path"() {
+		given: 'wildcard-dirs has the subdirectories a, b and c; each only-in-* file exists under one of them'
+			def resolver = new FileSystemAssetResolver('application','assets')
+		when:
+			def file = resolver.getAsset("asset-pipeline/test/wildcard-dirs/${path}", 'application/javascript', 'js')
+		then:
+			file?.path == (resolved ? "asset-pipeline/test/wildcard-dirs/${resolved}.js" : null)
+		where:
+			path                | resolved
+			'%/only-in-a'       | 'a/only-in-a'
+			'%/only-in-b'       | 'b/only-in-b'
+			'%/only-in-c'       | 'c/only-in-c'
+			'*/only-in-c'       | 'c/only-in-c'
+			'%/%/deep'          | 'c/inner/deep'
+			'%/in-b-and-c'      | 'b/in-b-and-c'
+			'%/nowhere'         | null
+	}
+
 }

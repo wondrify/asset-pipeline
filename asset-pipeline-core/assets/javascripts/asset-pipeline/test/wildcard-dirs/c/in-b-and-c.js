@@ -1,0 +1,1 @@
+var both = 'c'
