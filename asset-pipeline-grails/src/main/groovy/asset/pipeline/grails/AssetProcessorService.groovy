@@ -53,11 +53,29 @@ class AssetProcessorService implements GrailsApplicationAware {
 
 	String getAssetPath(final String path, final Map conf = grailsApplication.config.getProperty('grails.assets',Map,[:]), final boolean useManifest = true) {
 		final String relativePath = trimLeadingSlash(path)
+		if (!manifest) {
+			return resolveWildcardPath(relativePath)
+		}
 		if (useManifest) {
 			return resolveManifestProperty(relativePath) ?: relativePath
 		} else {
 			return relativePath
 		}
+	}
+
+
+	/**
+	 * Without a manifest, as in development, a path with a wildcard such as
+	 * {@code webjars/marked/%/lib/marked.umd.js} names the file the resolvers find, which is what
+	 * {@code <asset:javascript>} already does through its dependency list and what the manifest does in
+	 * production. Left as written, the wildcard reached the browser, and a {@code %} that does not start a
+	 * percent-escape makes the request invalid (400).
+	 */
+	private static String resolveWildcardPath(final String relativePath) {
+		if (!relativePath || !AssetHelper.isWildcardPath(relativePath)) {
+			return relativePath
+		}
+		return AssetHelper.fileForFullName(relativePath)?.path ?: relativePath
 	}
 
 
