@@ -56,6 +56,34 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
     }
 
 
+    /**
+     * The asset a path relative to {@code assetFile} points at, or null when there is none.
+     */
+    protected AssetFile resolveRelativeAsset(final AssetFile assetFile, final String relativePath) {
+        final String assetPath = normalizePath(assetFile.parentPath ? assetFile.parentPath + DIRECTIVE_FILE_SEPARATOR + relativePath : relativePath)
+        final List<String> contentType = AssetHelper.assetMimeTypeForURI(assetPath)
+
+        final AssetFile currFile = AssetHelper.fileForUri(assetPath, contentType ? contentType[0] : null)
+        return currFile ?: AssetHelper.fileForFullName(assetPath)
+    }
+
+
+    /**
+     * The digest the compiler writes {@code currFile} under, taken from the same compiled content it digests.
+     * Kept for the compile run: every reference to the asset needs it, and compiling it again for each one
+     * multiplies with the number of paths through assets that refer to one another, as ES modules do.
+     */
+    protected String compiledDigest(final AssetFile currFile) {
+        final Map<String, String> digests = precompiler.referencedDigests
+        String digest = digests.get(currFile.path)
+        if (digest == null) {
+            digest = getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes)
+            digests.put(currFile.path, digest)
+        }
+        return digest
+    }
+
+
     protected String replacementUrl(final AssetFile assetFile, final String url) {
         final String schemeWithColon = getSchemeWithColon(url)
 
@@ -67,14 +95,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
         final URL urlSplitter = new URL('http', 'hostname', urlSansScheme)
 
         final AssetFile baseFile = assetFile.baseFile ?: assetFile
-        final String assetPath  = normalizePath(assetFile.parentPath ? assetFile.parentPath + DIRECTIVE_FILE_SEPARATOR + urlSplitter.path : urlSplitter.path)
-
-        final List<String> contentType = AssetHelper.assetMimeTypeForURI(assetPath)
-        
-        AssetFile currFile = AssetHelper.fileForUri(assetPath,contentType ? contentType[0] : null)
-        if(!currFile) {
-            currFile = AssetHelper.fileForFullName(assetPath)
-        }
+        final AssetFile currFile = resolveRelativeAsset(assetFile, urlSplitter.path)
 
         if (! currFile) {
             return null
@@ -121,7 +142,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
                 if (NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.contains(compiledExtension)) {
                     replacementPathSb << fileName << '.' << compiledExtension
                 } else {
-                    replacementPathSb << fileName << '-' << getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes) << '.' << compiledExtension
+                    replacementPathSb << fileName << '-' << compiledDigest(currFile) << '.' << compiledExtension
                 }
             }
         } else {
@@ -175,7 +196,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
                 if (NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.contains(compiledExtension)) {
                     replacementPathSb << fileName << '.' << compiledExtension
                 } else {
-                    replacementPathSb << fileName << '-' << getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes) << '.' << compiledExtension
+                    replacementPathSb << fileName << '-' << compiledDigest(currFile) << '.' << compiledExtension
                 }
             }
         } else {

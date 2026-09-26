@@ -156,7 +156,9 @@ This relative url replacement is really handy because any external css library t
 
 TIP: HTML files automatically get relative url replacement making it easy to generate 100% static websites without any need for a dynamic templating engine.
 
-Currently javascript is not scanned for relative path replacement. It is now possible to reference assets from your javascript using a precompiler directive in your code called `asset_url`. It is not relative and always produces an absolute path response which can be configured via the `mapping` config option which defaults to 'assets':
+JavaScript gets the same treatment for the relative specifiers of ES module imports. When compiling with digests, `import { x } from './util.js'`, `export * from '../lib/util.js'`, `import './setup.js'` and `import('./lazy.js')` are rewritten to the digested file, `./util-dadvbfgdaf123e.js`, so a module library served from a CDN copy of the compiled assets finds every module it imports, without the non-digested files. Bare specifiers (`import x from 'lodash'`) and absolute URLs are left alone, and so are imports that form a cycle: a module's digest is taken from its content, which would contain the digest of a module whose content contains its own. Those keep their plain names and are logged as a warning, and serving them needs the non-digested files (`skipNonDigests: false`) or an application that maps them through the manifest. A module that Babel turns into CommonJS (`.es6` files, or `enableES6`) is bundled into one file instead and has no imports left to rewrite.
+
+Other references to assets from javascript go through a precompiler directive in your code called `asset_url`. It is not relative and always produces an absolute path response which can be configured via the `mapping` config option which defaults to 'assets':
 
 [source,javascript]
 ---
