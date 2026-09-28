@@ -9,6 +9,11 @@ ext {
 }
 
 configurations.configureEach {
+    // grails-bom pins asset-pipeline to the release it shipped with, which wins over this build's snapshot of the
+    // core. This plugin is built and tested against the core it is released with.
+    resolutionStrategy.dependencySubstitution {
+        substitute module('cloud.wondrify:asset-pipeline-core') using project(':asset-pipeline-core')
+    }
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
             details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy5Version")
