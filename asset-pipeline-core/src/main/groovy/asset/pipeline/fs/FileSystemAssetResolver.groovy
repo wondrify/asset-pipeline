@@ -80,7 +80,7 @@ class FileSystemAssetResolver extends AbstractAssetResolver<File> {
 		}
 
 		for(directoryPath in scanDirectories) {
-            AssetFile assetFile = resolveAsset(specs, directoryPath, relativePath, baseFile, extension)
+            AssetFile assetFile = resolveWildcardAsset(specs, directoryPath, relativePath, baseFile, extension)
             if(assetFile) {
                 return assetFile
             }

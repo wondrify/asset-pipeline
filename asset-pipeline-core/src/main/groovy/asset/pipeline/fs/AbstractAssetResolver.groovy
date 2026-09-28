@@ -84,6 +84,22 @@ abstract class AbstractAssetResolver<T> implements AssetResolver<T> {
     }
 
 
+    /**
+     * {@link #resolveAsset} for a resolver that lists its directories ({@link #subdirectoryNames}), expanding the
+     * wildcards in the directories of {@code normalizedPath} once, rather than once for every extension resolveAsset
+     * tries. Each directory the path can stand for is resolved as a plain path, in {@link #firstWildcardMatch} order,
+     * so the first one that holds the file, under any extension, wins.
+     */
+    protected AssetFile resolveWildcardAsset(specs, String prefixPath, String normalizedPath, AssetFile baseFile, String extension) {
+        int nameIndex = normalizedPath.lastIndexOf(AssetHelper.DIRECTIVE_FILE_SEPARATOR)
+        if(nameIndex < 0 || !normalizedPath.substring(0, nameIndex).split(AssetHelper.DIRECTIVE_FILE_SEPARATOR).any { String component -> AssetHelper.isWildcardComponent(component) }) {
+            return resolveAsset(specs, prefixPath, normalizedPath, baseFile, extension)
+        }
+        return firstWildcardMatch(prefixPath, normalizedPath.substring(0, nameIndex)) { String directory ->
+            resolveAsset(specs, prefixPath, directory + AssetHelper.DIRECTIVE_FILE_SEPARATOR + normalizedPath.substring(nameIndex + 1), baseFile, extension)
+        }
+    }
+
     protected AssetFile resolveAsset(specs, String prefixPath, String normalizedPath, AssetFile baseFile, String extension) {
         if (specs) {
             def extensionMap = [:]

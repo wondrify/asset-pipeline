@@ -205,4 +205,23 @@ class FileSystemAssetResolverSpec extends Specification {
 			'literal/%/nowhere'         | null
 	}
 
+	void "a wildcard directory is listed once for all the extensions a lookup tries, not once for each"() {
+		given:
+			File file = new File(tempDir, 'a/1.0/x.js')
+			file.parentFile.mkdirs()
+			file.text = ''
+			List<String> listed = []
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false) {
+				@Override
+				protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+					listed << directory
+					return super.subdirectoryNames(prefixPath, directory)
+				}
+			}
+		when:
+			resolver.getAsset('a/%/missing', 'application/javascript', 'js')
+		then:
+			listed == ['a']
+	}
+
 }

@@ -81,7 +81,7 @@ class JarAssetResolver extends AbstractAssetResolver<ZipEntry> {
 		}
 
 
-        AssetFile assetFile = resolveAsset(specs, prefixPath, normalizedPath, baseFile, extension)
+        AssetFile assetFile = resolveWildcardAsset(specs, prefixPath, normalizedPath, baseFile, extension)
 
 		return assetFile
 	}

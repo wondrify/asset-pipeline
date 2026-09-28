@@ -69,7 +69,7 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
             specs = AssetHelper.assetFileClasses().findAll { it.extensions.contains(extension) }
         }
 
-        AssetFile assetFile = resolveAsset(specs, prefixPath, normalizedPath, baseFile, extension)
+        AssetFile assetFile = resolveWildcardAsset(specs, prefixPath, normalizedPath, baseFile, extension)
 
         return assetFile
     }
