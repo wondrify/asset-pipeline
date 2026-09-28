@@ -39,6 +39,16 @@ ext {
     pomDescription = 'asset-pipeline plugin to use localized messages in JavaScript.'
 }
 
+configurations.configureEach {
+    // grails-bom pins asset-pipeline to the release it shipped with, which wins over this build's projects. This
+    // plugin is built and tested against the core, Grails plugin and Gradle plugin it is released with.
+    resolutionStrategy.dependencySubstitution {
+        ['asset-pipeline-core', 'asset-pipeline-grails', 'asset-pipeline-gradle'].each { String name ->
+            substitute module("cloud.wondrify:${name}") using project(":${name}")
+        }
+    }
+}
+
 grails {
     // Required for consumers building a GraalVM native image; see gradle/java-config.gradle.
     indy = true
