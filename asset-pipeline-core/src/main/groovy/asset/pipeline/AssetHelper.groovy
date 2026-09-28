@@ -340,6 +340,16 @@ public class AssetHelper {
 		}
 
 		/**
+		 * Whether a path component is a deep wildcard, ** or %%, which stands for any number of directories, none
+		 * included, as ** does in a glob. %% is there for the reason % is: a CSS require block cannot hold the * / that
+		 * ** followed by a slash would make, since that ends the comment.
+		 */
+		@CompileStatic
+		static boolean isDeepWildcardComponent(String component) {
+			component == '**' || component == '%%'
+		}
+
+		/**
 		 * Orders names as their versions do: runs of digits compare as numbers, so 9.0.0 comes before 10.0.0, and the
 		 * rest compares as text, so 5.1.2-beta comes before 5.1.2-rc.1. Where one name goes on after the other ends,
 		 * another number makes it higher (5.1.2.1 above 5.1.2) and anything else is a qualifier that makes it lower, so
@@ -377,20 +387,76 @@ public class AssetHelper {
 
 		/**
 		 * The one of {@code paths} that {@code wildcardPath} resolves to, as a resolver would pick it from the same
-		 * files: a path it stands for has the same components, with a directory that is not hidden in the place of each
-		 * wildcard, and of those, the one whose wildcard directories come first in {@link #wildcardCandidates} order,
-		 * left to right. Null when it stands for none of them.
+		 * files: a path it stands for has a directory that is not hidden in the place of each % and any number of them
+		 * in the place of each %%, and of those, the one a resolver tries first: for each %%, the fewest directories,
+		 * and the highest version, left to right ({@link #wildcardCandidates}). Null when it stands for none of them.
 		 */
 		@CompileStatic
 		static String resolveWildcardPath(String wildcardPath, Collection<String> paths) {
 			List<String> pattern = wildcardPath.split(DIRECTIVE_FILE_SEPARATOR).toList()
-			paths.collect { String path -> path.split(DIRECTIVE_FILE_SEPARATOR).toList() }.findAll { List<String> components ->
-				components.size() == pattern.size() && (0..<pattern.size()).every { int i ->
-					isWildcardComponent(pattern[i]) ? !components[i].startsWith('.') : components[i] == pattern[i]
+			// Only a path that starts with the components before the first wildcard can match, a cheap test for each
+			String prefix = pattern.takeWhile { String component -> !isWildcardComponent(component) && !isDeepWildcardComponent(component) }.collect { String component -> component + DIRECTIVE_FILE_SEPARATOR }.join('')
+			String best = null
+			List<Object> bestRank = null
+			for(String path in paths) {
+				List<Object> rank = path.startsWith(prefix) ? wildcardRank(pattern, path.split(DIRECTIVE_FILE_SEPARATOR).toList()) : null
+				if(rank != null && (bestRank == null || compareWildcardRanks(rank, bestRank) > 0)) {
+					best = path
+					bestRank = rank
 				}
-			}.max { List<String> a, List<String> b ->
-				(0..<a.size()).collect { int i -> compareVersions(a[i], b[i]) }.find { int result -> result != 0 } ?: 0
-			}?.join(DIRECTIVE_FILE_SEPARATOR)
+			}
+			return best
+		}
+
+		/**
+		 * Where {@code components} stand in the order a resolver tries the paths {@code pattern} stands for, as a list
+		 * compared entry by entry: the directory each % stands for, and for each %% the number of directories it stands
+		 * for followed by those directories. Each %% takes the fewest directories it can, which is the one a resolver
+		 * finds. Null when the pattern does not stand for them.
+		 */
+		@CompileStatic
+		private static List<Object> wildcardRank(List<String> pattern, List<String> components) {
+			if(pattern.isEmpty()) {
+				return components.isEmpty() ? [] : null
+			}
+			String head = pattern[0]
+			if(isDeepWildcardComponent(head)) {
+				// Directories only: the last component, the file, stays for the rest of the pattern
+				for(int depth = 0; depth < components.size(); depth++) {
+					if(depth > 0 && components[depth - 1].startsWith('.')) {
+						break
+					}
+					List<Object> rest = wildcardRank(pattern.drop(1), components.drop(depth))
+					if(rest != null) {
+						List<Object> rank = [depth] as List<Object>
+						rank.addAll(components.take(depth))
+						rank.addAll(rest)
+						return rank
+					}
+				}
+				return null
+			}
+			boolean wildcard = isWildcardComponent(head)
+			if(components.isEmpty() || (wildcard ? components[0].startsWith('.') : components[0] != head)) {
+				return null
+			}
+			List<Object> rest = wildcardRank(pattern.drop(1), components.drop(1))
+			return rest == null ? null : (wildcard ? [components[0]] as List<Object> : [] as List<Object>) + rest
+		}
+
+		/**
+		 * Positive when rank {@code a} comes first: fewer directories for a %%, then the higher version. Two ranks from
+		 * one pattern line up entry for entry until they first differ, since each depth is followed by that many names.
+		 */
+		@CompileStatic
+		private static int compareWildcardRanks(List<Object> a, List<Object> b) {
+			for(int i = 0; i < Math.min(a.size(), b.size()); i++) {
+				int result = a[i] instanceof Integer ? (b[i] as Integer) <=> (a[i] as Integer) : compareVersions(a[i] as String, b[i] as String)
+				if(result != 0) {
+					return result
+				}
+			}
+			return 0
 		}
 
 }

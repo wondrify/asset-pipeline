@@ -122,6 +122,30 @@ class JarAssetResolverSpec extends Specification {
 			'literal/%/nowhere'             | null
 	}
 
+	void "%% stands for any number of directories in a jar, the fewest first, then the highest version: #path"() {
+		given:
+			def resolver = new JarAssetResolver('application', TestJars.write(new File(tempDir, 'webjars.jar'), [
+				'webjars/jquery/3.7.1/dist/jquery.js', 'webjars/other/1.0/vendor/jquery/dist/jquery.js',
+				'webjars/marked/4.3.0/lib/marked.js', 'webjars/marked/5.1.2/lib/marked.js', 'webjars/nest/a/b/c/deep.js',
+				'webjars/.cache/x/lib/hidden.js']).path, 'META-INF/resources')
+		when:
+			def file = resolver.getAsset(path, 'application/javascript', 'js')
+		then:
+			file?.path == resolved
+		where:
+			path                                  | resolved
+			'webjars/jquery/3.7.1/%%/dist/jquery' | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/jquery/%%/dist/jquery'       | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/**/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'%%/jquery'                           | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/lib/marked'               | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/%%/deep'                     | 'webjars/nest/a/b/c/deep.js'
+			'webjars/%%/hidden'                   | null
+			'webjars/%/dist/jquery'               | null
+			'/webjars/%%/lib/marked'              | 'webjars/marked/5.1.2/lib/marked.js'
+	}
+
 	void "a wildcard resolves in a jar that has no entries for its directories"() {
 		given:
 			def resolver = new JarAssetResolver('application', TestJars.write(new File(tempDir, 'no-directories.jar'), ['webjars/marked/5.1.2/lib/marked.js'], false).path, 'META-INF/resources')

@@ -57,10 +57,20 @@ abstract class AbstractAssetResolver<T> implements AssetResolver<T> {
     }
 
     /**
-     * The first non-null result of {@code resolve} for the paths {@code path} stands for, each wildcard component in
-     * it replaced by the name of one directory {@link #subdirectoryNames} lists, tried in
-     * {@link AssetHelper#wildcardCandidates} order. A wildcard stands for exactly one directory, and a directory's
-     * name is never read back as a wildcard, so a directory literally named % is one more candidate.
+     * What identifies {@code directory}, a path relative to {@code prefixPath}, for a %% walk to visit each directory
+     * once. The path itself here; a resolver whose directories can be reached by more than one path, through a
+     * symbolic link, returns something those paths share.
+     */
+    protected Object directoryIdentity(String prefixPath, String directory) {
+        return directory
+    }
+
+    /**
+     * The first non-null result of {@code resolve} for the paths {@code path} stands for, each % or * in it replaced
+     * by the name of one directory {@link #subdirectoryNames} lists, and each %% or ** by any number of them, none
+     * included. Directories are tried in {@link AssetHelper#wildcardCandidates} order, and a %% takes the fewest
+     * directories first, trying every path one level down before any two levels down. A directory's name is never
+     * read back as a wildcard, so a directory literally named % is one more candidate.
      */
     @CompileStatic
     protected <R> R firstWildcardMatch(String prefixPath, String path, Closure<R> resolve) {
@@ -69,18 +79,41 @@ abstract class AbstractAssetResolver<T> implements AssetResolver<T> {
 
     @CompileStatic
     private <R> R firstMatch(String prefixPath, List<String> resolved, List<String> rest, Closure<R> resolve) {
-        int wildcardIndex = rest.findIndexOf { String component -> AssetHelper.isWildcardComponent(component) }
+        int wildcardIndex = rest.findIndexOf { String component -> isAnyWildcard(component) }
         if(wildcardIndex < 0) {
             return resolve.call((resolved + rest).join(AssetHelper.DIRECTIVE_FILE_SEPARATOR))
         }
         List<String> directory = resolved + rest.take(wildcardIndex)
-        for(String name in AssetHelper.wildcardCandidates(subdirectoryNames(prefixPath, directory.join(AssetHelper.DIRECTIVE_FILE_SEPARATOR)))) {
-            R found = firstMatch(prefixPath, directory + name, rest.drop(wildcardIndex + 1), resolve)
-            if(found != null) {
-                return found
+        List<String> after = rest.drop(wildcardIndex + 1)
+        List<List<String>> level = AssetHelper.isDeepWildcardComponent(rest[wildcardIndex]) ? [directory] : subdirectories(prefixPath, directory)
+        Set<Object> visited = [directoryIdentity(prefixPath, directory.join(AssetHelper.DIRECTIVE_FILE_SEPARATOR))] as Set<Object>
+        while(level) {
+            for(List<String> candidate in level) {
+                R found = firstMatch(prefixPath, candidate, after, resolve)
+                if(found != null) {
+                    return found
+                }
+            }
+            if(!AssetHelper.isDeepWildcardComponent(rest[wildcardIndex])) {
+                return null
+            }
+            // A %% goes one level deeper only once every path at this depth has failed
+            level = level.collectMany { List<String> parent -> subdirectories(prefixPath, parent) }.findAll { List<String> candidate ->
+                visited.add(directoryIdentity(prefixPath, candidate.join(AssetHelper.DIRECTIVE_FILE_SEPARATOR)))
             }
         }
         return null
+    }
+
+    @CompileStatic
+    private List<List<String>> subdirectories(String prefixPath, List<String> directory) {
+        return AssetHelper.wildcardCandidates(subdirectoryNames(prefixPath, directory.join(AssetHelper.DIRECTIVE_FILE_SEPARATOR))).collect { String name -> directory + name }
+    }
+
+    // Not private: resolveWildcardAsset calls it from a closure, which a subclass instance dispatches dynamically
+    @CompileStatic
+    protected static boolean isAnyWildcard(String component) {
+        return AssetHelper.isWildcardComponent(component) || AssetHelper.isDeepWildcardComponent(component)
     }
 
 
@@ -92,7 +125,7 @@ abstract class AbstractAssetResolver<T> implements AssetResolver<T> {
      */
     protected AssetFile resolveWildcardAsset(specs, String prefixPath, String normalizedPath, AssetFile baseFile, String extension) {
         int nameIndex = normalizedPath.lastIndexOf(AssetHelper.DIRECTIVE_FILE_SEPARATOR)
-        if(nameIndex < 0 || !normalizedPath.substring(0, nameIndex).split(AssetHelper.DIRECTIVE_FILE_SEPARATOR).any { String component -> AssetHelper.isWildcardComponent(component) }) {
+        if(nameIndex < 0 || !normalizedPath.substring(0, nameIndex).split(AssetHelper.DIRECTIVE_FILE_SEPARATOR).any { String component -> isAnyWildcard(component) }) {
             return resolveAsset(specs, prefixPath, normalizedPath, baseFile, extension)
         }
         return firstWildcardMatch(prefixPath, normalizedPath.substring(0, nameIndex)) { String directory ->

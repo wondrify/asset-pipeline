@@ -285,7 +285,7 @@ When you upgrade dependencies in `build.gradle`, your require directives automat
 2. Resolves to versioned path (e.g., `webjars/jquery/3.7.1/dist/jquery.js`)
 3. Caches resolved paths for performance
 
-A `*` or `%` path component stands for exactly one directory, so a path needs one wildcard for each directory it leaves out, and it can be the first component or appear more than once (`webjars/%/%/dist/jquery.js`). The file system, the classpath and jars resolve a wildcard the same way, and so does the Grails plugin's manifest lookup in production. When several directories hold the file, the highest version wins (`5.1.2` over `4.3.0`, `10.0.0` over `9.0.0`), and hidden directories (a name starting with `.`) are never used.
+A `*` or `%` path component stands for exactly one directory. It can be the first component or appear more than once (`webjars/%/%/dist/jquery.js`). A `**` or `%%` component stands for any number of directories, none included, as `**` does in a glob, so `webjars/%%/dist/jquery.js` finds `webjars/jquery/3.7.1/dist/jquery.js`. In a CSS require block use `%` and `%%`, since `*/` there ends the comment. The file system, the classpath and jars resolve wildcards the same way, and so does the Grails plugin's manifest lookup in production. When several paths hold the file, the one with the fewest directories in place of each `%%` wins, so a copy that another webjar bundles further down is not picked up; after that, the highest version wins (`5.1.2` over `4.3.0`, `10.0.0` over `9.0.0`, and a release over its own pre-releases, `5.1.2` over `5.1.2-rc.1`). Hidden directories (a name starting with `.`) are never used.
 
 ### Benefits
 

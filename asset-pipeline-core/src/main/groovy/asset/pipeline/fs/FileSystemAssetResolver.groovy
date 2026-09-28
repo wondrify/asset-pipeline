@@ -113,6 +113,12 @@ class FileSystemAssetResolver extends AbstractAssetResolver<File> {
         return new File(prefixPath, directory).listFiles()?.findAll { File file -> file.isDirectory() }*.name ?: []
     }
 
+    // The real path, so a %% walk that meets a symbolic link back up the tree does not go round it
+    @Override
+    protected Object directoryIdentity(String prefixPath, String directory) {
+        return new File(prefixPath, directory).canonicalPath
+    }
+
     @Override
     protected Closure<InputStream> createInputStreamClosure(File file) {
         if(file.exists() && !file.isDirectory()) {

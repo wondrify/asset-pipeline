@@ -43,4 +43,29 @@ class AssetProcessorServiceSpec extends Specification {
 			'webjars/deep/%/lib/x.js'       | 'webjars/deep/%/lib/x.js'
 			'vendor/%/lib.js'               | 'vendor/%/lib.js'
 	}
+
+	void "%% picks from the manifest what a resolver picks: the fewest directories, then the highest version: #path"() {
+		given:
+			AssetPipelineConfigHolder.manifest = new Properties()
+			['webjars/jquery/3.7.1/dist/jquery.js', 'webjars/other/1.0/vendor/jquery/dist/jquery.js',
+				'webjars/marked/4.3.0/lib/marked.js', 'webjars/marked/5.1.2/lib/marked.js', 'webjars/nest/a/b/c/deep.js',
+				'webjars/.cache/x/lib/hidden.js'].each {
+				AssetPipelineConfigHolder.manifest.setProperty(it, it.replaceFirst(/\.js$/, '-digest.js'))
+			}
+		expect:
+			new AssetProcessorService().getAssetPath(path, [:], true) == resolved
+		where:
+			path                                     | resolved
+			'webjars/jquery/3.7.1/%%/dist/jquery.js' | 'webjars/jquery/3.7.1/dist/jquery-digest.js'
+			'webjars/jquery/%%/dist/jquery.js'       | 'webjars/jquery/3.7.1/dist/jquery-digest.js'
+			'webjars/%%/dist/jquery.js'              | 'webjars/jquery/3.7.1/dist/jquery-digest.js'
+			'webjars/**/dist/jquery.js'              | 'webjars/jquery/3.7.1/dist/jquery-digest.js'
+			'%%/jquery.js'                           | 'webjars/jquery/3.7.1/dist/jquery-digest.js'
+			'webjars/%%/lib/marked.js'               | 'webjars/marked/5.1.2/lib/marked-digest.js'
+			'webjars/%%/deep.js'                     | 'webjars/nest/a/b/c/deep-digest.js'
+			'webjars/%%/hidden.js'                   | 'webjars/%%/hidden.js'
+			'webjars/%/dist/jquery.js'               | 'webjars/%/dist/jquery.js'
+			'/webjars/%%/lib/marked.js'              | 'webjars/marked/5.1.2/lib/marked-digest.js'
+	}
+
 }

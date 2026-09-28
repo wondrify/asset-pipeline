@@ -22,6 +22,10 @@ import asset.pipeline.GenericAssetFile
 import asset.pipeline.JsAssetFile
 import spock.lang.Specification
 import spock.lang.TempDir
+import spock.lang.Timeout
+
+import java.nio.file.Files
+import java.nio.file.Path
 
 /**
 * @author David Estes
@@ -203,6 +207,47 @@ class FileSystemAssetResolverSpec extends Specification {
 			'literal/%/in-percent'      | 'literal/%/in-percent.js'
 			'literal/%/in-a'            | 'literal/a/in-a.js'
 			'literal/%/nowhere'         | null
+	}
+
+	void "%% stands for any number of directories, the fewest first, then the highest version: #path"() {
+		given:
+			['webjars/jquery/3.7.1/dist/jquery.js', 'webjars/other/1.0/vendor/jquery/dist/jquery.js',
+				'webjars/marked/4.3.0/lib/marked.js', 'webjars/marked/5.1.2/lib/marked.js', 'webjars/nest/a/b/c/deep.js',
+				'webjars/.cache/x/lib/hidden.js'].each {
+				File file = new File(tempDir, it)
+				file.parentFile.mkdirs()
+				file.text = "// ${it}"
+			}
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false)
+		when:
+			def file = resolver.getAsset(path, 'application/javascript', 'js')
+		then:
+			file?.path == resolved
+		where:
+			path                                  | resolved
+			'webjars/jquery/3.7.1/%%/dist/jquery' | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/jquery/%%/dist/jquery'       | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/**/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'%%/jquery'                           | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/lib/marked'               | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/%%/deep'                     | 'webjars/nest/a/b/c/deep.js'
+			'webjars/%%/hidden'                   | null
+			'webjars/%/dist/jquery'               | null
+			'/webjars/%%/lib/marked'              | 'webjars/marked/5.1.2/lib/marked.js'
+	}
+
+	@Timeout(10)
+	void "%% visits a directory once, so symbolic links back up the tree do not keep it walking"() {
+		given: 'two links, so a walk that went round them would double at every level'
+			File loop = new File(tempDir, 'loop')
+			loop.mkdirs()
+			List<Path> links = ['again', 'also'].collect { Files.createSymbolicLink(new File(loop, it).toPath(), loop.toPath()) }
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false)
+		expect:
+			resolver.getAsset('loop/%%/nowhere', 'application/javascript', 'js') == null
+		cleanup: 'the temporary directory is removed by walking it, which the links would send round too'
+			links.each { Files.deleteIfExists(it) }
 	}
 
 	void "a wildcard directory is listed once for all the extensions a lookup tries, not once for each"() {

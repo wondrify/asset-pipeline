@@ -140,6 +140,32 @@ class ClasspathAssetResolverSpec extends Specification {
         '/webjars/marked/%/lib/marked'  | 'webjars/marked/5.1.2/lib/marked.js'
     }
 
+    void "%% stands for any number of directories across the classpath, the fewest first, then the highest version: #path"() {
+        given: 'the shallow jQuery and the newer marked in the second jar, the bundled copy and the rest in the first'
+        URL[] classpath = [
+            TestJars.write(new File(tempDir, 'first.jar'), ['webjars/other/1.0/vendor/jquery/dist/jquery.js', 'webjars/marked/4.3.0/lib/marked.js', 'webjars/.cache/x/lib/hidden.js']).toURI().toURL(),
+            TestJars.write(new File(tempDir, 'second.jar'), ['webjars/jquery/3.7.1/dist/jquery.js', 'webjars/marked/5.1.2/lib/marked.js']).toURI().toURL(),
+            directory('exploded', ['webjars/nest/a/b/c/deep.js'])
+        ]
+        def resolver = new ClasspathAssetResolver('classpath', 'META-INF/resources', null, new URLClassLoader(classpath, (ClassLoader) null))
+        when:
+        def file = resolver.getAsset(path, 'application/javascript', 'js')
+        then:
+        file?.path == resolved
+        where:
+        path                                  | resolved
+        'webjars/jquery/3.7.1/%%/dist/jquery' | 'webjars/jquery/3.7.1/dist/jquery.js'
+        'webjars/jquery/%%/dist/jquery'       | 'webjars/jquery/3.7.1/dist/jquery.js'
+        'webjars/%%/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+        'webjars/**/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+        '%%/jquery'                           | 'webjars/jquery/3.7.1/dist/jquery.js'
+        'webjars/%%/lib/marked'               | 'webjars/marked/5.1.2/lib/marked.js'
+        'webjars/%%/deep'                     | 'webjars/nest/a/b/c/deep.js'
+        'webjars/%%/hidden'                   | null
+        'webjars/%/dist/jquery'               | null
+        '/webjars/%%/lib/marked'              | 'webjars/marked/5.1.2/lib/marked.js'
+    }
+
     // A classpath directory holding each path under META-INF/resources
     private URL directory(String name, List<String> paths) {
         File root = new File(tempDir, name)
