@@ -129,7 +129,7 @@ class JsModuleImportProcessorSpec extends Specification {
 		'esm-commonjs-cycle'           | "import('./a.js')"
 		'esm-require-first-line-cycle' | "import('./a.js')"
 		'esm-babel-cycle'              | "import('./a.js')"
-		'esm-url-import-cycle'         | 'esm-url-import-cycle/a-'
+		'esm-url-import-cycle'         | "'/assets/asset-pipeline/test/esm-url-import-cycle/a-"
 	}
 
 	void "an asset whose digest depends on its own fails the compile, naming the cycle"() {

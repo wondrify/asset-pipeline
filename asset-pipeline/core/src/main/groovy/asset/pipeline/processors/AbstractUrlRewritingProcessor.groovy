@@ -196,11 +196,15 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
 //		println "Replacing Asset Path for ${currFile.path}"
         if(baseUrl) {
             replacementPathSb << baseUrl
+            if(!baseUrl.endsWith('/')) {
+                replacementPathSb << '/'
+            }
         } else if(!preferRelative){
-            replacementPathSb << '/' << (AssetPipelineConfigHolder.config?.mapping != null ? AssetPipelineConfigHolder.config?.mapping : 'assets')
-			if(AssetPipelineConfigHolder.config?.mapping?.size() > 0) {
-				replacementPathSb << '/'
-			}
+            final String mapping = AssetPipelineConfigHolder.config?.mapping != null ? AssetPipelineConfigHolder.config.mapping : 'assets'
+            replacementPathSb << '/' << mapping
+            if(mapping) {
+                replacementPathSb << '/'
+            }
         }
 //		println "FileName Check: ${replacementPathSb}"
         // file
