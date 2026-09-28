@@ -105,7 +105,7 @@ class JsModuleImportProcessorSpec extends Specification {
 		b1 == b2
 	}
 
-	void "a cycle through a file bundled into a module keeps its plain names: #dir"() {
+	void "a cycle through a file bundled into a module, or through asset_url(), keeps the import's plain name: #dir"() {
 		when:
 		AssetCompiler aFirst = new AssetCompiler([enableDigests: true])
 		String a1 = compile("asset-pipeline/test/${dir}/a", aFirst)
@@ -124,9 +124,12 @@ class JsModuleImportProcessorSpec extends Specification {
 		b1 == b2
 
 		where:
-		dir                   | importOfA
-		'esm-directive-cycle' | "from './a.js'"
-		'esm-commonjs-cycle'  | "import('./a.js')"
+		dir                            | importOfA
+		'esm-directive-cycle'          | "from './a.js'"
+		'esm-commonjs-cycle'           | "import('./a.js')"
+		'esm-require-first-line-cycle' | "import('./a.js')"
+		'esm-babel-cycle'              | "import('./a.js')"
+		'esm-url-import-cycle'         | 'esm-url-import-cycle/a-'
 	}
 
 	void "an asset whose digest depends on its own fails the compile, naming the cycle"() {

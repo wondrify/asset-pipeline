@@ -39,6 +39,8 @@ class DirectiveProcessor {
     private AssetCompiler precompiler
     private Map files = [:]
     private def baseFile
+    // Set by getRequiredFiles, which wants only the files the base file's own directives name
+    private boolean baseDirectivesOnly
     ClassLoader classLoader
 
     DirectiveProcessor(String contentType, AssetCompiler precompiler = null, ClassLoader classLoader=Thread.currentThread().contextClassLoader) {
@@ -88,7 +90,7 @@ class DirectiveProcessor {
     }
 
     /**
-    * The assets a compile of {@code file} bundles with it through its directives, not counting the file itself
+    * The assets the directives in {@code file} itself bundle with it, without reading theirs
     */
     @CompileStatic
     List<AssetFile> getRequiredFiles(AssetFile file) {
@@ -97,7 +99,12 @@ class DirectiveProcessor {
         }
         this.baseFile = file
         this.files = [:]
-        getDependencyTree(file)
+        this.baseDirectivesOnly = true
+        try {
+            getDependencyTree(file)
+        } finally {
+            this.baseDirectivesOnly = false
+        }
         return (files.values() as Collection<AssetFile>).findAll { AssetFile required -> required.path != file.path } as List<AssetFile>
     }
 
@@ -172,7 +179,7 @@ class DirectiveProcessor {
     protected Map getDependencyTree(AssetFile file) {
         this.files[file.path] = file
         Map tree = [file:file,tree:[]]
-        if(!(file instanceof GenericAssetFile)) {
+        if(!(file instanceof GenericAssetFile) && !(baseDirectivesOnly && !file.is(baseFile))) {
             this.findDirectives(file as AssetFile,tree)
         }
 

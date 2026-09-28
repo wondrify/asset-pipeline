@@ -43,25 +43,29 @@ import java.util.regex.Pattern
  *
  * Runs only when compiling with digests. In development every file is served under its own name. It also
  * runs after the CommonJS processors, so a file Babel has turned into {@code require()} calls has no imports
- * left and passes through unchanged. Babel converts every {@code .es6} file, every {@code .js} file when
- * {@code enableES6} is on, and a {@code .js} file that contains {@code export default} unless {@code enableES6}
- * is {@code false}, so a module library with default exports is bundled rather than served as modules.
+ * left and passes through unchanged. Babel converts every {@code .mjs}, {@code .bjs} and {@code .js.es6} (and
+ * {@code .es7}, {@code .es8}, {@code .es}) file, every {@code .js} file when {@code enableES6} is on, and a
+ * {@code .js} file that contains {@code export default} unless {@code enableES6} is {@code false}; see
+ * {@link BabelJsProcessor#converts}. So a module library is served as modules only as {@code .js} files, and
+ * with {@code enableES6: false} when any of them has a default export.
  *
  * Imports that form a cycle keep their plain names. A digest names content, so a module's name would depend
  * on the content of a module whose content contains that name. A module's content is its own source plus
- * every file its {@code //= require} directives and {@code require()} calls bundle into it, so an import from
- * A to B is rewritten only when nothing B imports or bundles leads back to A, directly or through other
- * modules. That depends on the source files alone, so a module compiles to the same content whichever module
+ * every file its {@code //= require} directives and {@code require()} calls bundle into it, and it names the
+ * digest of every asset its {@code asset_url()} calls refer to. So an import from A to B is rewritten only when
+ * nothing B imports, bundles or names that way leads back to A, directly or through other modules. That depends on the source files alone, so a module compiles to the same content whichever module
  * the compiler reaches first. Serving a plain name needs the non-digested files ({@code skipNonDigests: false})
  * or an application that maps it through the manifest, so each one is logged as a warning.
  */
 @Slf4j
 class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 
-	// 1: everything before the specifier's opening quote, 2: the quote, 3: the relative specifier.
-	// The lookbehind keeps out member calls such as loader.import('./x.js') and identifiers ending in
-	// "import" or "export" (\x24 is "$").
-	private static final Pattern IMPORT_PATTERN = ~/((?<![\w\x24.])(?:(?:import|export)\b[^'"`;]*?\bfrom\s*|import\s*(?:\(\s*)?))(['"])(\.{1,2}\/[^'"`\s]+)\2/
+	// 1: everything before the specifier's opening quote, 2: the quote, 3: the specifier, relative in
+	// IMPORT_PATTERN and any in ANY_IMPORT_PATTERN. The lookbehind keeps out member calls such as
+	// loader.import('./x.js') and identifiers ending in "import" or "export" (\x24 is "$").
+	private static final String IMPORT_PREFIX = /((?<![\w\x24.])(?:(?:import|export)\b[^'"`;]*?\bfrom\s*|import\s*(?:\(\s*)?))/
+	private static final Pattern IMPORT_PATTERN = ~(IMPORT_PREFIX + /(['"])(\.{1,2}\/[^'"`\s]+)\2/)
+	private static final Pattern ANY_IMPORT_PATTERN = ~(IMPORT_PREFIX + /(['"])([^'"`\s]+)\2/)
 
 
 	JsModuleImportProcessor(final AssetCompiler precompiler) {
@@ -126,9 +130,9 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 
 
 	/**
-	 * The paths of the assets the asset at {@code path} imports by relative specifier or bundles through its
-	 * directives and {@code require()} calls, read once per compile run. The asset is resolved only the first
-	 * time, when {@code module} is not already at hand.
+	 * The paths of the assets the asset at {@code path} imports, bundles or names by digest, see
+	 * {@link #referencedPaths}, read once per compile run. The asset is resolved only the first time, when
+	 * {@code module} is not already at hand.
 	 */
 	private List<String> references(final String path, final AssetFile module) {
 		List<String> paths = precompiler.moduleReferences.get(path)
@@ -141,19 +145,36 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 	}
 
 
+	/**
+	 * What {@code module}'s processors put into its compiled content from other assets, whole or by digest: the
+	 * modules it imports by relative specifier, or, when Babel converts it, every module it imports, since those
+	 * become {@code require()} calls the require processor bundles; the files its directives and {@code require()}
+	 * calls bundle; and the assets its {@code asset_url()} calls name.
+	 */
 	private List<String> referencedPaths(final AssetFile module) {
 		final String source = module.inputStream.withStream { InputStream stream -> stream.getText(module.encoding ?: 'UTF-8') }
-		final Set<String> paths = new LinkedHashSet<String>()
-		final Matcher matcher = IMPORT_PATTERN.matcher(source)
-		while(matcher.find()) {
-			final AssetFile imported = resolveRelativeAsset(module, withoutQueryOrFragment(matcher.group(3)))
-			if(imported) {
-				paths << imported.path
+		final List<Class> processors = module.processors ?: []
+		final List<AssetFile> referenced = []
+		if(BabelJsProcessor in processors && BabelJsProcessor.converts(source, module)) {
+			final Matcher matcher = ANY_IMPORT_PATTERN.matcher(source)
+			while(matcher.find()) {
+				referenced << JsRequireProcessor.resolveRequiredAsset(module, matcher.group(3))
+			}
+		} else {
+			final Matcher matcher = IMPORT_PATTERN.matcher(source)
+			while(matcher.find()) {
+				referenced << resolveRelativeAsset(module, withoutQueryOrFragment(matcher.group(3)))
 			}
 		}
-		paths.addAll(new DirectiveProcessor(module.contentType[0], precompiler).getRequiredFiles(module)*.path)
-		paths.addAll(JsRequireProcessor.requiredAssets(module, source)*.path)
-		return paths as List<String>
+		referenced.addAll(new DirectiveProcessor(module.contentType[0], precompiler).getRequiredFiles(module))
+		if(JsRequireProcessor in processors) {
+			referenced.addAll(JsRequireProcessor.requiredAssets(module, source))
+		}
+		if(JsProcessor in processors) {
+			referenced.addAll(JsProcessor.urlAssets(source))
+		}
+		// A generic asset's digest is its bytes', so nothing leads on from it
+		return referenced.findAll { AssetFile asset -> asset && !(asset instanceof GenericAssetFile) }*.path.unique()
 	}
 
 

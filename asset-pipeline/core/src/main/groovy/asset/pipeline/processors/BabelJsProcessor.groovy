@@ -75,23 +75,34 @@ class BabelJsProcessor extends AbstractProcessor {
 
 
 	/**
+	 * Whether {@link #process} converts {@code input}, the text of {@code assetFile}. A file type other than plain
+	 * JavaScript ({@code .mjs}, {@code .es6} and the rest of {@code JsEs6AssetFile}'s) always is. A plain {@code .js}
+	 * file is when {@code enableES6} is on, or when it contains {@code export default} and {@code enableES6} is not
+	 * {@code false}.
+	 */
+	static boolean converts(String input, AssetFile assetFile) {
+		if(!input) {
+			return false
+		}
+		if(!(assetFile instanceof JsAssetFile)) {
+			return true
+		}
+		if(input.contains("export default")) {
+			return !(AssetPipelineConfigHolder.config?.enableES6 == false || AssetPipelineConfigHolder.config?."enable-es6" == false)
+		}
+		return AssetPipelineConfigHolder.config?.enableES6 || AssetPipelineConfigHolder.config?."enable-es6"
+	}
+
+
+	/**
 	* Processes an input string from a given AssetFile implementation of coffeescript and converts it to javascript
 	* @param   input String input coffee script text to be converted to javascript
 	* @param   AssetFile instance of the asset file from which this file came from. Not actually used currently for this implementation.
 	* @return  String of compiled javascript
 	*/
 	String process(String input,AssetFile  assetFile) {
-		if(!input) {
+		if(!converts(input, assetFile)) {
 			return input
-		}
-		Boolean newEcmascriptKeywordsFound = false
-		if(input.contains("export default")) {
-			newEcmascriptKeywordsFound = true;
-		}
-		if(assetFile instanceof JsAssetFile) {
-			if((!newEcmascriptKeywordsFound && !AssetPipelineConfigHolder.config?.enableES6 && !AssetPipelineConfigHolder.config?."enable-es6") || (newEcmascriptKeywordsFound && (AssetPipelineConfigHolder.config?.enableES6 == false || AssetPipelineConfigHolder.config?."enable-es6" == false))) {
-				return input
-			}
 		}
 
 		Boolean processed = false

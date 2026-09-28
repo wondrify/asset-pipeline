@@ -77,8 +77,10 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
      * multiplies with the number of paths through assets that refer to one another, as ES modules do.
      *
      * An asset whose compiled content refers to its own digest, through any chain of references, can have none,
-     * so that fails with the chain rather than recursing until the stack runs out. Import cycles never get here,
-     * see {@link JsModuleImportProcessor}; an {@code asset_url} or CSS {@code url()} cycle does.
+     * so that fails with the chain rather than recursing until the stack runs out. A cycle that runs through an ES
+     * module import keeps that import's plain name instead (see {@link JsModuleImportProcessor}), unless it also
+     * runs through a CSS {@code url()}, which that processor does not follow. Otherwise this is a cycle of
+     * {@code asset_url()} or CSS {@code url()} references.
      */
     protected String compiledDigest(final AssetFile currFile) {
         final Map<String, String> digests = precompiler.referencedDigests

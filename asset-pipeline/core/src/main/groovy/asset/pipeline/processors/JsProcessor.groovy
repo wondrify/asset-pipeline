@@ -19,6 +19,7 @@ package asset.pipeline.processors
 import asset.pipeline.AssetCompiler
 import asset.pipeline.AssetHelper
 import asset.pipeline.AssetFile
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 
 import static asset.pipeline.utils.net.Urls.isRelative
@@ -69,5 +70,21 @@ class JsProcessor extends AbstractUrlRewritingProcessor {
 
 				return "${quote}${replacementPath}${quote}"
 			}
+	}
+
+
+	/**
+	 * The assets the {@code asset_url()} calls in {@code source} name, as {@link #process} resolves them.
+	 */
+	static List<AssetFile> urlAssets(final String source) {
+		final List<AssetFile> assets = []
+		final Matcher matcher = URL_CALL_PATTERN.matcher(source)
+		while(matcher.find()) {
+			final AssetFile currFile = matcher.group(2) ? AssetHelper.fileForUri(matcher.group(2)) : null
+			if(currFile) {
+				assets << currFile
+			}
+		}
+		return assets
 	}
 }

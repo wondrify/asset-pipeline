@@ -181,14 +181,16 @@ class JsRequireProcessor extends AbstractUrlRewritingProcessor {
 
 
 	/**
-	 * The assets the {@code require()} calls in {@code source}, the text of {@code assetFile}, bundle.
+	 * The assets the {@code require()} calls in {@code source}, the text of {@code assetFile}, bundle. The pattern
+	 * needs a character before {@code require}, which {@link #process} finds even on the first line because
+	 * {@link JsNodeInjectProcessor} has put a line in front of it, so the scan starts on a new line too.
 	 */
 	static List<AssetFile> requiredAssets(final AssetFile assetFile, final String source) {
 		if(AssetPipelineConfigHolder.config != null && AssetPipelineConfigHolder.config.commonJs == false) {
 			return []
 		}
 		final List<AssetFile> required = []
-		final Matcher matcher = URL_CALL_PATTERN.matcher(source)
+		final Matcher matcher = URL_CALL_PATTERN.matcher('\n' + source)
 		while(matcher.find()) {
 			final AssetFile currFile = matcher.group(2) ? resolveRequiredAsset(assetFile, matcher.group(2)) : null
 			if(currFile) {
