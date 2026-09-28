@@ -263,8 +263,8 @@ class DirectiveProcessor {
     /**
     * Directive which allows inclusion of individual files
     * Example: //=require sample.js
-    * Example (WebJar): //=require webjars/dist/jquery.js
-    * Example (WebJar without extension): //=require webjars/* /dist/css/bootstrap
+    * Example (WebJar): //=require webjars/jquery/3.7.1/dist/jquery.js
+    * Example (WebJar, any version, without extension): //=require webjars/bootstrap/%/dist/css/bootstrap
     */
     def requireFileDirective(command, file, tree) {
         def fileName = command[1]
