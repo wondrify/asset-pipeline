@@ -7,10 +7,6 @@ ext {
 	pomDescription = 'JVM Asset Pipeline Servlet Adapter.'
 }
 
-repositories {
-	mavenCentral()
-}
-
 configurations {
 	provided
 	doc.extendsFrom(runtime)

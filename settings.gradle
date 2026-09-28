@@ -3,6 +3,10 @@ pluginManagement {
     includeBuild('asset-pipeline')
 }
 
+plugins {
+    id 'cloud.wondrify.repositories'
+}
+
 include(
         'asset-pipeline-bom',
         'asset-pipeline-spring-boot',

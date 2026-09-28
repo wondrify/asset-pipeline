@@ -5,13 +5,6 @@ plugins {
 
 group = 'cloud.wondrify'
 
-allprojects {
-    repositories {
-        // mavenLocal()
-        mavenCentral()
-    }
-}
-
 subprojects { project ->
     if (project.name != 'asset-pipeline-classpath-test') {
         apply plugin: 'org.apache.grails.gradle.grails-publish'

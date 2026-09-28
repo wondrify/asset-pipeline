@@ -2,6 +2,10 @@ pluginManagement {
     includeBuild('../build-logic')
 }
 
+plugins {
+    id 'cloud.wondrify.repositories'
+}
+
 // Core and the Gradle plugin built on it. The main build includes this build, as grails-core includes grails-gradle,
 // so that it depends on this core and applies this plugin rather than published ones.
 rootProject.name = 'asset-pipeline'
