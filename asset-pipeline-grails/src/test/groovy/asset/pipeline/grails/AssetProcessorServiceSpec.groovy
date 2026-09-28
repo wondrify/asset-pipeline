@@ -68,4 +68,16 @@ class AssetProcessorServiceSpec extends Specification {
 			'/webjars/%%/lib/marked.js'              | 'webjars/marked/5.1.2/lib/marked-digest.js'
 	}
 
+	void "a wildcard path with no match in the manifest is looked up once"() {
+		given: 'a manifest with something in it, since an empty one reads as none'
+			AssetPipelineConfigHolder.manifest = new Properties()
+			AssetPipelineConfigHolder.manifest.setProperty('app.js', 'app-digest.js')
+			AssetProcessorService service = new AssetProcessorService()
+		when: 'a file that would match is added after the first lookup missed'
+			String first = service.getAssetPath('webjars/marked/%/lib/marked.js', [:], true)
+			AssetPipelineConfigHolder.manifest.setProperty('webjars/marked/5.1.2/lib/marked.js', 'webjars/marked/5.1.2/lib/marked-digest.js')
+		then: 'the miss was kept, as a hit is'
+			first == 'webjars/marked/%/lib/marked.js'
+			service.getAssetPath('webjars/marked/%/lib/marked.js', [:], true) == first
+	}
 }

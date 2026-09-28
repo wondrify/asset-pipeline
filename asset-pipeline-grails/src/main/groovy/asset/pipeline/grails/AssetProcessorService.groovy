@@ -193,12 +193,11 @@ class AssetProcessorService implements GrailsApplicationAware {
 			if(result == null && (AssetHelper.isWildcardPath(path))) {
 				result = manifestWildcardCache.get(path)
 				if(result == null) {
-					// The file a resolver picks for the same path in development
+					// The file a resolver picks for the same path in development. A miss is kept as the path itself,
+					// which is what it returns, so a tag in a layout does not search the manifest on every page.
 					String entryKey = AssetHelper.resolveWildcardPath(path, manifest.stringPropertyNames())
-					if(entryKey != null) {
-						result = manifest.getProperty(entryKey)
-						manifestWildcardCache.put(path, result)
-					}
+					result = entryKey != null ? manifest.getProperty(entryKey) : path
+					manifestWildcardCache.put(path, result)
 				}
 				return result ?: path
 			}
