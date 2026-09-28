@@ -105,6 +105,20 @@ class JsModuleImportProcessorSpec extends Specification {
 		b1 == b2
 	}
 
+	void "a file that requires CommonJS modules keeps them when it also imports a module: #path"() {
+		when:
+		String withDigests = compile(path, new AssetCompiler([enableDigests: true]))
+		String withoutDigests = compile(path, new AssetCompiler([enableDigests: false]))
+
+		then: 'the import is the only difference digests make, so the require runtime and every module survive'
+		withoutDigests.startsWith(JsRequireProcessor.requireMethod)
+		withoutDigests.contains("_asset_pipeline_modules['asset-pipeline/test/esm-commonjs/helper.js']")
+		withDigests == withoutDigests.replace("import('./lazy.js')", "import('./lazy-${digest('asset-pipeline/test/esm-commonjs/lazy')}.js')")
+
+		where:
+		path << ['asset-pipeline/test/esm-commonjs/app', 'asset-pipeline/test/esm-commonjs/bundle']
+	}
+
 	void "outside a digest compile the imports are left alone"() {
 		expect:
 		[null, new AssetCompiler([enableDigests: false])].every { AssetCompiler compiler ->
