@@ -80,7 +80,7 @@ class FileSystemAssetResolver extends AbstractAssetResolver<File> {
 		}
 
 		for(directoryPath in scanDirectories) {
-            AssetFile assetFile = resolveAsset(specs, directoryPath, relativePath, baseFile, extension)
+            AssetFile assetFile = resolveWildcardAsset(specs, directoryPath, relativePath, baseFile, extension)
             if(assetFile) {
                 return assetFile
             }
@@ -97,30 +97,26 @@ class FileSystemAssetResolver extends AbstractAssetResolver<File> {
     @Override
     public File getRelativeFile(String relativePath, String name) {
 			if(AssetHelper.isWildcardPath(name)) { //we have some wildcard patterns to resolve.
-				String[] pathComponents = name.split(DIRECTIVE_FILE_SEPARATOR);
-				int wildCardIndex = pathComponents.findIndexOf {it.equals("*") || it.equals('%')}
-				if(wildCardIndex > -1) {
-					String preWildcardPath = pathComponents[0..(wildCardIndex -1)].join(File.separator)
-					String postWildcardPath = pathComponents[(wildCardIndex + 1)..(pathComponents.length -1)].join(File.separator)
-					File preWildcardDir = new File(relativePath, preWildcardPath)
-					if(preWildcardDir.exists() && preWildcardDir.isDirectory()) {
-						File[] possibleDirs = preWildcardDir.listFiles()
-						for(possibleDir in possibleDirs) {
-							if(possibleDir.isDirectory()) {
-								if(AssetHelper.isWildcardPath(name)) {//still have to search down more
-									return getRelativeFile(relativePath, "${preWildcardPath}/${possibleDir.name}/${postWildcardPath}" )
-								} else {
-									File testFile = new File(possibleDir, postWildcardPath)
-									if(testFile.exists() && !testFile.isDirectory()) {
-										return testFile
-									}
-								}
-							}
-						}
-					}
+				File file = firstWildcardMatch(relativePath, name) { String path ->
+					File candidate = new File(relativePath, path)
+					candidate.isFile() ? candidate : null
+				}
+				if(file) {
+					return file
 				}
 			}
 			return new File(relativePath, name)
+    }
+
+    @Override
+    protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+        return new File(prefixPath, directory).listFiles()?.findAll { File file -> file.isDirectory() }*.name ?: []
+    }
+
+    // The real path, so a %% walk that meets a symbolic link back up the tree does not go round it
+    @Override
+    protected Object directoryIdentity(String prefixPath, String directory) {
+        return new File(prefixPath, directory).canonicalPath
     }
 
     @Override

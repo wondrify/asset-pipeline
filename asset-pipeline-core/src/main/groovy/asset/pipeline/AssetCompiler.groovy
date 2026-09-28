@@ -60,14 +60,18 @@ public class AssetCompiler {
 	 */
 	AssetCompiler(Map options = [:], eventListener = null) {
 		this.eventListener = eventListener
-		this.options = options ?: [:]
+		if(options == null) {
+			options = [:]
+		}
+		this.options = options
 		if(!options['compileDir']) {
 			options['compileDir'] = "target/assets"
 		}
 		if(!options['excludesGzip']) {
 			options['excludesGzip'] = ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
 		} else {
-			options['excludesGzip'] += ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
+			// Only the ones missing, so a second compiler built from the same map adds nothing
+			options['excludesGzip'] += ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz'] - options['excludesGzip']
 		}
 
 		if(!options.containsKey('enableGzip')) {

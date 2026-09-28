@@ -272,7 +272,7 @@ WebJar version resolution also works with require directives in JavaScript and C
 
 **After (version-less):**
 ```javascript
-//= require webjars/jquary/*/dist/jquery.js
+//= require webjars/jquery/*/dist/jquery.js
 //= require webjars/bootstrap/*/dist/js/bootstrap.bundle.js
 ```
 
@@ -281,11 +281,11 @@ When you upgrade dependencies in `build.gradle`, your require directives automat
 ### How It Works
 
 **Version Resolution:**
-1. Detects wildcard path (e.g., `webjars/jqueruy/*/dist/jquery.js`)
+1. Detects wildcard path (e.g., `webjars/jquery/*/dist/jquery.js`)
 2. Resolves to versioned path (e.g., `webjars/jquery/3.7.1/dist/jquery.js`)
 3. Caches resolved paths for performance
 
-The locator scans the file system, classpath, and jars for matching wildcard paths and returns the first match it can.
+A `*` or `%` path component stands for exactly one directory. It can be the first component or appear more than once (`webjars/%/%/dist/jquery.js`). A `**` or `%%` component stands for any number of directories, none included, as `**` does in a glob, so `webjars/%%/dist/jquery.js` finds `webjars/jquery/3.7.1/dist/jquery.js`. In a CSS require block use `%` and `%%`, since `*/` there ends the comment. The file system, the classpath and jars resolve wildcards the same way, and so does the Grails plugin's manifest lookup in production. When several paths hold the file, the one with the fewest directories in place of each `%%` wins, so a copy that another webjar bundles further down is not picked up; after that, the highest version wins (`5.1.2` over `4.3.0`, `10.0.0` over `9.0.0`, and a release over its own pre-releases, `5.1.2` over `5.1.2-rc.1`). Hidden directories (a name starting with `.`) are never used.
 
 ### Benefits
 
@@ -312,7 +312,7 @@ The locator scans the file system, classpath, and jars for matching wildcard pat
 <asset:javascript src="webjars/jquery/*/dist/jquery.js"/>
 <asset:javascript src="webjars/jquery-form/*/src/jquery.form.js"/>
 <asset:javascript src="webjars/bootstrap/*/dist/js/bootstrap.bundle.js"/>
-<asset:stylesheet href="webjars/boostrap/*/dist/css/bootstrap.css"/>
+<asset:stylesheet href="webjars/bootstrap/*/dist/css/bootstrap.css"/>
 ```
 
 When you upgrade jQuery from 3.7.1 to 3.7.2, just update `build.gradle` - no view changes needed!

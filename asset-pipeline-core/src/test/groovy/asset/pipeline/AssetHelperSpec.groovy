@@ -23,6 +23,27 @@ import asset.pipeline.utils.Handler
  * @author David Estes
  */
 class AssetHelperSpec extends Specification {
+
+	void "wildcard candidates come highest version first, a release above its own pre-releases"() {
+		expect:
+			AssetHelper.wildcardCandidates(['5.1.2', '5.1.2-beta', '5.1.2-rc.1', '5.0.0', '5.2.0-alpha', '5.1.2-SNAPSHOT', '5.1.2.1', '10.0.0', '9.0.0', '.hidden']) ==
+				['10.0.0', '9.0.0', '5.2.0-alpha', '5.1.2.1', '5.1.2', '5.1.2-rc.1', '5.1.2-beta', '5.1.2-SNAPSHOT', '5.0.0']
+	}
+
+	void "compareVersions orders #higher above #lower"() {
+		expect:
+			AssetHelper.compareVersions(higher, lower) > 0
+			AssetHelper.compareVersions(lower, higher) < 0
+		where:
+			higher        | lower
+			'10.0.0'      | '9.0.0'
+			'5.1.2'       | '5.1.2-beta'
+			'5.1.2'       | '5.1.2-SNAPSHOT'
+			'5.1.2-rc.1'  | '5.1.2-beta'
+			'5.1.2-rc.2'  | '5.1.2-rc.1'
+			'5.1.2.1'     | '5.1.2'
+			'5.2.0-alpha' | '5.1.2'
+	}
     def setup() {
         AssetPipelineConfigHolder.registerResolver(new FileSystemAssetResolver('application','assets'))
     }

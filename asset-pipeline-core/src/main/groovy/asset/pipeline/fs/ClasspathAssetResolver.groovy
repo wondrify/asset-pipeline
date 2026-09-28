@@ -53,6 +53,10 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
         if (!relativePath) {
             return null
         }
+        // As JarAssetResolver does: the class loader finds nothing under META-INF/resources//webjars
+        if (relativePath.startsWith(DIRECTIVE_FILE_SEPARATOR)) {
+            relativePath = relativePath.substring(1)
+        }
         def normalizedPath = AssetHelper.normalizePath(relativePath.replace(NATIVE_FILE_SEPARATOR, DIRECTIVE_FILE_SEPARATOR))
         if(!normalizedPath) {
             return null
@@ -69,7 +73,7 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
             specs = AssetHelper.assetFileClasses().findAll { it.extensions.contains(extension) }
         }
 
-        AssetFile assetFile = resolveAsset(specs, prefixPath, normalizedPath, baseFile, extension)
+        AssetFile assetFile = resolveWildcardAsset(specs, prefixPath, normalizedPath, baseFile, extension)
 
         return assetFile
     }
@@ -130,42 +134,21 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
         }
 
 				if(AssetHelper.isWildcardPath(name)) { //we have some wildcard patterns to resolve.
-					String[] pathComponents = name.split(DIRECTIVE_FILE_SEPARATOR);
-					int wildCardIndex = pathComponents.findIndexOf {it.equals("*") || it.equals('%')}
-					if(wildCardIndex > -1) {
-						String preWildcardPath = pathComponents[0..(wildCardIndex -1)].join(DIRECTIVE_FILE_SEPARATOR)
-						String postWildcardPath = pathComponents[(wildCardIndex + 1)..(pathComponents.length -1)].join(DIRECTIVE_FILE_SEPARATOR)
-						List<URL> possibleDirs = []
-						Enumeration<URL> entries = classLoader.getResources("$relativePath/$preWildcardPath/")
-						for(URL entryPath in entries) {
-							possibleDirs << entryPath
-						}
-						for(possibleDir in possibleDirs) {
-							if(possibleDir.getProtocol()?.equals("jar")) {
-								String jarPath = possibleDir.getPath()
-								if(jarPath.startsWith("file:")) {
-									jarPath = jarPath.substring(5)
-								}
-								if(jarPath.contains("!")) {
-									jarPath = jarPath.substring(0, jarPath.indexOf("!"))
-								}
-								File jarFile = new File(jarPath)
-								if(jarFile.exists()) {
-									subResolvers.putIfAbsent(jarPath, new JarAssetResolver("${name}:${possibleDir.toString()}", jarFile.absolutePath, prefixPath) )
-									def jarResolver =  subResolvers.get(jarPath);
-									def testEntry = jarResolver.getRelativeFile(relativePath, name)
-									if(testEntry) {
-										def jarEntry = new JarAssetEntry(zipEntry:testEntry as ZipEntry,resolver:jarResolver as JarAssetResolver)
-										return jarEntry
-									}
-								}
-							}
-
-						}
+					URL file = firstWildcardMatch(relativePath, name) { String path -> resourceFile(relativePath, path) }
+					if(file) {
+						return file
 					}
 				}
 
-        URL file = classLoader.getResource("$relativePath/$name")
+        return resourceFile(relativePath, name)
+    }
+
+    /**
+     * The resource at {@code path}, unless it is a directory
+     */
+    @CompileStatic
+    private URL resourceFile(String relativePath, String path) {
+        URL file = classLoader.getResource("$relativePath/$path")
         if (file?.getProtocol()?.equals("file")) {
             if(new File(file.getPath()).isDirectory()) {
                 return null
@@ -176,7 +159,27 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
         return file
     }
 
-
+    /**
+     * The directories directly under {@code directory} in every jar and every directory on the classpath that has it
+     */
+    @Override
+    @CompileStatic
+    protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+        Set<String> names = new HashSet<String>()
+        for(URL root in classLoader.getResources([prefixPath, directory].findAll().join(DIRECTIVE_FILE_SEPARATOR) + DIRECTIVE_FILE_SEPARATOR)) {
+            if(root.protocol == 'file') {
+                names.addAll(new File(root.toURI()).listFiles()?.findAll { File file -> file.isDirectory() }*.name ?: [])
+            } else if(root.protocol == 'jar') {
+                URL jarUrl = ((JarURLConnection) root.openConnection()).jarFileURL
+                if(jarUrl.protocol == 'file') {
+                    File jarFile = new File(jarUrl.toURI())
+                    JarAssetResolver jarResolver = (JarAssetResolver) subResolvers.computeIfAbsent(jarFile.path) { String path -> new JarAssetResolver("${name}:${path}", path, prefixPath) }
+                    names.addAll(jarResolver.subdirectoryNames(prefixPath, directory))
+                }
+            }
+        }
+        return names
+    }
 
     @Override
     @CompileStatic

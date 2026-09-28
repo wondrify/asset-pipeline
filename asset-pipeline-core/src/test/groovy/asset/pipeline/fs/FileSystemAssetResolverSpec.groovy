@@ -21,11 +21,19 @@ import asset.pipeline.CssAssetFile
 import asset.pipeline.GenericAssetFile
 import asset.pipeline.JsAssetFile
 import spock.lang.Specification
+import spock.lang.TempDir
+import spock.lang.Timeout
+
+import java.nio.file.Files
+import java.nio.file.Path
 
 /**
 * @author David Estes
 */
 class FileSystemAssetResolverSpec extends Specification {
+
+	@TempDir
+	File tempDir
 
 	void "should be able to fetch generic files with seperated extension"() {
 		given:
@@ -147,6 +155,118 @@ class FileSystemAssetResolverSpec extends Specification {
 		cleanup:
 			jsFile?.delete()
 			mjsFile?.delete()
+	}
+
+	void "a wildcard directory resolves to the directory that holds the file, not only the first one listed: #path"() {
+		given: 'wildcard-dirs has the subdirectories a, b and c; each only-in-* file exists under one of them'
+			def resolver = new FileSystemAssetResolver('application','assets')
+		when:
+			def file = resolver.getAsset("asset-pipeline/test/wildcard-dirs/${path}", 'application/javascript', 'js')
+		then:
+			file?.path == (resolved ? "asset-pipeline/test/wildcard-dirs/${resolved}.js" : null)
+		where:
+			path                | resolved
+			'%/only-in-a'       | 'a/only-in-a'
+			'%/only-in-b'       | 'b/only-in-b'
+			'%/only-in-c'       | 'c/only-in-c'
+			'*/only-in-c'       | 'c/only-in-c'
+			'%/%/deep'          | 'c/inner/deep'
+			'%/in-b-and-c'      | 'c/in-b-and-c'
+			'%/nowhere'         | null
+	}
+
+	void "a wildcard may be the first component of the path or the last"() {
+		given:
+			String scanDir = new File('assets/javascripts').canonicalPath
+			def resolver = new FileSystemAssetResolver('application', scanDir, false)
+		expect: 'first, it stands for a directory at the top of the scan directory'
+			resolver.getRelativeFile(scanDir, '%/test/wildcard-dirs/a/only-in-a.js') == new File(scanDir, 'asset-pipeline/test/wildcard-dirs/a/only-in-a.js')
+		and: 'last, it stands for a directory, so it never names a file'
+			!resolver.getRelativeFile(scanDir, 'asset-pipeline/test/wildcard-dirs/%').isFile()
+	}
+
+	void "of the directories that hold the file, the highest version wins and a hidden one never does: #path"() {
+		given:
+			['marked/4.3.0/lib/marked.js', 'marked/5.1.2/lib/marked.js', 'chart/9.0.0/chart.js', 'chart/10.0.0/chart.js',
+			 'vendor/.backup/lib.js', 'vendor/.backup/only-in-backup.js', 'vendor/1.0/lib.js', 'literal/%/in-percent.js', 'literal/a/in-a.js'].each {
+				File file = new File(tempDir, it)
+				file.parentFile.mkdirs()
+				file.text = "// ${it}"
+			}
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false)
+		when:
+			def file = resolver.getAsset(path, 'application/javascript', 'js')
+		then:
+			file?.path == resolved
+		where:
+			path                        | resolved
+			'marked/%/lib/marked'       | 'marked/5.1.2/lib/marked.js'
+			'chart/%/chart'             | 'chart/10.0.0/chart.js'
+			'vendor/%/lib'              | 'vendor/1.0/lib.js'
+			'vendor/%/only-in-backup'   | null
+			'literal/%/in-percent'      | 'literal/%/in-percent.js'
+			'literal/%/in-a'            | 'literal/a/in-a.js'
+			'literal/%/nowhere'         | null
+	}
+
+	void "%% stands for any number of directories, the fewest first, then the highest version: #path"() {
+		given:
+			['webjars/jquery/3.7.1/dist/jquery.js', 'webjars/other/1.0/vendor/jquery/dist/jquery.js',
+				'webjars/marked/4.3.0/lib/marked.js', 'webjars/marked/5.1.2/lib/marked.js', 'webjars/nest/a/b/c/deep.js',
+				'webjars/.cache/x/lib/hidden.js'].each {
+				File file = new File(tempDir, it)
+				file.parentFile.mkdirs()
+				file.text = "// ${it}"
+			}
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false)
+		when:
+			def file = resolver.getAsset(path, 'application/javascript', 'js')
+		then:
+			file?.path == resolved
+		where:
+			path                                  | resolved
+			'webjars/jquery/3.7.1/%%/dist/jquery' | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/jquery/%%/dist/jquery'       | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/**/dist/jquery'              | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'%%/jquery'                           | 'webjars/jquery/3.7.1/dist/jquery.js'
+			'webjars/%%/lib/marked'               | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/%%/deep'                     | 'webjars/nest/a/b/c/deep.js'
+			'webjars/%%/hidden'                   | null
+			'webjars/%/dist/jquery'               | null
+			'/webjars/%%/lib/marked'              | 'webjars/marked/5.1.2/lib/marked.js'
+	}
+
+	@Timeout(10)
+	void "%% visits a directory once, so symbolic links back up the tree do not keep it walking"() {
+		given: 'two links, so a walk that went round them would double at every level'
+			File loop = new File(tempDir, 'loop')
+			loop.mkdirs()
+			List<Path> links = ['again', 'also'].collect { Files.createSymbolicLink(new File(loop, it).toPath(), loop.toPath()) }
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false)
+		expect:
+			resolver.getAsset('loop/%%/nowhere', 'application/javascript', 'js') == null
+		cleanup: 'the temporary directory is removed by walking it, which the links would send round too'
+			links.each { Files.deleteIfExists(it) }
+	}
+
+	void "a wildcard directory is listed once for all the extensions a lookup tries, not once for each"() {
+		given:
+			File file = new File(tempDir, 'a/1.0/x.js')
+			file.parentFile.mkdirs()
+			file.text = ''
+			List<String> listed = []
+			def resolver = new FileSystemAssetResolver('application', tempDir.path, false) {
+				@Override
+				protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+					listed << directory
+					return super.subdirectoryNames(prefixPath, directory)
+				}
+			}
+		when:
+			resolver.getAsset('a/%/missing', 'application/javascript', 'js')
+		then:
+			listed == ['a']
 	}
 
 }
