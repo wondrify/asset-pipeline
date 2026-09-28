@@ -49,13 +49,16 @@ import java.util.regex.Pattern
  * {@link BabelJsProcessor#converts}. So a module library is served as modules only as {@code .js} files, and
  * with {@code enableES6: false} when any of them has a default export.
  *
- * Imports that form a cycle keep their plain names. A digest names content, so a module's name would depend
- * on the content of a module whose content contains that name. A module's content is its own source plus
- * every file its {@code //= require} directives and {@code require()} calls bundle into it, and it names the
- * digest of every asset its {@code asset_url()} calls refer to. So an import from A to B is rewritten only when
- * nothing B imports, bundles or names that way leads back to A, directly or through other modules. That depends on the source files alone, so a module compiles to the same content whichever module
- * the compiler reaches first. Serving a plain name needs the non-digested files ({@code skipNonDigests: false})
- * or an application that maps it through the manifest, so each one is logged as a warning.
+ * A module in an import cycle keeps its plain name wherever it is imported from. A digest names content, so a
+ * module's name would depend on the content of a module whose content contains that name. A module's content is
+ * its own source plus every file its {@code //= require} directives and {@code require()} calls bundle into it,
+ * and it names the digest of every asset its {@code asset_url()} calls refer to, so an import of B is rewritten
+ * only when nothing B imports, bundles or names that way leads back to B, directly or through other modules. An
+ * import from outside the cycle keeps the plain name too: a browser identifies a module by its URL, so one
+ * imported under both names would be loaded, and run, twice. That depends on the source files alone, so a module
+ * compiles to the same content whichever module the compiler reaches first. Serving a plain name needs the
+ * non-digested files ({@code skipNonDigests: false}) or an application that maps it through the manifest, so
+ * each one is logged as a warning.
  */
 @Slf4j
 class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
@@ -94,8 +97,12 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		if(!target) {
 			return specifier
 		}
-		if(reach(target).contains(assetFile.path)) {
-			log.warn("${assetFile.path} imports ${specifier}, which leads back to it, so the import keeps its plain name; serve the non-digested file (skipNonDigests: false) or map it through the manifest")
+		// Every import of a module in a cycle keeps its plain name, from inside the cycle or out. A browser identifies a
+		// module by its URL, so a digested import from outside would load a second instance beside the one the cycle
+		// imports, running its code again. The importing file is in the graph too, so this also covers the import that
+		// closes a cycle.
+		if(reach(target).contains(target.path)) {
+			log.warn("${assetFile.path} imports ${specifier}, which is part of an import cycle, so the import keeps its plain name; serve the non-digested file (skipNonDigests: false) or map it through the manifest")
 			return specifier
 		}
 		final String url = replacementUrl(assetFile, specifier)

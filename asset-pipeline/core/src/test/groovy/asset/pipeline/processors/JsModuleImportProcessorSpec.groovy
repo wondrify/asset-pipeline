@@ -105,6 +105,14 @@ class JsModuleImportProcessorSpec extends Specification {
 		b1 == b2
 	}
 
+	void "a module in a cycle keeps its plain name when a module outside the cycle imports it"() {
+		when:
+		String c = compile('asset-pipeline/test/esm-cycle-entry/c', new AssetCompiler([enableDigests: true]))
+
+		then: 'the same URL the cycle imports it by, so the browser loads one instance of it'
+		c.contains("from './a.js'")
+	}
+
 	void "a cycle through a file bundled into a module, or through asset_url(), keeps the import's plain name: #dir"() {
 		when:
 		AssetCompiler aFirst = new AssetCompiler([enableDigests: true])
