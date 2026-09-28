@@ -105,6 +105,15 @@ class JsModuleImportProcessorSpec extends Specification {
 		b1 == b2
 	}
 
+	void "an asset whose digest depends on its own fails the compile, naming the cycle"() {
+		when:
+		compile('asset-pipeline/test/url-cycle/a', new AssetCompiler([enableDigests: true]))
+
+		then:
+		IllegalStateException e = thrown()
+		e.message.contains('asset-pipeline/test/url-cycle/b.js -> asset-pipeline/test/url-cycle/a.js -> asset-pipeline/test/url-cycle/b.js')
+	}
+
 	void "a file that requires CommonJS modules keeps them when it also imports a module: #path"() {
 		when:
 		String withDigests = compile(path, new AssetCompiler([enableDigests: true]))

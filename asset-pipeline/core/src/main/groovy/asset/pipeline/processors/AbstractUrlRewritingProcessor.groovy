@@ -45,6 +45,9 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
 
     private static final Set<String> NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET = []
 
+    // The assets this thread is compiling for their digests, outermost first
+    private static final ThreadLocal<Set<String>> DIGESTING = ThreadLocal.withInitial { new LinkedHashSet<String>() }
+
 
     protected static boolean doNotInsertCacheDigestIntoUrlForCompiledExtension(final String compiledExtension) {
         NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.add(compiledExtension)
@@ -72,12 +75,24 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
      * The digest the compiler writes {@code currFile} under, taken from the same compiled content it digests.
      * Kept for the compile run: every reference to the asset needs it, and compiling it again for each one
      * multiplies with the number of paths through assets that refer to one another, as ES modules do.
+     *
+     * An asset whose compiled content refers to its own digest, through any chain of references, can have none,
+     * so that fails with the chain rather than recursing until the stack runs out. Import cycles never get here,
+     * see {@link JsModuleImportProcessor}; an {@code asset_url} or CSS {@code url()} cycle does.
      */
     protected String compiledDigest(final AssetFile currFile) {
         final Map<String, String> digests = precompiler.referencedDigests
         String digest = digests.get(currFile.path)
         if (digest == null) {
-            digest = getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes)
+            final Set<String> digesting = DIGESTING.get()
+            if (!digesting.add(currFile.path)) {
+                throw new IllegalStateException("${currFile.path} cannot be given a digest: its compiled content refers to its own digest through ${(digesting.toList().dropWhile { it != currFile.path } + currFile.path).join(' -> ')}")
+            }
+            try {
+                digest = getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes)
+            } finally {
+                digesting.remove(currFile.path)
+            }
             digests.put(currFile.path, digest)
         }
         return digest
