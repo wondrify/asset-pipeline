@@ -368,4 +368,22 @@ public class AssetHelper {
 			directoryNames.findAll { String name -> !name.startsWith('.') }.sort { String a, String b -> compareVersions(b, a) }
 		}
 
+		/**
+		 * The one of {@code paths} that {@code wildcardPath} resolves to, as a resolver would pick it from the same
+		 * files: a path it stands for has the same components, with a directory that is not hidden in the place of each
+		 * wildcard, and of those, the one whose wildcard directories come first in {@link #wildcardCandidates} order,
+		 * left to right. Null when it stands for none of them.
+		 */
+		@CompileStatic
+		static String resolveWildcardPath(String wildcardPath, Collection<String> paths) {
+			List<String> pattern = wildcardPath.split(DIRECTIVE_FILE_SEPARATOR).toList()
+			paths.collect { String path -> path.split(DIRECTIVE_FILE_SEPARATOR).toList() }.findAll { List<String> components ->
+				components.size() == pattern.size() && (0..<pattern.size()).every { int i ->
+					isWildcardComponent(pattern[i]) ? !components[i].startsWith('.') : components[i] == pattern[i]
+				}
+			}.max { List<String> a, List<String> b ->
+				(0..<a.size()).collect { int i -> compareVersions(a[i], b[i]) }.find { int result -> result != 0 } ?: 0
+			}?.join(DIRECTIVE_FILE_SEPARATOR)
+		}
+
 }

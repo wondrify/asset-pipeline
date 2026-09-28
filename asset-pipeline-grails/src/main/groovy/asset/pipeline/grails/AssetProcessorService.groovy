@@ -193,18 +193,11 @@ class AssetProcessorService implements GrailsApplicationAware {
 			if(result == null && (AssetHelper.isWildcardPath(path))) {
 				result = manifestWildcardCache.get(path)
 				if(result == null) {
-					//Wildcard lookup
-					String[] pathComponents = AssetHelper.WILDCARD_PATTERN.split(path)
-					for(String entryKey : manifest.keySet()) {
-						if(pathComponents.size() > 1 && entryKey.startsWith(pathComponents[0]) && entryKey.endsWith(pathComponents[-1])) {
-							result = manifest.getProperty(entryKey)
-							manifestWildcardCache.put(path, result)
-							break
-						} else if(pathComponents.size() == 1 && entryKey.endsWith(pathComponents[0])) {
-							manifestWildcardCache.put(path, result)
-							result = manifest.getProperty(entryKey)
-							break
-						}
+					// The file a resolver picks for the same path in development
+					String entryKey = AssetHelper.resolveWildcardPath(path, manifest.stringPropertyNames())
+					if(entryKey != null) {
+						result = manifest.getProperty(entryKey)
+						manifestWildcardCache.put(path, result)
 					}
 				}
 				return result ?: path
