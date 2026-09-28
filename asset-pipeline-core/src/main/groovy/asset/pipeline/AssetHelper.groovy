@@ -341,22 +341,29 @@ public class AssetHelper {
 
 		/**
 		 * Orders names as their versions do: runs of digits compare as numbers, so 9.0.0 comes before 10.0.0, and the
-		 * rest compares as text. A qualifier is text too, so 5.1.2-beta comes after 5.1.2.
+		 * rest compares as text, so 5.1.2-beta comes before 5.1.2-rc.1. Where one name goes on after the other ends,
+		 * another number makes it higher (5.1.2.1 above 5.1.2) and anything else is a qualifier that makes it lower, so
+		 * a release sorts above its own pre-releases (5.1.2 above 5.1.2-rc.1 and 5.1.2-SNAPSHOT).
 		 */
 		@CompileStatic
 		static int compareVersions(String a, String b) {
 			Matcher left = VERSION_PART.matcher(a)
 			Matcher right = VERSION_PART.matcher(b)
-			while(left.find()) {
-				if(!right.find()) {
-					return 1
+			while(true) {
+				boolean leftFound = left.find()
+				boolean rightFound = right.find()
+				if(!leftFound || !rightFound) {
+					if(leftFound == rightFound) {
+						return a <=> b
+					}
+					int longerIsHigher = (leftFound ? a.substring(left.start()) : b.substring(right.start())) ==~ /\.\d.*/ ? 1 : -1
+					return leftFound ? longerIsHigher : -longerIsHigher
 				}
 				int result = Character.isDigit(left.group().charAt(0)) && Character.isDigit(right.group().charAt(0)) ? new BigInteger(left.group()) <=> new BigInteger(right.group()) : left.group() <=> right.group()
 				if(result != 0) {
 					return result
 				}
 			}
-			return right.find() ? -1 : a <=> b
 		}
 
 		/**
