@@ -19,6 +19,7 @@ package asset.pipeline
 import java.nio.file.FileSystems
 import java.nio.file.PathMatcher
 import java.nio.file.Paths
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.security.MessageDigest
 import java.nio.channels.FileChannel
@@ -38,6 +39,7 @@ public class AssetHelper {
     static final String QUOTED_FILE_SEPARATOR = Pattern.quote(File.separator)
     static final String DIRECTIVE_FILE_SEPARATOR = '/'
 		static final Pattern WILDCARD_PATTERN = Pattern.compile(/[*%]/)
+		private static final Pattern VERSION_PART = ~/\d+|\D+/
 
     /**
      * Resolve an {@link AssetFile} for the given URI
@@ -327,6 +329,43 @@ public class AssetHelper {
 		@CompileStatic
 		static boolean isWildcardPath(String path) {
 			WILDCARD_PATTERN.matcher(path).find()
+		}
+
+		/**
+		 * Whether a path component is a wildcard, * or %, which stands for the name of any one directory.
+		 */
+		@CompileStatic
+		static boolean isWildcardComponent(String component) {
+			component == '*' || component == '%'
+		}
+
+		/**
+		 * Orders names as their versions do: runs of digits compare as numbers, so 9.0.0 comes before 10.0.0, and the
+		 * rest compares as text. A qualifier is text too, so 5.1.2-beta comes after 5.1.2.
+		 */
+		@CompileStatic
+		static int compareVersions(String a, String b) {
+			Matcher left = VERSION_PART.matcher(a)
+			Matcher right = VERSION_PART.matcher(b)
+			while(left.find()) {
+				if(!right.find()) {
+					return 1
+				}
+				int result = Character.isDigit(left.group().charAt(0)) && Character.isDigit(right.group().charAt(0)) ? new BigInteger(left.group()) <=> new BigInteger(right.group()) : left.group() <=> right.group()
+				if(result != 0) {
+					return result
+				}
+			}
+			return right.find() ? -1 : a <=> b
+		}
+
+		/**
+		 * The directories a wildcard component can stand for, in the order every resolver tries them: hidden ones left
+		 * out, and the highest version first, so webjars/marked/% picks 5.1.2 over 4.3.0 and 10.0.0 over 9.0.0.
+		 */
+		@CompileStatic
+		static List<String> wildcardCandidates(Collection<String> directoryNames) {
+			directoryNames.findAll { String name -> !name.startsWith('.') }.sort { String a, String b -> compareVersions(b, a) }
 		}
 
 }

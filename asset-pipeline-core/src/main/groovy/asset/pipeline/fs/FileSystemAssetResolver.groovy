@@ -97,27 +97,20 @@ class FileSystemAssetResolver extends AbstractAssetResolver<File> {
     @Override
     public File getRelativeFile(String relativePath, String name) {
 			if(AssetHelper.isWildcardPath(name)) { //we have some wildcard patterns to resolve.
-				List<String> pathComponents = name.split(DIRECTIVE_FILE_SEPARATOR).toList()
-				int wildCardIndex = pathComponents.findIndexOf {it.equals("*") || it.equals('%')}
-				if(wildCardIndex > -1) {
-					List<String> preWildcardComponents = pathComponents.take(wildCardIndex)
-					List<String> postWildcardComponents = pathComponents.drop(wildCardIndex + 1)
-					File preWildcardDir = new File(relativePath, preWildcardComponents.join(File.separator))
-					if(preWildcardDir.exists() && preWildcardDir.isDirectory()) {
-						// Every directory the wildcard can stand for, until the rest of the path, itself possibly holding
-						// another wildcard, names a file under one of them. Tried in name order, because listFiles()
-						// promises none and the directory that wins should not depend on the file system.
-						List<File> possibleDirs = (preWildcardDir.listFiles()?.findAll { it.isDirectory() } ?: []).sort { it.name }
-						for(possibleDir in possibleDirs) {
-							File testFile = getRelativeFile(relativePath, (preWildcardComponents + possibleDir.name + postWildcardComponents).join(DIRECTIVE_FILE_SEPARATOR))
-							if(testFile.exists() && !testFile.isDirectory()) {
-								return testFile
-							}
-						}
-					}
+				File file = firstWildcardMatch(relativePath, name) { String path ->
+					File candidate = new File(relativePath, path)
+					candidate.isFile() ? candidate : null
+				}
+				if(file) {
+					return file
 				}
 			}
 			return new File(relativePath, name)
+    }
+
+    @Override
+    protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+        return new File(prefixPath, directory).listFiles()?.findAll { File file -> file.isDirectory() }*.name ?: []
     }
 
     @Override

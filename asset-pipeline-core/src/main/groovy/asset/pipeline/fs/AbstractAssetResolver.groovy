@@ -47,6 +47,42 @@ abstract class AbstractAssetResolver<T> implements AssetResolver<T> {
 
     protected abstract Closure<InputStream> createInputStreamClosure(T file)
 
+    /**
+     * The names of the directories directly under {@code directory}, a path relative to {@code prefixPath} ('' for
+     * {@code prefixPath} itself): what a wildcard component can stand for. This implementation lists none, so a
+     * resolver resolves wildcards through {@link #firstWildcardMatch} only once it overrides this.
+     */
+    protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+        return []
+    }
+
+    /**
+     * The first non-null result of {@code resolve} for the paths {@code path} stands for, each wildcard component in
+     * it replaced by the name of one directory {@link #subdirectoryNames} lists, tried in
+     * {@link AssetHelper#wildcardCandidates} order. A wildcard stands for exactly one directory, and a directory's
+     * name is never read back as a wildcard, so a directory literally named % is one more candidate.
+     */
+    @CompileStatic
+    protected <R> R firstWildcardMatch(String prefixPath, String path, Closure<R> resolve) {
+        return firstMatch(prefixPath, [], path.split(AssetHelper.DIRECTIVE_FILE_SEPARATOR).toList(), resolve)
+    }
+
+    @CompileStatic
+    private <R> R firstMatch(String prefixPath, List<String> resolved, List<String> rest, Closure<R> resolve) {
+        int wildcardIndex = rest.findIndexOf { String component -> AssetHelper.isWildcardComponent(component) }
+        if(wildcardIndex < 0) {
+            return resolve.call((resolved + rest).join(AssetHelper.DIRECTIVE_FILE_SEPARATOR))
+        }
+        List<String> directory = resolved + rest.take(wildcardIndex)
+        for(String name in AssetHelper.wildcardCandidates(subdirectoryNames(prefixPath, directory.join(AssetHelper.DIRECTIVE_FILE_SEPARATOR)))) {
+            R found = firstMatch(prefixPath, directory + name, rest.drop(wildcardIndex + 1), resolve)
+            if(found != null) {
+                return found
+            }
+        }
+        return null
+    }
+
 
     protected AssetFile resolveAsset(specs, String prefixPath, String normalizedPath, AssetFile baseFile, String extension) {
         if (specs) {
