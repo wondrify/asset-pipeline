@@ -19,11 +19,15 @@ package asset.pipeline.fs
 
 import asset.pipeline.JsEs6AssetFile
 import spock.lang.Specification
+import spock.lang.TempDir
 
 /**
 * @author David Estes
 */
 class JarAssetResolverSpec extends Specification {
+
+	@TempDir
+	File tempDir
 
 	void "should be able to fetch files from a jar file"() {
 		given:
@@ -94,4 +98,42 @@ class JarAssetResolverSpec extends Specification {
 		jsFile.name == 'jartest.mjs'
 		jsFile.path.endsWith('.mjs')
 	}
+
+	void "a wildcard stands for exactly one directory, highest version first, never a hidden one: #path"() {
+		given:
+			def resolver = new JarAssetResolver('application', TestJars.write(new File(tempDir, 'webjars.jar'), [
+				'webjars/marked/4.3.0/lib/marked.js', 'webjars/marked/5.1.2/lib/marked.js',
+				'webjars/chart/9.0.0/chart.js', 'webjars/chart/10.0.0/chart.js',
+				'webjars/deep/1.0/nested/lib/x.js', 'vendor/.backup/only-in-backup.js', 'literal/%/in-percent.js']).path, 'META-INF/resources')
+		when:
+			def file = resolver.getAsset(path, 'application/javascript', 'js')
+		then:
+			file?.path == resolved
+		where:
+			path                            | resolved
+			'webjars/marked/%/lib/marked'   | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/chart/%/chart'         | 'webjars/chart/10.0.0/chart.js'
+			'%/marked/%/lib/marked'         | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/%/%/lib/marked'        | 'webjars/marked/5.1.2/lib/marked.js'
+			'webjars/deep/%/lib/x'          | null
+			'webjars/deep/%/nested/lib/x'   | 'webjars/deep/1.0/nested/lib/x.js'
+			'vendor/%/only-in-backup'       | null
+			'literal/%/in-percent'          | 'literal/%/in-percent.js'
+			'literal/%/nowhere'             | null
+	}
+
+	void "a wildcard resolves in a jar that has no entries for its directories"() {
+		given:
+			def resolver = new JarAssetResolver('application', TestJars.write(new File(tempDir, 'no-directories.jar'), ['webjars/marked/5.1.2/lib/marked.js'], false).path, 'META-INF/resources')
+		expect:
+			resolver.getAsset('webjars/marked/%/lib/marked', 'application/javascript', 'js')?.path == 'webjars/marked/5.1.2/lib/marked.js'
+	}
+
+	void "a wildcard as the last component stands for a directory, so it names no entry"() {
+		given:
+			def resolver = new JarAssetResolver('application', TestJars.write(new File(tempDir, 'webjars.jar'), ['webjars/marked/5.1.2/lib/marked.js']).path, 'META-INF/resources')
+		expect:
+			resolver.getRelativeFile('META-INF/resources', 'webjars/marked/%') == null
+	}
+
 }

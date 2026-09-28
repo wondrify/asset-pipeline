@@ -42,6 +42,9 @@ class JarAssetResolver extends AbstractAssetResolver<ZipEntry> {
 
 	JarFile baseJar
 	String prefixPath
+	// For each directory in the jar, '' for its root, the names of the directories directly under it. Built on first
+	// use from every entry's path, since a jar need not have entries for its directories.
+	private volatile Map<String, Set<String>> subdirectories
 
 	JarAssetResolver(String name,String jarPath, String prefixPath) {
 		super(name)
@@ -127,29 +130,33 @@ class JarAssetResolver extends AbstractAssetResolver<ZipEntry> {
     @CompileStatic
     public ZipEntry getRelativeFile(String relativePath, String name) {
 			if(AssetHelper.isWildcardPath(name)) { //we have some wildcard patterns to resolve.
-				String[] pathComponents = name.split(DIRECTIVE_FILE_SEPARATOR);
-				int wildCardIndex = pathComponents.findIndexOf {it.equals("*") || it.equals('%')}
-				if(wildCardIndex > -1) {
-					String preWildcardPath = pathComponents[0..(wildCardIndex -1)].join(DIRECTIVE_FILE_SEPARATOR)
-					String postWildcardPath = pathComponents[(wildCardIndex + 1)..(pathComponents.length -1)].join(DIRECTIVE_FILE_SEPARATOR)
-					List<ZipEntry> possibleDirs = []
-					for(entry in baseJar.entries()) {
-						if(entry.name.startsWith([relativePath, preWildcardPath].join("/") + "/") && entry.isDirectory()) {
-							possibleDirs << entry
-						}
-					}
-					for(possibleDir in possibleDirs) {
-						String testPath = possibleDir.name + postWildcardPath
-						def testEntry = baseJar.getEntry(testPath)
-						if(testEntry && !testEntry.isDirectory()) {
-							return testEntry
-						}
-					}
+				ZipEntry entry = firstWildcardMatch(relativePath, name) { String path ->
+					ZipEntry candidate = baseJar.getEntry([relativePath, path].join(DIRECTIVE_FILE_SEPARATOR))
+					candidate && !candidate.isDirectory() ? candidate : null
+				}
+				if(entry) {
+					return entry
 				}
 			}
 
 		return baseJar.getEntry([relativePath, name].join("/"))
 	}
+
+    @Override
+    @CompileStatic
+    protected Collection<String> subdirectoryNames(String prefixPath, String directory) {
+        if(subdirectories == null) {
+            Map<String, Set<String>> index = [:]
+            for(ZipEntry entry in baseJar.entries()) {
+                List<String> components = entry.name.split(DIRECTIVE_FILE_SEPARATOR).toList()
+                for(int i = 0; i < (entry.isDirectory() ? components.size() : components.size() - 1); i++) {
+                    index.computeIfAbsent(components.take(i).join(DIRECTIVE_FILE_SEPARATOR)) { new HashSet<String>() } << components[i]
+                }
+            }
+            subdirectories = index
+        }
+        return subdirectories.get([prefixPath, directory].findAll().join(DIRECTIVE_FILE_SEPARATOR)) ?: []
+    }
 
     @CompileStatic
 	protected String relativePathToResolver(ZipEntry file, String scanDirectoryPath) {

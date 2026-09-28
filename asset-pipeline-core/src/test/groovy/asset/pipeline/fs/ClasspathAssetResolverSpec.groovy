@@ -4,11 +4,16 @@ import asset.pipeline.CssAssetFile
 import asset.pipeline.GenericAssetFile
 import asset.pipeline.JsEs6AssetFile
 import spock.lang.Specification
+import spock.lang.TempDir
 
 /**
  * Created by davydotcom on 4/21/16.
  */
 class ClasspathAssetResolverSpec extends Specification {
+
+    @TempDir
+    File tempDir
+
     void "should be able to fetch generic files with seperated extension"() {
         given:
         def resolver = new ClasspathAssetResolver('application','META-INF/assets','META-INF/assets.list')
@@ -110,4 +115,39 @@ class ClasspathAssetResolverSpec extends Specification {
         file.name == 'lib.mjs'
         file.path.endsWith('.mjs')
     }
+
+    void "a wildcard stands for one directory in any jar or directory on the classpath, highest version first: #path"() {
+        given: 'the older versions in the jar and directory first on the classpath'
+        URL[] classpath = [
+            TestJars.write(new File(tempDir, 'old.jar'), ['webjars/marked/4.3.0/lib/marked.js', 'webjars/chart/9.0.0/chart.js', 'webjars/deep/1.0/nested/lib/x.js']).toURI().toURL(),
+            TestJars.write(new File(tempDir, 'new.jar'), ['webjars/marked/5.1.2/lib/marked.js', 'vendor/.backup/only-in-backup.js']).toURI().toURL(),
+            directory('exploded', ['webjars/chart/10.0.0/chart.js'])
+        ]
+        def resolver = new ClasspathAssetResolver('classpath', 'META-INF/resources', null, new URLClassLoader(classpath, (ClassLoader) null))
+        when:
+        def file = resolver.getAsset(path, 'application/javascript', 'js')
+        then:
+        file?.path == resolved
+        where:
+        path                            | resolved
+        'webjars/marked/%/lib/marked'   | 'webjars/marked/5.1.2/lib/marked.js'
+        'webjars/chart/%/chart'         | 'webjars/chart/10.0.0/chart.js'
+        '%/marked/%/lib/marked'         | 'webjars/marked/5.1.2/lib/marked.js'
+        'webjars/%/%/lib/marked'        | 'webjars/marked/5.1.2/lib/marked.js'
+        'webjars/deep/%/lib/x'          | null
+        'webjars/deep/%/nested/lib/x'   | 'webjars/deep/1.0/nested/lib/x.js'
+        'vendor/%/only-in-backup'       | null
+    }
+
+    // A classpath directory holding each path under META-INF/resources
+    private URL directory(String name, List<String> paths) {
+        File root = new File(tempDir, name)
+        for(String path in paths) {
+            File file = new File(root, "META-INF/resources/${path}")
+            file.parentFile.mkdirs()
+            file.text = "// ${path}"
+        }
+        return root.toURI().toURL()
+    }
+
 }
