@@ -137,6 +137,7 @@ class ClasspathAssetResolverSpec extends Specification {
         'webjars/deep/%/lib/x'          | null
         'webjars/deep/%/nested/lib/x'   | 'webjars/deep/1.0/nested/lib/x.js'
         'vendor/%/only-in-backup'       | null
+        '/webjars/marked/%/lib/marked'  | 'webjars/marked/5.1.2/lib/marked.js'
     }
 
     // A classpath directory holding each path under META-INF/resources

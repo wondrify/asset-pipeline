@@ -53,6 +53,10 @@ public class ClasspathAssetResolver extends AbstractAssetResolver<Object> {
         if (!relativePath) {
             return null
         }
+        // As JarAssetResolver does: the class loader finds nothing under META-INF/resources//webjars
+        if (relativePath.startsWith(DIRECTIVE_FILE_SEPARATOR)) {
+            relativePath = relativePath.substring(1)
+        }
         def normalizedPath = AssetHelper.normalizePath(relativePath.replace(NATIVE_FILE_SEPARATOR, DIRECTIVE_FILE_SEPARATOR))
         if(!normalizedPath) {
             return null
