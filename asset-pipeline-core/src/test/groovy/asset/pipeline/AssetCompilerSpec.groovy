@@ -21,24 +21,26 @@ import spock.lang.Specification
 class AssetCompilerSpec extends Specification {
 
 	private static final Map DEFAULTS = [compileDir: 'target/assets', enableGzip: true, enableDigests: true, skipNonDigests: false]
+	private static final List<String> GZIP_EXCLUDED = ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
 
 	void "the option defaults apply whatever options the compiler is given: #description"() {
 		when:
-			AssetCompiler compiler = options == 'none' ? new AssetCompiler() : new AssetCompiler(options as Map)
+			AssetCompiler compiler = construct(options)
 		then:
 			compiler.options.subMap(DEFAULTS.keySet()) == DEFAULTS
-			compiler.options.excludesGzip.containsAll(['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz'])
+			compiler.options.excludesGzip == GZIP_EXCLUDED
+			options == null || compiler.options.is(options)
 		where:
-			description             | options
-			'no argument'           | 'none'
-			'an empty map'          | [:]
-			'null'                  | null
-			'an unrelated option'   | [minifyJs: false]
+			description             | options             | construct
+			'no argument'           | null                | { new AssetCompiler() }
+			'null'                  | null                | { new AssetCompiler(it) }
+			'an empty map'          | [:]                 | { new AssetCompiler(it) }
+			'an unrelated option'   | [minifyJs: false]   | { new AssetCompiler(it) }
 	}
 
 	void "the defaults go into the caller's map, and what it sets is kept"() {
 		given:
-			Map options = [enableDigests: false, compileDir: 'build/assets', excludesGzip: ['svg']]
+			Map options = [enableDigests: false, compileDir: 'build/assets', excludesGzip: ['svg', 'png']]
 		when:
 			AssetCompiler compiler = new AssetCompiler(options)
 		then:
@@ -46,16 +48,15 @@ class AssetCompilerSpec extends Specification {
 			options.enableDigests == false
 			options.compileDir == 'build/assets'
 			options.enableGzip == true
-			options.excludesGzip.containsAll(['svg', 'png'])
+			options.excludesGzip == ['svg'] + GZIP_EXCLUDED
 	}
 
-	void "an empty map the caller passes is the one the compiler keeps"() {
+	void "compilers built one after another from the same map add the gzip exclusions once"() {
 		given:
-			Map options = [:]
+			Map options = [excludesGzip: ['svg']]
 		when:
-			AssetCompiler compiler = new AssetCompiler(options)
+			2.times { new AssetCompiler(options) }
 		then:
-			compiler.options.is(options)
-			options.enableDigests == true
+			options.excludesGzip == ['svg'] + GZIP_EXCLUDED
 	}
 }

@@ -60,32 +60,33 @@ public class AssetCompiler {
 	 */
 	AssetCompiler(Map options = [:], eventListener = null) {
 		this.eventListener = eventListener
-		// The caller's map, empty or not, so it sees the defaults below. `options ?: [:]` treated an empty map as
-		// false and kept a fresh one while the defaults went into the caller's, so new AssetCompiler([:]) and
-		// new AssetCompiler() had none (digests off, no compileDir), and new AssetCompiler(null) threw.
-		this.options = options != null ? options : [:]
-		if(!this.options['compileDir']) {
-			this.options['compileDir'] = "target/assets"
+		if(options == null) {
+			options = [:]
 		}
-		if(!this.options['excludesGzip']) {
-			this.options['excludesGzip'] = ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
+		this.options = options
+		if(!options['compileDir']) {
+			options['compileDir'] = "target/assets"
+		}
+		if(!options['excludesGzip']) {
+			options['excludesGzip'] = ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
 		} else {
-			this.options['excludesGzip'] += ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz']
+			// Only the ones missing, so a second compiler built from the same map adds nothing
+			options['excludesGzip'] += ['png', 'jpg', 'jpeg', 'gif', 'zip', 'gz'] - options['excludesGzip']
 		}
 
-		if(!this.options.containsKey('enableGzip')) {
-			this.options['enableGzip'] = true
+		if(!options.containsKey('enableGzip')) {
+			options['enableGzip'] = true
 		}
 
-		if(!this.options.containsKey('enableDigests')) {
-			this.options['enableDigests'] = true
+		if(!options.containsKey('enableDigests')) {
+			options['enableDigests'] = true
 		}
-		if(!this.options.containsKey('skipNonDigests')) {
-			this.options['skipNonDigests'] = false
+		if(!options.containsKey('skipNonDigests')) {
+			options['skipNonDigests'] = false
 		}
 
 		// Load in additional assetSpecs
-		this.options['specs']?.each { spec ->
+		options['specs']?.each { spec ->
 			def specClass = this.class.classLoader.loadClass(spec)
 			if(specClass) {
 				AssetHelper.assetSpecs << (Class<AssetFile>) specClass
