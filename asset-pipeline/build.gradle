@@ -1,0 +1,19 @@
+plugins {
+    // Puts build-logic, and the plugins it brings, on the classpath of every project in this build
+    id 'cloud.wondrify.java-config' apply false
+}
+
+group = 'cloud.wondrify'
+
+allprojects {
+    repositories {
+        // mavenLocal()
+        mavenCentral()
+    }
+}
+
+subprojects { project ->
+    if (project.name != 'asset-pipeline-classpath-test') {
+        apply plugin: 'org.apache.grails.gradle.grails-publish'
+    }
+}

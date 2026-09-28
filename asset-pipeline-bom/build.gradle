@@ -15,15 +15,15 @@ dependencies {
                 continue // ignore self
             }
 
-            if (subproject.name == 'asset-pipeline-gradle') {
-                continue // gradle dependencies are separate from build dependencies so do not include them in the bom
-            }
-
             api project(":${subproject.path}")
         }
+
+        // Core is built by the included build in asset-pipeline/. The Gradle plugin is too, but gradle dependencies are
+        // separate from build dependencies so it is not included in the bom
+        api "cloud.wondrify:asset-pipeline-core:$version"
     }
 }
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.publish-config'
 }

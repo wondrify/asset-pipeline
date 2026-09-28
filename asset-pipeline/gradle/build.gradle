@@ -61,6 +61,6 @@ gradlePlugin {
 }
 
 apply {
-	from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+	plugin 'cloud.wondrify.java-config'
+	plugin 'cloud.wondrify.publish-config'
 }

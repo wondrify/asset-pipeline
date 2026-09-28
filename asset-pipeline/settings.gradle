@@ -1,0 +1,26 @@
+pluginManagement {
+    includeBuild('../build-logic')
+}
+
+// Core and the Gradle plugin built on it. The main build includes this build, as grails-core includes grails-gradle,
+// so that it depends on this core and applies this plugin rather than published ones.
+rootProject.name = 'asset-pipeline'
+
+['core', 'gradle', 'classpath-test'].each { String dir ->
+    include("asset-pipeline-${dir}")
+    project(":asset-pipeline-${dir}").projectDir = file(dir)
+}
+
+// Every build in this repository shares the versions in the root gradle.properties
+def sharedProperties = new Properties()
+file('../gradle.properties').withInputStream { sharedProperties.load(it) }
+gradle.allprojects { Project project ->
+    sharedProperties.stringPropertyNames().each { String name ->
+        if (!name.startsWith('org.gradle.') && !project.hasProperty(name)) {
+            project.extensions.extraProperties.set(name, sharedProperties.getProperty(name))
+        }
+    }
+    if (project.version == Project.DEFAULT_VERSION) {
+        project.version = sharedProperties.getProperty('version')
+    }
+}

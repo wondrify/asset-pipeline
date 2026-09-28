@@ -26,7 +26,7 @@ sourceSets {
 
 dependencies {
 
-	api project(':asset-pipeline-core')
+	api "cloud.wondrify:asset-pipeline-core:$version"
 
 	implementation "org.apache.groovy:groovy:$groovy5Version"
 
@@ -57,6 +57,6 @@ tasks.register('console', JavaExec) {
 }
 
 apply {
-	from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-	from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+	plugin 'cloud.wondrify.java-config'
+	plugin 'cloud.wondrify.publish-config'
 }
