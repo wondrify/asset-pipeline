@@ -43,7 +43,9 @@ import java.util.regex.Pattern
  *
  * Runs only when compiling with digests. In development every file is served under its own name. It also
  * runs after the CommonJS processors, so a file Babel has turned into {@code require()} calls has no imports
- * left and passes through unchanged.
+ * left and passes through unchanged. Babel converts every {@code .es6} file, every {@code .js} file when
+ * {@code enableES6} is on, and a {@code .js} file that contains {@code export default} unless {@code enableES6}
+ * is {@code false}, so a module library with default exports is bundled rather than served as modules.
  *
  * Imports that form a cycle keep their plain names. A digest names content, so a module's name would depend
  * on the content of a module whose content contains that name. A module's content is its own source plus
