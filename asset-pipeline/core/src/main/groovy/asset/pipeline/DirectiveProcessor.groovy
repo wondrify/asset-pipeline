@@ -88,6 +88,20 @@ class DirectiveProcessor {
     }
 
     /**
+    * The assets a compile of {@code file} bundles with it through its directives, not counting the file itself
+    */
+    @CompileStatic
+    List<AssetFile> getRequiredFiles(AssetFile file) {
+        if(file instanceof GenericAssetFile) {
+            return []
+        }
+        this.baseFile = file
+        this.files = [:]
+        getDependencyTree(file)
+        return (files.values() as Collection<AssetFile>).findAll { AssetFile required -> required.path != file.path } as List<AssetFile>
+    }
+
+    /**
     * Returns a Flattened list of files based on the require tree
     * This is useful for converting a script tag into several script tags for debugging
     * @param file an instance of an AbstractAssetFile (i.e. JsAssetFile or CssAssetFile)

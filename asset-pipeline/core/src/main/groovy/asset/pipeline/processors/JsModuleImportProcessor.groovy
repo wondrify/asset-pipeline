@@ -18,6 +18,8 @@ package asset.pipeline.processors
 import asset.pipeline.AssetCompiler
 import asset.pipeline.AssetFile
 import asset.pipeline.AssetHelper
+import asset.pipeline.DirectiveProcessor
+import asset.pipeline.GenericAssetFile
 import groovy.util.logging.Slf4j
 
 import java.util.regex.Matcher
@@ -44,11 +46,12 @@ import java.util.regex.Pattern
  * left and passes through unchanged.
  *
  * Imports that form a cycle keep their plain names. A digest names content, so a module's name would depend
- * on the content of a module whose content contains that name. An import from A to B is rewritten only when
- * B does not import A, directly or through other modules. That depends on the import graph alone, so a
- * module compiles to the same content whichever module the compiler reaches first. Serving a plain name
- * needs the non-digested files ({@code skipNonDigests: false}) or an application that maps it through the
- * manifest, so each one is logged as a warning.
+ * on the content of a module whose content contains that name. A module's content is its own source plus
+ * every file its {@code //= require} directives and {@code require()} calls bundle into it, so an import from
+ * A to B is rewritten only when nothing B imports or bundles leads back to A, directly or through other
+ * modules. That depends on the source files alone, so a module compiles to the same content whichever module
+ * the compiler reaches first. Serving a plain name needs the non-digested files ({@code skipNonDigests: false})
+ * or an application that maps it through the manifest, so each one is logged as a warning.
  */
 @Slf4j
 class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
@@ -85,8 +88,8 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		if(!target) {
 			return specifier
 		}
-		if(imports(target, assetFile.path, new HashSet<String>())) {
-			log.warn("${assetFile.path} imports ${specifier}, which imports it back, so the import keeps its plain name; serve the non-digested file (skipNonDigests: false) or map it through the manifest")
+		if(reach(target).contains(assetFile.path)) {
+			log.warn("${assetFile.path} imports ${specifier}, which leads back to it, so the import keeps its plain name; serve the non-digested file (skipNonDigests: false) or map it through the manifest")
 			return specifier
 		}
 		final String url = replacementUrl(assetFile, specifier)
@@ -100,44 +103,55 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 
 
 	/**
-	 * Whether {@code module} imports the asset at {@code path}, directly or through other modules.
+	 * The paths of every asset {@code module} imports or bundles, directly or through the assets it reaches, kept
+	 * for the compile run: every import of a module asks for it, and so does the module's own compile.
 	 */
-	private boolean imports(final AssetFile module, final String path, final Set<String> visited) {
-		if(!visited.add(module.path)) {
-			return false
-		}
-		for(String imported in importedPaths(module)) {
-			if(imported == path) {
-				return true
+	private Set<String> reach(final AssetFile module) {
+		Set<String> reached = precompiler.moduleReach.get(module.path)
+		if(reached == null) {
+			reached = new LinkedHashSet<String>()
+			final Deque<String> pending = new ArrayDeque<String>(references(module.path, module))
+			while(pending) {
+				final String path = pending.pop()
+				if(reached.add(path)) {
+					pending.addAll(references(path, null))
+				}
 			}
-			final AssetFile next = AssetHelper.fileForFullName(imported)
-			if(next && imports(next, path, visited)) {
-				return true
-			}
+			precompiler.moduleReach.put(module.path, reached)
 		}
-		return false
+		return reached
 	}
 
 
 	/**
-	 * The paths of the assets {@code module}'s source imports by relative specifier, read once per compile run.
+	 * The paths of the assets the asset at {@code path} imports by relative specifier or bundles through its
+	 * directives and {@code require()} calls, read once per compile run. The asset is resolved only the first
+	 * time, when {@code module} is not already at hand.
 	 */
-	private List<String> importedPaths(final AssetFile module) {
-		final Map<String, List<String>> graph = precompiler.moduleImports
-		List<String> paths = graph.get(module.path)
+	private List<String> references(final String path, final AssetFile module) {
+		List<String> paths = precompiler.moduleReferences.get(path)
 		if(paths == null) {
-			paths = []
-			final String source = module.inputStream.withStream { InputStream stream -> stream.getText(module.encoding ?: 'UTF-8') }
-			final Matcher matcher = IMPORT_PATTERN.matcher(source)
-			while(matcher.find()) {
-				final AssetFile imported = resolveRelativeAsset(module, withoutQueryOrFragment(matcher.group(3)))
-				if(imported) {
-					paths << imported.path
-				}
-			}
-			graph.put(module.path, paths)
+			final AssetFile asset = module ?: AssetHelper.fileForFullName(path)
+			paths = asset && !(asset instanceof GenericAssetFile) ? referencedPaths(asset) : []
+			precompiler.moduleReferences.put(path, paths)
 		}
 		return paths
+	}
+
+
+	private List<String> referencedPaths(final AssetFile module) {
+		final String source = module.inputStream.withStream { InputStream stream -> stream.getText(module.encoding ?: 'UTF-8') }
+		final Set<String> paths = new LinkedHashSet<String>()
+		final Matcher matcher = IMPORT_PATTERN.matcher(source)
+		while(matcher.find()) {
+			final AssetFile imported = resolveRelativeAsset(module, withoutQueryOrFragment(matcher.group(3)))
+			if(imported) {
+				paths << imported.path
+			}
+		}
+		paths.addAll(new DirectiveProcessor(module.contentType[0], precompiler).getRequiredFiles(module)*.path)
+		paths.addAll(JsRequireProcessor.requiredAssets(module, source)*.path)
+		return paths as List<String>
 	}
 
 
