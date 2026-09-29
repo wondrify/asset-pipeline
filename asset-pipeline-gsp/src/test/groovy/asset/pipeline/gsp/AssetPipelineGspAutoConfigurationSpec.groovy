@@ -31,7 +31,6 @@ import org.grails.web.pages.StandaloneTagLibraryLookup
 import org.springframework.beans.BeanUtils
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner
 
-import spock.lang.PendingFeature
 import spock.lang.Specification
 
 /**
@@ -70,7 +69,6 @@ class AssetPipelineGspAutoConfigurationSpec extends Specification {
                 .withBean('grailsUrlMappingsHolder', UrlMappingsHolder, () -> new DefaultUrlMappingsHolder([]))
     }
 
-    @PendingFeature(reason = 'Grails 8.0.0-M6 finds tag library beans by @TagLib only; finding them by @Artefact("TagLib") arrives with apache/grails-core#16184')
     void 'the tag libraries are found by the lookup a standalone GSP application registers'() {
         expect:
         standaloneGsp().run { context ->
