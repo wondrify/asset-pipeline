@@ -19,7 +19,7 @@ sourceSets {
 
 dependencies {
 
-    api project(':asset-pipeline-core')
+    api "cloud.wondrify:asset-pipeline-core:$version"
     api "org.mozilla:rhino:$rhinoVersion"
     api "com.github.sommeri:less4j:$less4jVersion"
     api "com.google.protobuf:protobuf-java:$protobufVersion"
@@ -40,8 +40,8 @@ tasks.register('console', JavaExec) {
 }
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.java-config'
+    plugin 'cloud.wondrify.publish-config'
 }
 
 

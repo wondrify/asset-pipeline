@@ -58,6 +58,31 @@ jobs:
         uses: apache/grails-github-actions/pre-release@asf
         env:
           RELEASE_VERSION: ${{ steps.release_version.outputs.value }}
+      - name: "✨ Create Staging Repository"
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
+          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
+        run: ./gradlew initializeSonatypeStagingRepository
+      - name: "📤 Publish Core and Gradle Plugin to Maven Central"
+        env:
+          GRAILS_PUBLISH_RELEASE: 'true'
+          NEXUS_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          NEXUS_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          NEXUS_PUBLISH_URL: 'https://ossrh-staging-api.central.sonatype.com/service/local/'
+          NEXUS_PUBLISH_DESCRIPTION: '${{ steps.extract_repository_name.outputs.repository_name }}:${{ steps.release_version.outputs.value }}'
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSPHRASE: ${{ secrets.SECRING_PASSPHRASE }}
+        run: >
+          ./gradlew
+          -p asset-pipeline
+          -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
+          -x initializeSonatypeStagingRepository
+          findSonatypeStagingRepository
+          publishMavenPublicationToSonatypeRepository
+          publishPluginMavenPublicationToSonatypeRepository
       - name: "📤 Publish to Maven Central"
         env:
           GRAILS_PUBLISH_RELEASE: 'true'
@@ -70,8 +95,9 @@ jobs:
         run: >
           ./gradlew
           -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
+          -x initializeSonatypeStagingRepository
+          findSonatypeStagingRepository
           publishMavenPublicationToSonatypeRepository
-          publishPluginMavenPublicationToSonatypeRepository 
           closeSonatypeStagingRepository
       - name: "Generate Build Date file"
         run: echo "$SOURCE_DATE_EPOCH" >> build/BUILD_DATE.txt
@@ -116,6 +142,7 @@ jobs:
       - name: "🔨 Release Gradle Plugin"
         run: >
           ./gradlew
+          -p asset-pipeline
           -Psigning.secretKeyRingFile=${{ github.workspace }}/secring.gpg
           publishPlugins
         env:

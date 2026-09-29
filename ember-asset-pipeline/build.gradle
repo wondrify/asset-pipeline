@@ -9,7 +9,7 @@ ext {
 
 dependencies {
 
-	api project(':asset-pipeline-core')
+	api "cloud.wondrify:asset-pipeline-core:$version"
     api "org.mozilla:rhino:$rhinoVersion"
 
     // Needs to be compiled with Groovy 4 as it is used by the Gradle Plugin (Gradle 9 embeds Groovy 4)
@@ -39,6 +39,6 @@ test {
 }
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.java-config'
+    plugin 'cloud.wondrify.publish-config'
 }

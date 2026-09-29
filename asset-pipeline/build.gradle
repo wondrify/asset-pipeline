@@ -5,13 +5,8 @@ plugins {
 
 group = 'cloud.wondrify'
 
-ext {
-    publishedProjects = []
-}
-
 subprojects { project ->
-    if (project.name != 'asset-pipeline-docs' && project.name != 'asset-pipeline-site') {
-        publishedProjects << project.name
+    if (project.name != 'asset-pipeline-classpath-test') {
         apply plugin: 'org.apache.grails.gradle.grails-publish'
     }
 }

@@ -25,7 +25,7 @@ apply plugin: 'com.github.node-gradle.node'
 
 dependencies {
 
-    api project(':asset-pipeline-core')
+    api "cloud.wondrify:asset-pipeline-core:$version"
 
     implementation "com.caoccao.javet:javet:$javetVersion"
 
@@ -77,6 +77,7 @@ test {
 node {
     download = true
     version = "16.13.0"
+    distBaseUrl = null // resolved from the Node.js repository in build-logic's cloud.wondrify.repositories
 }
 
 processResources {
@@ -84,8 +85,8 @@ processResources {
 }
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.java-config'
+    plugin 'cloud.wondrify.publish-config'
 }
 
 sourcesJar {

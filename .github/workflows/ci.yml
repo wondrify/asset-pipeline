@@ -31,6 +31,10 @@ jobs:
       - name: "NPM dependencies"
         run: >
           npm install -g coffee-script
+      - name: "🔨 Build core and Gradle plugin"
+        run: >
+          ./gradlew -p asset-pipeline build
+          --continue --stacktrace
       - name: "🔨 Build project"
         run: >
           ./gradlew build
@@ -56,6 +60,14 @@ jobs:
       - name: "NPM dependencies"
         run: >
           npm install -g coffee-script
+      - name: "📤 Publish Core and Gradle Plugin Snapshot"
+        run: >
+          ./gradlew -p asset-pipeline publish
+        env:
+          GRAILS_PUBLISH_RELEASE: 'false'
+          MAVEN_PUBLISH_URL: 'https://central.sonatype.com/repository/maven-snapshots/'
+          MAVEN_PUBLISH_USERNAME: ${{ secrets.MAVEN_USERNAME }}
+          MAVEN_PUBLISH_PASSWORD: ${{ secrets.MAVEN_PASSWORD  }}
       - name: "📤 Publish Snapshot"
         run: >
           ./gradlew publish

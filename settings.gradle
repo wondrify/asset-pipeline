@@ -1,7 +1,14 @@
+pluginManagement {
+    includeBuild('build-logic')
+    includeBuild('asset-pipeline')
+}
+
+plugins {
+    id 'cloud.wondrify.repositories'
+}
+
 include(
         'asset-pipeline-bom',
-        'asset-pipeline-core',
-        'asset-pipeline-gradle',
         'asset-pipeline-spring-boot',
         'less-asset-pipeline',
         'coffee-asset-pipeline',
@@ -9,7 +16,6 @@ include(
         'handlebars-asset-pipeline',
         'ember-asset-pipeline',
         'asset-pipeline-servlet',
-        'asset-pipeline-classpath-test',
         'asset-pipeline-docs',
         'sass-dart-asset-pipeline',
         'asset-pipeline-grails',
@@ -20,3 +26,7 @@ include(
 
 // org.groocss:groocss:1.0-M1 is no longer available, was on https://jcenter.bintray.com/
 // removed 'groocss-asset-pipeline' from include
+
+// Core and the Gradle plugin are built by their own build in asset-pipeline/, which this build includes to resolve
+// cloud.wondrify:asset-pipeline-core and cloud.wondrify:asset-pipeline-gradle and to apply the plugin
+includeBuild('asset-pipeline')

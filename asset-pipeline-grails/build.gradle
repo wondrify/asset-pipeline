@@ -3,17 +3,13 @@ group = 'cloud.wondrify'
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: "org.apache.grails.gradle.grails-plugin"
+apply plugin: 'cloud.wondrify.grails-bom'
 
 ext {
     pomDescription = 'The Grails Asset-Pipeling plugin providing asset transpiling to grails.'
 }
 
 configurations.configureEach {
-    // grails-bom pins asset-pipeline to the release it shipped with, which wins over this build's snapshot of the
-    // core. This plugin is built and tested against the core it is released with.
-    resolutionStrategy.dependencySubstitution {
-        substitute module('cloud.wondrify:asset-pipeline-core') using project(':asset-pipeline-core')
-    }
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
             details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy5Version")
@@ -26,13 +22,13 @@ grails {
     packageAssets = false
     bom = null // this build applies the grails-bom platform itself
 
-    // Required for consumers building a GraalVM native image; see gradle/java-config.gradle.
+    // Required for consumers building a GraalVM native image; see build-logic/src/main/groovy/cloud.wondrify.java-config.gradle.
     indy = true
 }
 
 dependencies {
 
-    implementation project(':asset-pipeline-core')
+    implementation "cloud.wondrify:asset-pipeline-core:$version"
 
     compileOnly platform("org.apache.grails:grails-bom:$grailsVersion")
     compileOnly 'org.apache.grails:grails-url-mappings'
@@ -70,8 +66,8 @@ bootRun {
 
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.java-config'
+    plugin 'cloud.wondrify.publish-config'
 }
 
 tasks.withType(Jar).configureEach { Jar it ->

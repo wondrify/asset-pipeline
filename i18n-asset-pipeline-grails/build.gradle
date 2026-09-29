@@ -15,17 +15,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-buildscript {
-    ext {
-        grailsVersion = project.grailsVersion
-    }
-    repositories {
-        // mavenLocal()
-        mavenCentral()
-    }
-    dependencies {
-        classpath "cloud.wondrify:asset-pipeline-gradle:5.2.0-M1"
-    }
+plugins {
+    // The Gradle plugin in this repository, from the build in asset-pipeline/ that this build includes
+    id 'cloud.wondrify.asset-pipeline' apply false
 }
 
 group = 'cloud.wondrify'
@@ -33,6 +25,7 @@ group = 'cloud.wondrify'
 apply plugin: 'groovy'
 apply plugin: 'java-library'
 apply plugin: "org.apache.grails.gradle.grails-plugin"
+apply plugin: 'cloud.wondrify.grails-bom'
 apply plugin: "cloud.wondrify.asset-pipeline"
 
 ext {
@@ -40,12 +33,15 @@ ext {
 }
 
 grails {
-    // Required for consumers building a GraalVM native image; see gradle/java-config.gradle.
+    bom = null // this build applies the grails-bom platform itself
+
+    // Required for consumers building a GraalVM native image; see build-logic/src/main/groovy/cloud.wondrify.java-config.gradle.
     indy = true
 }
 
 
 dependencies {
+    api platform("org.apache.grails:grails-bom:$grailsVersion")
     api 'org.springframework.boot:spring-boot-autoconfigure'
     api 'org.springframework.boot:spring-boot-starter-actuator'
     api 'org.springframework.boot:spring-boot-starter-logging'
@@ -54,7 +50,7 @@ dependencies {
     api "org.apache.grails:grails-web-boot"
     api "org.apache.grails:grails-services"
     api "org.apache.grails:grails-url-mappings"
-    api project(':asset-pipeline-core')
+    api "cloud.wondrify:asset-pipeline-core:$version"
     api project(':asset-pipeline-grails')
     // api "cloud.wondrify:asset-pipeline-gradle:2.13.2"
     // api 'cloud.wondrify:asset-pipeline-grails:2.13.2'
@@ -78,8 +74,8 @@ tasks.withType(Test).configureEach {
 }
 
 apply {
-    from rootProject.layout.projectDirectory.file('gradle/java-config.gradle')
-    from rootProject.layout.projectDirectory.file('gradle/publish-config.gradle')
+    plugin 'cloud.wondrify.java-config'
+    plugin 'cloud.wondrify.publish-config'
 }
 
 

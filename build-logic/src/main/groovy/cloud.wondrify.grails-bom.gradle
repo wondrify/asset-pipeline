@@ -1,0 +1,14 @@
+// grails-bom manages asset-pipeline at the release it shipped with, which would win over this build's projects, so
+// keep it from managing this repository's own modules
+dependencies {
+    components {
+        ['org.apache.grails:grails-bom', 'org.apache.grails:grails-base-bom'].each { String bom ->
+            withModule(bom) {
+                allVariants {
+                    withDependencies { removeAll { it.group == 'cloud.wondrify' } }
+                    withDependencyConstraints { removeAll { it.group == 'cloud.wondrify' } }
+                }
+            }
+        }
+    }
+}
