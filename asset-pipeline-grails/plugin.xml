@@ -1,4 +1,4 @@
-<plugin name='asset-pipeline' version='2.8.0' grailsVersion='2.2 &gt; *'>
+<plugin name='asset-pipeline' version='2.8.0' grailsVersion='8.0.0-SNAPSHOT &gt; *'>
   <author>David Estes</author>
   <authorEmail>destes@bcap.com</authorEmail>
   <title>Asset Pipeline Plugin</title>

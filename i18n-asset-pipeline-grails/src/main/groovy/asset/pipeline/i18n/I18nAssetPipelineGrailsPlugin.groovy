@@ -25,7 +25,7 @@ class I18nAssetPipelineGrailsPlugin extends Plugin {
 
     //-- Fields ---------------------------------
 
-    def grailsVersion = '7.0.0 > *'
+    def grailsVersion = '8.0.0-SNAPSHOT > *'
     def profiles = ['web']
     def title = 'I18n Asset Pipeline Plugin'
     def author = 'Daniel Ellermann'
