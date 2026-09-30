@@ -152,6 +152,18 @@ class AssetsTagLibSpec extends Specification implements TagLibUnitTest<AssetsTag
 			request."${AssetsTagLib.ASSET_REQUEST_MEMO}" = null
 	}
 
+	void "uniq mode names each file through the manifest when there is one"() {
+		given:
+			AssetPipelineConfigHolder.manifest = new Properties()
+			AssetPipelineConfigHolder.manifest.setProperty('asset-pipeline/test/test.css', 'asset-pipeline/test/test-0123456789abcdef.css')
+			AssetPipelineConfigHolder.manifest.setProperty('asset-pipeline/test/test2.css', 'asset-pipeline/test/test2-fedcba9876543210.css')
+		expect:
+			tagLib.stylesheet(src: 'asset-pipeline/test/test.css', uniq: true) == '<link rel="stylesheet" href="/assets/asset-pipeline/test/test-0123456789abcdef.css?compile=false" />' + LINE_BREAK + '<link rel="stylesheet" href="/assets/asset-pipeline/test/test2-fedcba9876543210.css?compile=false" />' + LINE_BREAK
+		cleanup:
+			AssetPipelineConfigHolder.manifest = null
+			request."${AssetsTagLib.ASSET_REQUEST_MEMO}" = null
+	}
+
 	void "should return image tag"() {
 		given:
 			final def assetSrc = "grails_logo.png"

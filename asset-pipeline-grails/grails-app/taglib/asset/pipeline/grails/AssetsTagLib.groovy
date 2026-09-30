@@ -26,11 +26,11 @@ class AssetsTagLib {
 	def javascript = {final attrs ->
 		final GrailsPrintWriter outPw = out
 		attrs.remove('href')
-		element(attrs, 'js', 'application/javascript', null) {final String src, final String queryString, final outputAttrs, final String endOfLine, final boolean useManifest ->
+		element(attrs, 'js', 'application/javascript', null) {final String src, final String queryString, final outputAttrs, final String endOfLine ->
 			if(attrs.containsKey('asset-defer')) {
-				script(outputAttrs + [type: attrs.type ?: "text/javascript", src: assetPath(src: src, useManifest: useManifest) + queryString],'')
+				script(outputAttrs + [type: attrs.type ?: "text/javascript", src: assetPath(src: src) + queryString],'')
 			} else {
-				outPw << '<script type="' << (attrs.type ? attrs.type : 'text/javascript') << '" src="' << assetPath(src: src, useManifest: useManifest) << queryString << '" ' << paramsToHtmlAttr(outputAttrs) << '></script>' << endOfLine
+				outPw << '<script type="' << (attrs.type ? attrs.type : 'text/javascript') << '" src="' << assetPath(src: src) << queryString << '" ' << paramsToHtmlAttr(outputAttrs) << '></script>' << endOfLine
 			}
 
 		}
@@ -45,8 +45,8 @@ class AssetsTagLib {
 	 */
 	def stylesheet = {final attrs ->
 		final GrailsPrintWriter outPw = out
-		element(attrs, 'css', 'text/css', Objects.toString(attrs.remove('href'), null)) {final String src, final String queryString, final outputAttrs, final String endOfLine, final boolean useManifest ->
-			outPw << '<link rel="stylesheet" href="' << assetPath(src: src, useManifest: useManifest) << queryString << '" ' << paramsToHtmlAttr(outputAttrs) << '/>'
+		element(attrs, 'css', 'text/css', Objects.toString(attrs.remove('href'), null)) {final String src, final String queryString, final outputAttrs, final String endOfLine ->
+			outPw << '<link rel="stylesheet" href="' << assetPath(src: src) << queryString << '" ' << paramsToHtmlAttr(outputAttrs) << '/>'
 			if (endOfLine) {
 				outPw << endOfLine
 			}
@@ -85,7 +85,7 @@ class AssetsTagLib {
 		final def nonBundledMode = uniqMode || (!AssetPipelineConfigHolder.manifest && bundle != true && attrs.remove('bundle') != 'true')
 		
 		if (! nonBundledMode) {
-			output(src, '', attrs, '', true)
+			output(src, '', attrs, '')
 		}
 		else {
 			def name = nameAndExtension(src, ext)
@@ -99,16 +99,16 @@ class AssetsTagLib {
 			if (uniqMode && isIncluded(name)) {
 				return
 			}
-			def useManifest = !nonBundledMode
-
+			// Each file is named through the manifest even in uniq mode: with skipNonDigests on (the Gradle plugin's
+			// default) no plain-named file is written for a CDN to serve, and a plain name loses the digest's caching
 			AssetPipeline.getDependencyList(uri, contentType, extension)?.each {
 				if (uniqMode) {
 					def path = nameAndExtension(it.path, ext)
 					if (path.uri == uri || !isIncluded(path)) {
-						output(it.path, queryString, attrs, LINE_BREAK, useManifest)
+						output(it.path, queryString, attrs, LINE_BREAK)
 					}
 				} else {
-					output(it.path, queryString, attrs, LINE_BREAK, useManifest)
+					output(it.path, queryString, attrs, LINE_BREAK)
 				}
 			}
 		}
