@@ -61,3 +61,18 @@ By default both digested named versions of assets as well as non digested named 
 
 TIP: Change `skipNonDigests` to true to help reduce the file size of your final generated project.
 
+==== Spring Boot executable JARs
+
+Compiled assets, their gzip variants, and `manifest.properties` are packaged as application resources under `BOOT-INF/classes/assets/` in a Spring Boot executable JAR.
+They can be resolved as classpath resources at `assets/` both when running the original archive with `java -jar` and after extracting Spring Boot's compact layout:
+
+[source,bash]
+----
+java -Djarmode=tools -jar build/libs/application.jar extract --destination build/extracted
+java -jar build/extracted/application.jar
+----
+
+Use the actual executable JAR filename in these commands. With Spring Boot 3.3 or later, `extract --layers` can additionally split the result into image layers for a multi-stage container build.
+The compact layout retains resources under `BOOT-INF/classes`; placing assets at the outer JAR root would omit them during extraction.
+The same packaging applies to custom Spring Boot JAR tasks selected with `jarTaskName`.
+Ordinary JARs and WARs retain their existing packaging, and Spring Boot is not required for applications that do not use it.

@@ -120,12 +120,13 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 }
             } else {
                 def assetTasks = [extension.jarTaskName.getOrElse(null), 'war', 'shadowJar', 'jar', 'bootWar', 'bootJar']
-                project.tasks.withType(Jar).matching { it.name in assetTasks }.configureEach {
-                    it.with {
-                        dependsOn(assetPrecompileTask)
-                        from(assetPrecompileTask.get().destinationDirectory) {
-                            into('assets')
-                        }
+                project.tasks.withType(Jar).matching { it.name in assetTasks }.configureEach { Jar archive ->
+                    archive.dependsOn(assetPrecompileTask)
+                    // Use BootJar's public copy spec without requiring Spring Boot on the plugin classpath.
+                    boolean bootJar = archive.hasProperty('bootInf')
+                    def assetCopySpec = bootJar ? archive.bootInf : archive
+                    assetCopySpec.from(assetPrecompileTask.flatMap { it.destinationDirectory }) {
+                        into(bootJar ? 'classes/assets' : 'assets')
                     }
                 }
             }
