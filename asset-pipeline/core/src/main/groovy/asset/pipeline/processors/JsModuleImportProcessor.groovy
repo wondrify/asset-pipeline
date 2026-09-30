@@ -22,9 +22,6 @@ import asset.pipeline.DirectiveProcessor
 import asset.pipeline.GenericAssetFile
 import groovy.util.logging.Slf4j
 
-import java.util.regex.Matcher
-import java.util.regex.Pattern
-
 
 /**
  * Points the relative specifiers of ES module imports at the files the compiler writes, the way
@@ -63,14 +60,6 @@ import java.util.regex.Pattern
 @Slf4j
 class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 
-	// 1: everything before the specifier's opening quote, 2: the quote, 3: the specifier, relative in
-	// IMPORT_PATTERN and any in ANY_IMPORT_PATTERN. The lookbehind keeps out member calls such as
-	// loader.import('./x.js') and identifiers ending in "import" or "export" (\x24 is "$").
-	private static final String IMPORT_PREFIX = /((?<![\w\x24.])(?:(?:import|export)\b[^'"`;]*?\bfrom\s*|import\s*(?:\(\s*)?))/
-	private static final Pattern IMPORT_PATTERN = ~(IMPORT_PREFIX + /(['"])(\.{1,2}\/[^'"`\s]+)\2/)
-	private static final Pattern ANY_IMPORT_PATTERN = ~(IMPORT_PREFIX + /(['"])([^'"`\s]+)\2/)
-
-
 	JsModuleImportProcessor(final AssetCompiler precompiler) {
 		super(precompiler)
 	}
@@ -81,14 +70,24 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 			return inputText
 		}
 		final Map<String, String> replacements = [:]
-		return inputText.replaceAll(IMPORT_PATTERN) { final String statement, final String prefix, final String quote, final String specifier ->
-			String replacement = replacements[specifier]
-			if(replacement == null) {
-				replacement = replacementSpecifier(assetFile, specifier)
-				replacements[specifier] = replacement
+		final StringBuilder output = new StringBuilder(inputText.length())
+		int copied = 0
+		for (JsModuleImports.Specifier specifier : JsModuleImports.find(inputText, assetFile.path)) {
+			if (!specifier.relative) {
+				continue
 			}
-			return prefix + quote + replacement + quote
+			String replacement = replacements[specifier.name]
+			if (replacement == null) {
+				replacement = replacementSpecifier(assetFile, specifier.name)
+				replacements[specifier.name] = replacement
+			}
+			if (replacement != specifier.name) {
+				output.append(inputText, copied, specifier.start)
+				output.append(specifier.quoted(replacement))
+				copied = specifier.end
+			}
 		}
+		return output.append(inputText, copied, inputText.length()).toString()
 	}
 
 
@@ -162,15 +161,14 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		final String source = module.inputStream.withStream { InputStream stream -> stream.getText(module.encoding ?: 'UTF-8') }
 		final List<Class> processors = module.processors ?: []
 		final List<AssetFile> referenced = []
-		if(BabelJsProcessor in processors && BabelJsProcessor.converts(source, module)) {
-			final Matcher matcher = ANY_IMPORT_PATTERN.matcher(source)
-			while(matcher.find()) {
-				referenced << JsRequireProcessor.resolveRequiredAsset(module, matcher.group(3))
-			}
-		} else {
-			final Matcher matcher = IMPORT_PATTERN.matcher(source)
-			while(matcher.find()) {
-				referenced << resolveRelativeAsset(module, withoutQueryOrFragment(matcher.group(3)))
+		if (JsModuleImportProcessor in processors) {
+			boolean bundled = BabelJsProcessor in processors && BabelJsProcessor.converts(source, module)
+			for (JsModuleImports.Specifier specifier : JsModuleImports.find(source, module.path)) {
+				if (bundled) {
+					referenced << JsRequireProcessor.resolveRequiredAsset(module, specifier.name)
+				} else if (specifier.relative) {
+					referenced << resolveRelativeAsset(module, withoutQueryOrFragment(specifier.name))
+				}
 			}
 		}
 		referenced.addAll(new DirectiveProcessor(module.contentType[0], precompiler).getRequiredFiles(module))

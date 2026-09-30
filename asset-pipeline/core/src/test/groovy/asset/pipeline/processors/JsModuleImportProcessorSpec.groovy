@@ -64,6 +64,81 @@ class JsModuleImportProcessorSpec extends Specification {
 		main.contains("loader.import('./greet.js')")
 	}
 
+	void "import-like text and computed imports are unchanged"() {
+		given:
+		String source = '''
+const example = "import './greet.js'";
+const template = `export * from './greet.js'`;
+const pattern = /import ['"].*[.]js['"]/;
+// import './greet.js';
+/* export * from './greet.js'; */
+loader.import('./greet.js');
+import('./greet.js' + suffix);
+import(`./${name}.js`);
+'''
+
+		expect:
+		rewrite(source) == source
+	}
+
+	void "real imports preserve comments attributes and string-named bindings"() {
+		given:
+		String source = '''
+import /* side effect */ './greet.js';
+import { "hello-world" as hello } from './greet.js';
+export { hello as "hello-world" } from './greet.js';
+import data from './data.json' with { type: 'json' };
+const lazy = import /* lazy */ ('./greet.js', { with: { type: 'javascript' } });
+const interpolation = `value: ${import('./greet.js')}`;
+'''
+
+		when:
+		String result = rewrite(source)
+
+		then:
+		result == source.replace('./greet.js', "./greet-${digest('asset-pipeline/test/esm/greet')}.js")
+			.replace('./data.json', "./data-${AssetHelper.getByteDigest(new File('assets/javascripts/asset-pipeline/test/esm/data.json').bytes)}.json")
+	}
+
+	void "escaped specifiers and UTF-16 offsets are handled without changing other text"() {
+		given:
+		String source = 'const emoji = "😀"; import \'./gr' + '\\' + 'u0065et.js?x=1#part\';'
+
+		expect:
+		rewrite(source) == "const emoji = \"😀\"; import './greet-${digest('asset-pipeline/test/esm/greet')}.js?x=1#part';"
+	}
+
+	void "replacement URLs escape the original string delimiter"() {
+		given:
+		String source = "import './greet.js?label=it" + '\\' + "'s';"
+
+		expect:
+		rewrite(source) == source.replace('greet.js', "greet-${digest('asset-pipeline/test/esm/greet')}.js")
+	}
+
+	void "import-like string data does not create a false cycle"() {
+		when:
+		String a = compile('asset-pipeline/test/esm-false-cycle/a', new AssetCompiler([enableDigests: true]))
+
+		then:
+		a.contains("from './b-${digest('asset-pipeline/test/esm-false-cycle/b')}.js'")
+	}
+
+	void "comments in real imports still participate in cycle detection"() {
+		when:
+		String a = compile('asset-pipeline/test/esm-comment-cycle/a', new AssetCompiler([enableDigests: true]))
+		String b = compile('asset-pipeline/test/esm-comment-cycle/b', new AssetCompiler([enableDigests: true]))
+
+		then:
+		a.contains("import /* cycle */ './b.js'")
+		b.contains("import './a.js'")
+	}
+
+	private String rewrite(String source) {
+		new JsModuleImportProcessor(new AssetCompiler([enableDigests: true])).process(source,
+			resolver.getAsset('asset-pipeline/test/esm/main', 'application/javascript', 'js'))
+	}
+
 	void "a compile that writes only digested names leaves every rewritten import pointing at a file it wrote"() {
 		given: 'only digested files, as in a CDN bucket synced from the compile directory'
 		AssetCompiler compiler = new AssetCompiler([compileDir: compileDir.path, skipNonDigests: true, enableGzip: false, minifyJs: false])
