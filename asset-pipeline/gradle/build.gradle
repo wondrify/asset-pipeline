@@ -23,6 +23,7 @@ dependencies {
     runtimeOnly "org.graalvm.js:js-community:$graalvmVersion"
 
 	testImplementation gradleApi()
+	testImplementation gradleTestKit()
 	testImplementation platform("org.spockframework:spock-bom:$spockVersion")
 	testImplementation 'org.spockframework:spock-core'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -40,6 +41,11 @@ tasks.withType(Test).configureEach {
 		exceptionFormat = 'full'
 		showStandardStreams = true
 	}
+}
+
+// The plugin's manifest supplies the coordinates used by its asset compiler runtime.
+tasks.named('pluginUnderTestMetadata') {
+    pluginClasspath.setFrom(tasks.named('jar'), configurations.runtimeClasspath)
 }
 
 // The configuration example below shows the minimum required properties
