@@ -81,6 +81,16 @@ import(`./${name}.js`);
 		rewrite(source) == source
 	}
 
+	void "a file the lexer cannot read is left unchanged instead of failing the compile"() {
+		given: 'JSX text with an apostrophe, which the lexer reads as an unterminated string'
+		String source = '''import A from './greet.js'
+const view = <div>it's done</div>
+'''
+
+		expect:
+		rewrite(source) == source
+	}
+
 	void "real imports preserve comments attributes and string-named bindings"() {
 		given:
 		String source = '''

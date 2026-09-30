@@ -69,10 +69,14 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		if(!precompiler?.options?.enableDigests) {
 			return inputText
 		}
+		final List<JsModuleImports.Specifier> specifiers = findImports(inputText, assetFile)
+		if(specifiers == null) {
+			return inputText
+		}
 		final Map<String, String> replacements = [:]
 		final StringBuilder output = new StringBuilder(inputText.length())
 		int copied = 0
-		for (JsModuleImports.Specifier specifier : JsModuleImports.find(inputText, assetFile.path)) {
+		for (JsModuleImports.Specifier specifier : specifiers) {
 			if (!specifier.relative) {
 				continue
 			}
@@ -163,7 +167,7 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		final List<AssetFile> referenced = []
 		if (JsModuleImportProcessor in processors) {
 			boolean bundled = BabelJsProcessor in processors && BabelJsProcessor.converts(source, module)
-			for (JsModuleImports.Specifier specifier : JsModuleImports.find(source, module.path)) {
+			for (JsModuleImports.Specifier specifier : findImports(source, module) ?: []) {
 				if (bundled) {
 					referenced << JsRequireProcessor.resolveRequiredAsset(module, specifier.name)
 				} else if (specifier.relative) {
@@ -180,6 +184,20 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 		}
 		// A generic asset's digest is its bytes', so nothing leads on from it
 		return referenced.findAll { AssetFile asset -> asset && !(asset instanceof GenericAssetFile) }*.path.unique()
+	}
+
+
+	/**
+	 * The import specifiers in {@code source}, or null when the lexer cannot read it. Such a file is left as it was
+	 * before imports were rewritten: it compiled then, and a browser may not need it to be a module at all.
+	 */
+	private static List<JsModuleImports.Specifier> findImports(final String source, final AssetFile assetFile) {
+		try {
+			return JsModuleImports.find(source, assetFile.path)
+		} catch(IllegalArgumentException e) {
+			log.warn("Cannot analyze the ES module imports in ${assetFile.path} (${e.cause?.message ?: e.message}), so they keep their plain names")
+			return null
+		}
 	}
 
 
