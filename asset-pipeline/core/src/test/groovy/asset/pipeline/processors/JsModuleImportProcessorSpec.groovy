@@ -91,6 +91,15 @@ const view = <div>it's done</div>
 		rewrite(source) == source
 	}
 
+	void "rewriteModuleImports: false leaves every import as written"() {
+		given:
+		AssetPipelineConfigHolder.config = [rewriteModuleImports: false]
+		String source = "import { twice } from './lib/math.js'\nimport('./lazy.js')\n"
+
+		expect:
+		rewrite(source) == source
+	}
+
 	void "real imports preserve comments attributes and string-named bindings"() {
 		given:
 		String source = '''

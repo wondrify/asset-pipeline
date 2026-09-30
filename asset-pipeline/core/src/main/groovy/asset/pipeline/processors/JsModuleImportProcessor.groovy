@@ -18,6 +18,7 @@ package asset.pipeline.processors
 import asset.pipeline.AssetCompiler
 import asset.pipeline.AssetFile
 import asset.pipeline.AssetHelper
+import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.DirectiveProcessor
 import asset.pipeline.GenericAssetFile
 import groovy.util.logging.Slf4j
@@ -56,9 +57,14 @@ import groovy.util.logging.Slf4j
  * compiles to the same content whichever module the compiler reaches first. Serving a plain name needs the
  * non-digested files ({@code skipNonDigests: false}) or an application that maps it through the manifest, so
  * each one is logged as a warning.
+ *
+ * Set {@code rewriteModuleImports: false} in the config options to leave every import as written.
  */
 @Slf4j
 class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
+
+	// The lexer runs on GraalJS, which core only compiles against; once it cannot start, imports are left as written
+	private static volatile boolean lexerUnavailable
 
 	JsModuleImportProcessor(final AssetCompiler precompiler) {
 		super(precompiler)
@@ -66,7 +72,7 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 
 
 	String process(final String inputText, final AssetFile assetFile) {
-		if(!precompiler?.options?.enableDigests) {
+		if(!precompiler?.options?.enableDigests || AssetPipelineConfigHolder.config?.rewriteModuleImports == false) {
 			return inputText
 		}
 		final List<JsModuleImports.Specifier> specifiers = findImports(inputText, assetFile)
@@ -192,10 +198,17 @@ class JsModuleImportProcessor extends AbstractUrlRewritingProcessor {
 	 * before imports were rewritten: it compiled then, and a browser may not need it to be a module at all.
 	 */
 	private static List<JsModuleImports.Specifier> findImports(final String source, final AssetFile assetFile) {
+		if(lexerUnavailable) {
+			return null
+		}
 		try {
 			return JsModuleImports.find(source, assetFile.path)
 		} catch(IllegalArgumentException e) {
 			log.warn("Cannot analyze the ES module imports in ${assetFile.path} (${e.cause?.message ?: e.message}), so they keep their plain names")
+			return null
+		} catch(IllegalStateException | LinkageError e) {
+			lexerUnavailable = true
+			log.warn("ES module imports keep their plain names: the lexer that finds them needs GraalJS (org.graalvm.js:js-community) on the compile classpath, which the Gradle plugin provides (${e.cause?.message ?: e.message})")
 			return null
 		}
 	}

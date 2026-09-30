@@ -158,7 +158,17 @@ TIP: HTML files automatically get relative url replacement making it easy to gen
 
 JavaScript gets the same treatment for the relative specifiers of ES module imports. When compiling with digests, `import { x } from './util.js'`, `export * from '../lib/util.js'`, `import './setup.js'` and `import('./lazy.js')` are rewritten to the digested file, `./util-dadvbfgdaf123e.js`, so a module library served from a CDN copy of the compiled assets finds every module it imports, without the non-digested files. Bare specifiers (`import x from 'lodash'`) and absolute URLs are left alone, and so is every import of a module that is part of a cycle: a module's digest is taken from its content, which would contain the digest of a module whose content contains its own. That includes a cycle through a file a module bundles with `//= require` or `require()`, since the bundled file is part of its content, and through an `asset_url()`, since that names another asset's digest. A module in a cycle keeps its plain name even where a module outside the cycle imports it, because a browser identifies a module by its URL: imported under both names, it would be loaded, and run, twice. Those imports are logged as a warning, and serving them needs the non-digested files (`skipNonDigests: false`) or an application that maps them through the manifest. For the same reason, a page that imports such a module by URL names it without the digest, with `assetPath(src: '...', useManifest: false)`.
 
-Import specifiers are identified by a JavaScript lexer, so import-like text in comments, strings, regular expressions and template text is left untouched. Comments between import tokens, string-named bindings, import attributes and escaped specifiers are supported. Only the specifier is replaced; the surrounding source is preserved. Computed dynamic imports such as `import('./' + name + '.js')` are left to the application to resolve. The bundled lexer uses the existing GraalJS compilation runtime and does not execute application code or require Node.js or WebAssembly.
+Import specifiers are identified by a JavaScript lexer, so import-like text in comments, strings, regular expressions and template text is left untouched. Comments between import tokens, string-named bindings, import attributes and escaped specifiers are supported. Only the specifier is replaced; the surrounding source is preserved. Computed dynamic imports such as `import('./' + name + '.js')` are left to the application to resolve. The bundled lexer runs on GraalJS (`org.graalvm.js:js-community`), which the Gradle plugin puts on the compile classpath; it does not execute application code or require Node.js or WebAssembly. Without GraalJS, or for a file the lexer cannot read, the imports are left as written and a warning is logged.
+
+To leave every import as written, turn the rewriting off in the `configOptions`:
+
+[source,groovy]
+.build.gradle
+----
+assets {
+  configOptions = [rewriteModuleImports: false]
+}
+----
 
 A module that Babel turns into CommonJS is bundled into one file instead and has no imports left to rewrite. Babel converts every `.mjs`, `.bjs` and `.js.es6` file (and `.js.es7`, `.js.es8`, `.js.es`) whatever `enableES6` says, every `.js` file when `enableES6` is on, and a `.js` file that contains `export default` unless `enableES6` is set to `false`. A module library is therefore served as modules only as `.js` files, and only with `enableES6: false` when any of them has a default export.
 
