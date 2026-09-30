@@ -44,6 +44,13 @@ public class AssetCompiler {
 	def filesToProcess = []
 	Properties manifestProperties
 	def threadPool
+	// For this compile run, by asset path. The digests of assets other assets refer to by URL, see
+	// AbstractUrlRewritingProcessor.compiledDigest. For JsModuleImportProcessor, the assets each module's
+	// compiled content imports or bundles, and every asset it reaches through them. Assets compile on a
+	// thread pool, hence the concurrent maps.
+	final Map<String, String> referencedDigests = new ConcurrentHashMap<String, String>()
+	final Map<String, List<String>> moduleReferences = new ConcurrentHashMap<String, List<String>>()
+	final Map<String, Set<String>> moduleReach = new ConcurrentHashMap<String, Set<String>>()
 
 	/**
 	 * Creates an instance of the compiler given passed input options

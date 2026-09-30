@@ -33,6 +33,15 @@ It is also possible to return an assetPath as a string for injection in your own
 <link href="${assetPath(src: 'manifest.json')}"/>
 ----
 
+That includes a webjar path with a `%` in place of the version directory, which the tags accept too. It is how an ES module imports another by URL, since a module's exports can only be reached through an `import`:
+
+[source,html]
+----
+<script type="module">
+  import { layout } from '${assetPath(src: 'webjars/chenglou__pretext/%/dist/layout.js')}'
+</script>
+----
+
 It is also possible to execute a code section only if an asset exists or to simply test for existence
 
 [source,html]

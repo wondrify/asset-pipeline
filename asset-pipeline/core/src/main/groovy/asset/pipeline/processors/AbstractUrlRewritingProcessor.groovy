@@ -45,6 +45,9 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
 
     private static final Set<String> NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET = []
 
+    // The assets this thread is compiling for their digests, outermost first
+    private static final ThreadLocal<Set<String>> DIGESTING = ThreadLocal.withInitial { new LinkedHashSet<String>() }
+
 
     protected static boolean doNotInsertCacheDigestIntoUrlForCompiledExtension(final String compiledExtension) {
         NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.add(compiledExtension)
@@ -53,6 +56,48 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
 
     AbstractUrlRewritingProcessor(final AssetCompiler precompiler) {
         super(precompiler)
+    }
+
+
+    /**
+     * The asset a path relative to {@code assetFile} points at, or null when there is none.
+     */
+    protected AssetFile resolveRelativeAsset(final AssetFile assetFile, final String relativePath) {
+        final String assetPath = normalizePath(assetFile.parentPath ? assetFile.parentPath + DIRECTIVE_FILE_SEPARATOR + relativePath : relativePath)
+        final List<String> contentType = AssetHelper.assetMimeTypeForURI(assetPath)
+
+        final AssetFile currFile = AssetHelper.fileForUri(assetPath, contentType ? contentType[0] : null)
+        return currFile ?: AssetHelper.fileForFullName(assetPath)
+    }
+
+
+    /**
+     * The digest the compiler writes {@code currFile} under, taken from the same compiled content it digests.
+     * Kept for the compile run: every reference to the asset needs it, and compiling it again for each one
+     * multiplies with the number of paths through assets that refer to one another, as ES modules do.
+     *
+     * An asset whose compiled content refers to its own digest, through any chain of references, can have none,
+     * so that fails with the chain rather than recursing until the stack runs out. A cycle that runs through an ES
+     * module import keeps that import's plain name instead (see {@link JsModuleImportProcessor}), unless it also
+     * runs through a CSS {@code url()}, which that processor does not follow. Otherwise this is a cycle of
+     * {@code asset_url()} or CSS {@code url()} references.
+     */
+    protected String compiledDigest(final AssetFile currFile) {
+        final Map<String, String> digests = precompiler.referencedDigests
+        String digest = digests.get(currFile.path)
+        if (digest == null) {
+            final Set<String> digesting = DIGESTING.get()
+            if (!digesting.add(currFile.path)) {
+                throw new IllegalStateException("${currFile.path} cannot be given a digest: its compiled content refers to its own digest through ${(digesting.toList().dropWhile { it != currFile.path } + currFile.path).join(' -> ')}")
+            }
+            try {
+                digest = getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes)
+            } finally {
+                digesting.remove(currFile.path)
+            }
+            digests.put(currFile.path, digest)
+        }
+        return digest
     }
 
 
@@ -67,14 +112,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
         final URL urlSplitter = new URL('http', 'hostname', urlSansScheme)
 
         final AssetFile baseFile = assetFile.baseFile ?: assetFile
-        final String assetPath  = normalizePath(assetFile.parentPath ? assetFile.parentPath + DIRECTIVE_FILE_SEPARATOR + urlSplitter.path : urlSplitter.path)
-
-        final List<String> contentType = AssetHelper.assetMimeTypeForURI(assetPath)
-        
-        AssetFile currFile = AssetHelper.fileForUri(assetPath,contentType ? contentType[0] : null)
-        if(!currFile) {
-            currFile = AssetHelper.fileForFullName(assetPath)
-        }
+        final AssetFile currFile = resolveRelativeAsset(assetFile, urlSplitter.path)
 
         if (! currFile) {
             return null
@@ -121,7 +159,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
                 if (NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.contains(compiledExtension)) {
                     replacementPathSb << fileName << '.' << compiledExtension
                 } else {
-                    replacementPathSb << fileName << '-' << getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes) << '.' << compiledExtension
+                    replacementPathSb << fileName << '-' << compiledDigest(currFile) << '.' << compiledExtension
                 }
             }
         } else {
@@ -158,11 +196,15 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
 //		println "Replacing Asset Path for ${currFile.path}"
         if(baseUrl) {
             replacementPathSb << baseUrl
+            if(!baseUrl.endsWith('/')) {
+                replacementPathSb << '/'
+            }
         } else if(!preferRelative){
-            replacementPathSb << '/' << (AssetPipelineConfigHolder.config?.mapping != null ? AssetPipelineConfigHolder.config?.mapping : 'assets')
-			if(AssetPipelineConfigHolder.config?.mapping?.size() > 0) {
-				replacementPathSb << '/'
-			}
+            final String mapping = AssetPipelineConfigHolder.config?.mapping != null ? AssetPipelineConfigHolder.config.mapping : 'assets'
+            replacementPathSb << '/' << mapping
+            if(mapping) {
+                replacementPathSb << '/'
+            }
         }
 //		println "FileName Check: ${replacementPathSb}"
         // file
@@ -175,7 +217,7 @@ abstract class AbstractUrlRewritingProcessor extends AbstractProcessor {
                 if (NO_CACHE_DIGEST_FOR_COMPILED_EXTENSION_SET.contains(compiledExtension)) {
                     replacementPathSb << fileName << '.' << compiledExtension
                 } else {
-                    replacementPathSb << fileName << '-' << getByteDigest(new DirectiveProcessor(currFile.contentType[0], precompiler).compile(currFile).bytes) << '.' << compiledExtension
+                    replacementPathSb << fileName << '-' << compiledDigest(currFile) << '.' << compiledExtension
                 }
             }
         } else {

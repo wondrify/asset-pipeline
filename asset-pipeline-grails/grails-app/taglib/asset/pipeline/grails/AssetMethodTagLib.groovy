@@ -21,7 +21,8 @@ class AssetMethodTagLib {
 		if (attrs instanceof Map) {
 			src         = attrs.src
 			urlBase     = attrs.absolute ? SERVER_BASE_URL : CONTEXT_PATH
-			useManifest = attrs.useManifest ?: true
+			// false, or "false" from a tag attribute; `?: true` turned both into true
+			useManifest = attrs.useManifest == null || attrs.useManifest.toString().toBoolean()
 		}
 		else {
 			src         = attrs

@@ -17,6 +17,8 @@
 package asset.pipeline.processor
 
 import asset.pipeline.*
+import asset.pipeline.fs.FileSystemAssetResolver
+import asset.pipeline.processors.JsProcessor
 import spock.lang.Specification
 
 /**
@@ -24,13 +26,29 @@ import spock.lang.Specification
 */
 class JsProcessorSpec extends Specification {
 
-	// void "should be able to fetch a js file and perform url replacement on asset_path()"() {
-	// 	given:
-	// 		def resolver = new FileSystemAssetResolver('application','assets')
-	// 	when:
-	// 		// def file = resolver.getAsset('grails_logo',null,'png')
-	// 	then:
-	// 		// file instanceof GenericAssetFile
-	// }
+	def setup() {
+		AssetPipelineConfigHolder.resolvers = []
+		AssetPipelineConfigHolder.registerResolver(new FileSystemAssetResolver('application', 'assets'))
+	}
 
+	def cleanup() {
+		AssetPipelineConfigHolder.config = [:]
+	}
+
+	void "asset_url() puts one slash between the mapping or base url and the asset: #label"() {
+		given:
+		AssetPipelineConfigHolder.config = config
+		AssetFile script = AssetHelper.fileForUri('asset-pipeline/test/esm/main.js', 'application/javascript')
+
+		expect:
+		new JsProcessor(null).process("var logo = asset_url('grails_logo.png')", script) == "var logo = '${expected}'"
+
+		where:
+		label                         | config                                | expected
+		'no mapping configured'       | [:]                                   | '/assets/grails_logo.png'
+		'a mapping'                   | [mapping: 'static']                   | '/static/grails_logo.png'
+		'an empty mapping'            | [mapping: '']                         | '/grails_logo.png'
+		'a base url ending in /'      | [url: { 'https://cdn.example.com/' }] | 'https://cdn.example.com/grails_logo.png'
+		'a base url without the /'    | [url: { 'https://cdn.example.com' }]  | 'https://cdn.example.com/grails_logo.png'
+	}
 }

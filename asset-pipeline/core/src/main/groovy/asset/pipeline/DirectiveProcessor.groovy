@@ -39,6 +39,8 @@ class DirectiveProcessor {
     private AssetCompiler precompiler
     private Map files = [:]
     private def baseFile
+    // Set by getRequiredFiles, which wants only the files the base file's own directives name
+    private boolean baseDirectivesOnly
     ClassLoader classLoader
 
     DirectiveProcessor(String contentType, AssetCompiler precompiler = null, ClassLoader classLoader=Thread.currentThread().contextClassLoader) {
@@ -55,11 +57,15 @@ class DirectiveProcessor {
     */
     @CompileStatic
     def compile(AssetFile file) {
+        if(file instanceof GenericAssetFile) {
+            return file.getBytes()
+        }
+        // A compile can run inside another file's processors, which compile the assets that file refers to for
+        // their digests, so it puts back the CommonJS state it found instead of clearing the outer compile's
+        final Map<String,String> outerModules = JsRequireProcessor.commonJsModules.get()
+        final Boolean outerWithinDirectiveTree = JsRequireProcessor.withinDirectiveTree.get()
+        final String outerBaseModule = JsRequireProcessor.baseModule.get()
         try {
-            Long startTime =  new Date().time
-            if(file instanceof GenericAssetFile) {
-                return file.getBytes()
-            }
             this.baseFile = file
             this.files = [:]
             Map tree = getDependencyTree(file)
@@ -67,18 +73,39 @@ class DirectiveProcessor {
             //since we are using tree based injection we need to remove duplicate asset requires
             JsRequireProcessor.withinDirectiveTree.set(true)
             JsRequireProcessor.commonJsModules.set([:] as Map<String,String>)
+            JsRequireProcessor.baseModule.set(null)
 
             loadContentsForTree(tree,buffer)
             if(JsRequireProcessor.commonJsModules.get()) {
                 return JsRequireProcessor.requireMethod + JsRequireProcessor.modulesJs() + buffer.toString()
             } else {
-                return buffer.toString()    
+                return buffer.toString()
             }
         } finally {
-            JsRequireProcessor.commonJsModules.set([:] as Map<String,String>)
-            JsRequireProcessor.withinDirectiveTree.set(false)
+            JsRequireProcessor.commonJsModules.set(outerModules)
+            JsRequireProcessor.withinDirectiveTree.set(outerWithinDirectiveTree)
+            JsRequireProcessor.baseModule.set(outerBaseModule)
         }
-        
+
+    }
+
+    /**
+    * The assets the directives in {@code file} itself bundle with it, without reading theirs
+    */
+    @CompileStatic
+    List<AssetFile> getRequiredFiles(AssetFile file) {
+        if(file instanceof GenericAssetFile) {
+            return []
+        }
+        this.baseFile = file
+        this.files = [:]
+        this.baseDirectivesOnly = true
+        try {
+            getDependencyTree(file)
+        } finally {
+            this.baseDirectivesOnly = false
+        }
+        return (files.values() as Collection<AssetFile>).findAll { AssetFile required -> required.path != file.path } as List<AssetFile>
     }
 
     /**
@@ -152,7 +179,7 @@ class DirectiveProcessor {
     protected Map getDependencyTree(AssetFile file) {
         this.files[file.path] = file
         Map tree = [file:file,tree:[]]
-        if(!(file instanceof GenericAssetFile)) {
+        if(!(file instanceof GenericAssetFile) && !(baseDirectivesOnly && !file.is(baseFile))) {
             this.findDirectives(file as AssetFile,tree)
         }
 

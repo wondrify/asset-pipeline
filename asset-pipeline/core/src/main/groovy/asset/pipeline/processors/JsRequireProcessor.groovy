@@ -9,6 +9,7 @@ import asset.pipeline.AssetHelper
 import groovy.json.JsonSlurper
 import groovy.transform.CompileStatic
 import asset.pipeline.CacheManager
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 import groovy.util.logging.Slf4j
 
@@ -64,75 +65,7 @@ class JsRequireProcessor extends AbstractUrlRewritingProcessor {
 						return resultPrefix+"_asset_pipeline_require(${quote}${cachedPath}${quote})"
 					}
 				} else if(assetPath.size() > 0) {
-					AssetFile currFile
-					if(!assetPath.startsWith('/') && assetFile.parentPath != null) {
-						def relativeFileName = [ assetFile.parentPath, assetPath ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )
-						relativeFileName = AssetHelper.normalizePath(relativeFileName)
-						currFile = AssetHelper.fileForUri(relativeFileName,'application/javascript')
-
-					}
-					
-					if(!currFile) {
-						currFile = AssetHelper.fileForUri(assetPath,'application/javascript')
-					}
-					
-					if(!currFile) {
-						currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath,'application/javascript')
-					}
-
-					// look for a node module
-					if(!currFile){
-						if(!assetPath.startsWith('/')) {
-							def packageFileName = [  assetPath, 'package.json' ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )
-							packageFileName = AssetHelper.normalizePath(packageFileName)
-							AssetFile packageJsonFile = AssetHelper.fileForUri(packageFileName)
-							if (packageJsonFile) {
-								JsonSlurper slurper = new JsonSlurper()
-								def packageJson = slurper.parse(packageJsonFile.getInputStream()) as Map
-								def realAssetFileName = [assetPath, packageJson.get("main")].join(AssetHelper.DIRECTIVE_FILE_SEPARATOR)
-								realAssetFileName = AssetHelper.normalizePath(realAssetFileName)
-								currFile = AssetHelper.fileForUri(realAssetFileName, 'application/javascript')
-							}
-						}
-					}
-					
-					//look for index.js
-					if(!currFile) {
-						if(!assetPath.startsWith('/') && assetFile.parentPath != null) {
-							def relativeFileName = [ assetFile.parentPath, assetPath, 'index.js' ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )	
-							relativeFileName = AssetHelper.normalizePath(relativeFileName)
-							currFile = AssetHelper.fileForUri(relativeFileName,'application/javascript')
-						}
-						
-						if(!currFile) {
-							currFile = AssetHelper.fileForUri(assetPath + '/index.js','application/javascript')
-						}
-						
-						if(!currFile) {
-							currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath.tokenize('/')[-1] + '/index.js','application/javascript')
-						}
-					}
-
-					
-
-					//look for non js file
-					if(!currFile) {
-						if(!assetPath.startsWith('/')) {
-							def relativeFileName = [ assetFile.parentPath, assetPath].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )	
-							relativeFileName = AssetHelper.normalizePath(relativeFileName)
-
-							currFile = AssetHelper.fileForUri(relativeFileName)
-						}
-						
-						if(!currFile) {
-							currFile = AssetHelper.fileForUri(assetPath)
-						}
-						
-						if(!currFile) {
-							currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath.tokenize('/')[-1])
-						}
-
-					}
+					final AssetFile currFile = resolveRequiredAsset(assetFile, assetPath)
 					if(!currFile) {
 						cachedPaths[assetPath] = null as String
 						return resultPrefix+"require(${quote}${assetPath}${quote})"
@@ -168,6 +101,105 @@ class JsRequireProcessor extends AbstractUrlRewritingProcessor {
 			}
 		}
 	}
+
+	/**
+	 * The asset a {@code require()} of {@code assetPath} in {@code assetFile} bundles: a path relative to the file
+	 * or to an asset root, a node module's package.json main or index.js, or failing those any asset by that name.
+	 */
+	static AssetFile resolveRequiredAsset(final AssetFile assetFile, final String assetPath) {
+		AssetFile currFile
+		if(!assetPath.startsWith('/') && assetFile.parentPath != null) {
+			def relativeFileName = [ assetFile.parentPath, assetPath ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )
+			relativeFileName = AssetHelper.normalizePath(relativeFileName)
+			currFile = AssetHelper.fileForUri(relativeFileName,'application/javascript')
+
+		}
+		
+		if(!currFile) {
+			currFile = AssetHelper.fileForUri(assetPath,'application/javascript')
+		}
+		
+		if(!currFile) {
+			currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath,'application/javascript')
+		}
+
+		// look for a node module
+		if(!currFile){
+			if(!assetPath.startsWith('/')) {
+				def packageFileName = [  assetPath, 'package.json' ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )
+				packageFileName = AssetHelper.normalizePath(packageFileName)
+				AssetFile packageJsonFile = AssetHelper.fileForUri(packageFileName)
+				if (packageJsonFile) {
+					JsonSlurper slurper = new JsonSlurper()
+					def packageJson = slurper.parse(packageJsonFile.getInputStream()) as Map
+					def realAssetFileName = [assetPath, packageJson.get("main")].join(AssetHelper.DIRECTIVE_FILE_SEPARATOR)
+					realAssetFileName = AssetHelper.normalizePath(realAssetFileName)
+					currFile = AssetHelper.fileForUri(realAssetFileName, 'application/javascript')
+				}
+			}
+		}
+		
+		//look for index.js
+		if(!currFile) {
+			if(!assetPath.startsWith('/') && assetFile.parentPath != null) {
+				def relativeFileName = [ assetFile.parentPath, assetPath, 'index.js' ].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )	
+				relativeFileName = AssetHelper.normalizePath(relativeFileName)
+				currFile = AssetHelper.fileForUri(relativeFileName,'application/javascript')
+			}
+			
+			if(!currFile) {
+				currFile = AssetHelper.fileForUri(assetPath + '/index.js','application/javascript')
+			}
+			
+			if(!currFile) {
+				currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath.tokenize('/')[-1] + '/index.js','application/javascript')
+			}
+		}
+
+		
+
+		//look for non js file
+		if(!currFile) {
+			if(!assetPath.startsWith('/')) {
+				def relativeFileName = [ assetFile.parentPath, assetPath].join( AssetHelper.DIRECTIVE_FILE_SEPARATOR )	
+				relativeFileName = AssetHelper.normalizePath(relativeFileName)
+
+				currFile = AssetHelper.fileForUri(relativeFileName)
+			}
+			
+			if(!currFile) {
+				currFile = AssetHelper.fileForUri(assetPath)
+			}
+			
+			if(!currFile) {
+				currFile = AssetHelper.fileForUri(assetPath + '/' + assetPath.tokenize('/')[-1])
+			}
+
+		}
+		return currFile
+	}
+
+
+	/**
+	 * The assets the {@code require()} calls in {@code source}, the text of {@code assetFile}, bundle. The pattern
+	 * needs a character before {@code require}, which {@link #process} finds even on the first line because
+	 * {@link JsNodeInjectProcessor} has put a line in front of it, so the scan starts on a new line too.
+	 */
+	static List<AssetFile> requiredAssets(final AssetFile assetFile, final String source) {
+		if(AssetPipelineConfigHolder.config != null && AssetPipelineConfigHolder.config.commonJs == false) {
+			return []
+		}
+		final List<AssetFile> required = []
+		final Matcher matcher = URL_CALL_PATTERN.matcher('\n' + source)
+		while(matcher.find()) {
+			final AssetFile currFile = matcher.group(2) ? resolveRequiredAsset(assetFile, matcher.group(2)) : null
+			if(currFile) {
+				required << currFile
+			}
+		}
+		return required
+	}
+
 
 	private appendModule(AssetFile assetFile) {
 		Map<String,String> moduleMap = commonJsModules.get()
