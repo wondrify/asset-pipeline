@@ -5,6 +5,93 @@ import spock.lang.Unroll
 
 public class AssetPipelineResponseBuilderSpec extends Specification {
 
+    Properties originalManifest
+
+    void setup() {
+        originalManifest = AssetPipelineConfigHolder.manifest
+    }
+
+    void cleanup() {
+        AssetPipelineConfigHolder.manifest = originalManifest
+    }
+
+    @Unroll
+    def "If-None-Match #etag takes precedence over If-Modified-Since #date"() {
+        given:
+        AssetPipelineConfigHolder.manifest = new Properties()
+        AssetPipelineConfigHolder.manifest.setProperty('app.js', 'app-2222.js')
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', etag, date, new Date(1700000000000L))
+
+        then:
+        response.statusCode == status
+        response.headers['ETag'] == '"app-2222.js"'
+        response.headers['Last-Modified'] == 'Tue, 14 Nov 2023 22:13:20 GMT'
+
+        where:
+        etag           | date                           | status
+        '"app-1111.js"' | 'Fri, 15 Jan 2027 08:00:00 GMT' | 200
+        '"app-1111.js"' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+        '"app-1111.js"' | 'Mon, 13 Nov 2023 22:13:20 GMT' | 200
+        '"app-2222.js"' | 'Mon, 13 Nov 2023 22:13:20 GMT' | 304
+        '"app-2222.js"' | 'Fri, 15 Jan 2027 08:00:00 GMT' | 304
+        ''             | 'Fri, 15 Jan 2027 08:00:00 GMT' | 200
+        'invalid'      | 'Fri, 15 Jan 2027 08:00:00 GMT' | 200
+    }
+
+    @Unroll
+    def "If-None-Match #etag weakly matches a list of entity tags"() {
+        given:
+        AssetPipelineConfigHolder.manifest = new Properties()
+        AssetPipelineConfigHolder.manifest.setProperty('app.js', digest)
+
+        expect:
+        new AssetPipelineResponseBuilder('app.js', etag).statusCode == status
+
+        where:
+        digest            | etag                                | status
+        'app-2222.js'     | '"app-2222.js"'                     | 304
+        'app-2222.js'     | 'W/"app-2222.js"'                   | 304
+        'app-2222.js'     | '"app-1111.js", "app-2222.js"'      | 304
+        'app-2222.js'     | '"app-2222.js", "app-1111.js"'      | 304
+        'app-2222.js'     | ' "app-1111.js",\tW/"app-2222.js" ' | 304
+        'app-2222.js'     | ', , "app-2222.js", ,'              | 304
+        'app-2222.js'     | '*'                                 | 304
+        'app-2222.js'     | ' \t*\t '                           | 304
+        'app,2222.js'     | '"old.js", W/"app,2222.js"'         | 304
+        'app-2222.js'     | '"app,1111.js", "app-2222.js"'      | 304
+        'my icon-2222.js' | '"my icon-2222.js"'                 | 304
+        'my icon-2222.js' | '"old.js", W/"my icon-2222.js"'     | 304
+        'app-2222.js'     | null                                | 200
+        'app-2222.js'     | ''                                  | 200
+        'app-2222.js'     | '"app-1111.js", W/"app-3333.js"'    | 200
+        'app-2222.js'     | '"APP-2222.JS"'                     | 200
+        'app-2222.js'     | '"*"'                               | 200
+        'app-2222.js'     | 'app-2222.js'                       | 200
+        'app-2222.js'     | 'w/"app-2222.js"'                   | 200
+        'app-2222.js'     | 'W/ "app-2222.js"'                  | 200
+        'app-2222.js'     | '"app-2222.js'                      | 200
+        'app-2222.js'     | '"app-1111.js" "app-2222.js"'       | 200
+        'app-2222.js'     | '"app-2222.js", invalid'            | 200
+        'app-2222.js'     | '*, "app-1111.js"'                  | 200
+    }
+
+    @Unroll
+    def "If-Modified-Since #date is used when If-None-Match is absent"() {
+        expect:
+        new AssetPipelineResponseBuilder('app.js', null, date, modified).statusCode == status
+
+        where:
+        date                           | modified                | status
+        'Tue, 14 Nov 2023 22:13:20 GMT' | new Date(1700000000000L) | 304
+        'Fri, 15 Jan 2027 08:00:00 GMT' | new Date(1700000000000L) | 304
+        'Mon, 13 Nov 2023 22:13:20 GMT' | new Date(1700000000000L) | 200
+        'invalid'                      | new Date(1700000000000L) | 200
+        null                           | new Date(1700000000000L) | 200
+        'Fri, 15 Jan 2027 08:00:00 GMT' | null                    | 200
+    }
+
     @Unroll
     def "make sure etag is quoted for #filename"() {
         given:

@@ -4,6 +4,7 @@ import groovy.transform.CompileStatic
 import java.util.TimeZone
 import java.nio.file.InvalidPathException
 import java.nio.file.PathMatcher
+import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 
@@ -36,9 +37,11 @@ public class AssetPipelineResponseBuilder {
         this.ifModifiedSinceHeader = ifModifiedSinceHeader
 		this.lastModifiedDate = lastModifiedDate
         boolean digestVersion = isDigestVersion()
-		if(!checkDateChanged()) {
+		boolean etagChanged = checkETag()
+		boolean dateChanged = checkDateChanged()
+		if(!etagChanged || !dateChanged) {
 			statusCode = 304
-		} else if (checkETag()) {
+		} else {
             headers['Vary'] = 'Accept-Encoding'
             if(digestVersion && !uri.endsWith(".html")) {
                 headers['Cache-Control'] = 'public, max-age=31536000'    
@@ -179,11 +182,40 @@ public class AssetPipelineResponseBuilder {
         String etagName = getCurrentETag()
         headers["ETag"] = etagName
 
-        if (ifNoneMatchHeader && ifNoneMatchHeader == etagName) {
+        if (ifNoneMatchHeader != null && matchesETag(etagName)) {
             statusCode = 304
             return false
         }
         return true
+    }
+
+    /** Combine field lines without confusing an absent If-None-Match with an empty one. */
+    public static String combineIfNoneMatchHeaders(Enumeration<String> lines) {
+        return lines != null && lines.hasMoreElements() ? Collections.list(lines).join(',') : null
+    }
+
+    // One list member (including empty members). Commas inside a quoted tag belong to the tag, rather than
+    // separating list members. The tag may hold any character but a quote, rather than only RFC 9110's
+    // etagc, as the tags this builder sends hold the asset's name as it is, a space included.
+    private static final Pattern ENTITY_TAG = ~/[ \t]*(?:(?:W\/)?("[^"]*")[ \t]*)?(?:,|\z)/
+
+    private boolean matchesETag(String etag) {
+        if (ifNoneMatchHeader.trim() == '*') {
+            return true
+        }
+        String opaqueTag = etag.startsWith('W/') ? etag.substring(2) : etag
+        Matcher matcher = ENTITY_TAG.matcher(ifNoneMatchHeader)
+        boolean matched = false
+        int position = 0
+        while (position < ifNoneMatchHeader.length()) {
+            matcher.region(position, ifNoneMatchHeader.length())
+            if (!matcher.lookingAt()) {
+                return false
+            }
+            matched = matched || matcher.group(1) == opaqueTag
+            position = matcher.end()
+        }
+        return matched
     }
 
 	public Boolean checkDateChanged() {
@@ -193,7 +225,8 @@ public class AssetPipelineResponseBuilder {
 		if(lastModifiedDate) {
 			headers["Last-Modified"] = getLastModifiedDate(lastModifiedDate)
 		}
-		if (ifModifiedSinceHeader && lastModifiedDate) {
+		// RFC 9110 section 13.1.3: even an empty If-None-Match suppresses date validation.
+		if (ifNoneMatchHeader == null && ifModifiedSinceHeader && lastModifiedDate) {
 			try {
 				hasNotChanged = lastModifiedDate <= sdf.parse(ifModifiedSinceHeader)
 			} catch (Exception e) {
