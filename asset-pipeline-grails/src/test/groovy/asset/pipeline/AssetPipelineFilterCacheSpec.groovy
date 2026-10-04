@@ -235,6 +235,32 @@ class AssetPipelineFilterCacheSpec extends Specification {
         '/favicon.ico'        | 'If-Modified-Since' | 'no-cache'
     }
 
+    void 'sent #acceptEncoding with If-None-Match #ifNoneMatch, the asset is answered #status with ETag #etag before and after caching it'() {
+        given:
+        AssetPipelineFilter filter = filter()
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', '/assets/favicon.ico')
+            request.addHeader('Accept-Encoding', acceptEncoding)
+            request.addHeader('If-None-Match', ifNoneMatch)
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+
+        then:
+        responses.every { it.status == status && it.getHeader('ETag') == etag }
+        responses.every { it.contentAsByteArray == body }
+
+        where: 'each coding is validated by its own tag, so a cache never takes one for the other'
+        acceptEncoding | ifNoneMatch            | status | etag                   | body
+        'gzip'         | "\"${DIGESTED}-gz\"" | 304    | "\"${DIGESTED}-gz\"" | new byte[0]
+        'gzip'         | "\"${DIGESTED}\""    | 200    | "\"${DIGESTED}-gz\"" | FAVICON_GZIPPED
+        'identity'     | "\"${DIGESTED}-gz\"" | 200    | "\"${DIGESTED}\""    | FAVICON
+        'identity'     | "\"${DIGESTED}\""    | 304    | "\"${DIGESTED}\""    | new byte[0]
+    }
+
     void '#method with #validator is answered #status before and after caching the asset'() {
         given:
         AssetPipelineFilter filter = filter()

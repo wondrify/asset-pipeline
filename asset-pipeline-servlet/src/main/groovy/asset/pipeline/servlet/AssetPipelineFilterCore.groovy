@@ -62,6 +62,9 @@ class AssetPipelineFilterCore {
 		AssetPipelineServletResource resource = assetPipelineServletResourceRepository.getResource(fileUri)
 		if(resource) {
 			final Date lastModifiedDate = resource.getLastModified() ? new Date(resource.getLastModified()) : null
+			// Looked up before the response is built, as the gzipped asset has an ETag of its own
+			final AssetPipelineServletResource gzipResource = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders("Accept-Encoding")) ?
+				assetPipelineServletResourceRepository.getGzippedResource(fileUri) : null
 			// The name asked for, as the Grails filter passes it: fileUri is the digested name by now, which
 			// the builder would take for a url that can be cached for a year
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
@@ -70,7 +73,8 @@ class AssetPipelineFilterCore {
 				request.getHeader('If-Modified-Since'),
 				lastModifiedDate,
 				manifest,
-				request.method
+				request.method,
+				gzipResource != null
 			)
 
 			responseBuilder.headers.each { final header ->
@@ -81,13 +85,9 @@ class AssetPipelineFilterCore {
 			}
 
 			if(response.status == 200) {
-				// Check for GZip
-				if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders("Accept-Encoding"))) {
-					final AssetPipelineServletResource gzipResource = assetPipelineServletResourceRepository.getGzippedResource(fileUri)
-					if(gzipResource) {
-						resource = gzipResource
-						response.setHeader('Content-Encoding', 'gzip')
-					}
+				if(gzipResource) {
+					resource = gzipResource
+					response.setHeader('Content-Encoding', 'gzip')
 				}
 				final String format = servletContext.getMimeType(path)
 				final String encoding = request.getCharacterEncoding()

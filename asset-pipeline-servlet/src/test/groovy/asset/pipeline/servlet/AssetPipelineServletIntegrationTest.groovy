@@ -156,6 +156,21 @@ class AssetPipelineServletIntegrationTest {
     }
 
     @Test
+    void testGzippedAssetIsValidatedByItsOwnETag() {
+        String url = "http://localhost:${port}/prod_assets/maybe_gzipped/css/test.js"
+        String gzipped = '"maybe_gzipped/css/test.js-gz"'
+        String asItIs = '"maybe_gzipped/css/test.js"'
+        assertEquals(gzipped, Request.Get(url).execute().returnResponse().getFirstHeader('ETag')?.value)
+        assertEquals(asItIs, Request.Get(url).setHeader('Accept-Encoding', '').execute().returnResponse().getFirstHeader('ETag')?.value)
+
+        // Each coding is validated by its own tag, so a cache never takes one for the other
+        assertEquals(304, Request.Get(url).setHeader('If-None-Match', gzipped).execute().returnResponse().statusLine.statusCode)
+        assertEquals(200, Request.Get(url).setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
+        assertEquals(304, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
+        assertEquals(200, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', gzipped).execute().returnResponse().statusLine.statusCode)
+    }
+
+    @Test
     void testOtherMethodsFailTheirPreconditionRatherThanRevalidate() {
         String url = "http://localhost:${port}/prod_assets/css/test.css"
         HttpResponse initial = Request.Get(url).execute().returnResponse()

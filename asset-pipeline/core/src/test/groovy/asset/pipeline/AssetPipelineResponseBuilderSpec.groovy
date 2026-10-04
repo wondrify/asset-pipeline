@@ -135,6 +135,30 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
     }
 
     @Unroll
+    def "sent #coding, the asset has ETag #etag, and If-None-Match #ifNoneMatch is answered #status"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', ifNoneMatch, null, null, manifest, 'GET', coding == 'gzipped')
+
+        then:
+        response.headers['ETag'] == etag
+        response.statusCode == status
+
+        where: 'each coding is validated by its own tag, so a cache never takes one for the other'
+        coding     | ifNoneMatch                       | etag               | status
+        'gzipped'  | null                              | '"app-2222.js-gz"' | 200
+        'gzipped'  | '"app-2222.js-gz"'                | '"app-2222.js-gz"' | 304
+        'gzipped'  | 'W/"app-2222.js-gz"'              | '"app-2222.js-gz"' | 304
+        'gzipped'  | '"app-2222.js", "app-2222.js-gz"' | '"app-2222.js-gz"' | 304
+        'gzipped'  | '"app-2222.js"'                   | '"app-2222.js-gz"' | 200
+        'as it is' | '"app-2222.js-gz"'                | '"app-2222.js"'    | 200
+        'as it is' | '"app-2222.js"'                   | '"app-2222.js"'    | 304
+    }
+
+    @Unroll
     def "make sure etag is quoted for #filename"() {
         given:
         Properties props = new Properties()

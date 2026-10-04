@@ -125,13 +125,16 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 			fileUri = manifest?.getProperty(manifestPath, manifestPath)
 			URL file = classLoaderEntry.classLoader.getResource("assets/${fileUri}")
 			if(file) {
+				// Chosen before the response is built, as the gzipped asset has an ETag of its own
+				final URL gzipFile = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) ? classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz") : null
 				final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 					manifestPath,
 					AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 					request.getHeader('If-Modified-Since'),
 					null,
 					manifest,
-					request.method
+					request.method,
+					gzipFile != null
 				)
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
@@ -139,14 +142,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				responseBuilder.headers.each { final header ->
 					response.setHeader(header.key, header.value)
 				}
-				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status == 200) {
-					// Check for GZip
-					if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
-						if(gzipFile) {
-							file = gzipFile
-							response.setHeader('Content-Encoding', 'gzip')
-						}
+					if(gzipFile) {
+						file = gzipFile
+						response.setHeader('Content-Encoding', 'gzip')
 					}
 					if(encoding) {
 						response.setCharacterEncoding(encoding)
@@ -199,13 +198,16 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 			if(attributeCache) {
 				if(attributeCache.exists()) {
 					Resource file = attributeCache.resource
+					// Chosen before the response is built, as the gzipped asset has an ETag of its own
+					final boolean gzip = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && attributeCache.gzipExists()
 					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 						manifestPath,
 						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
 						attributeCache.getLastModified(),
 						manifest,
-						request.method
+						request.method,
+						gzip
 					)
 
 					responseBuilder.headers.each { final header ->
@@ -217,7 +219,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					}
 
 					if(response.status == 200) {
-						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && attributeCache.gzipExists()) {
+						if(gzip) {
 							file = attributeCache.getGzipResource()
 							response.setHeader('Content-Encoding', 'gzip')
 							response.setHeader('Content-Length', attributeCache.getGzipFileSize().toString())
@@ -260,13 +262,20 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				}
 
 				if(file.exists()) {
+					Resource gzipFile = applicationContext.getResource("assets/${fileUri}.gz")
+					if(!gzipFile.exists()) {
+						gzipFile = applicationContext.getResource("classpath:assets/${fileUri}.gz")
+					}
+					// Chosen before the response is built, as the gzipped asset has an ETag of its own
+					final boolean gzip = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && gzipFile.exists()
 					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 						manifestPath,
 						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
 						file.lastModified() ? new Date(file.lastModified()) : null,
 						manifest,
-						request.method
+						request.method,
+						gzip
 					)
 
 					if(responseBuilder.statusCode) {
@@ -276,10 +285,6 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						response.setHeader(header.key, header.value)
 					}
 
-					Resource gzipFile = applicationContext.getResource("assets/${fileUri}.gz")
-					if(!gzipFile.exists()) {
-						gzipFile = applicationContext.getResource("classpath:assets/${fileUri}.gz")
-					}
 					final Date lastModifiedDate = file.lastModified() ? new Date(file.lastModified()) : null
 
 					final AssetAttributes newCache = new AssetAttributes(
@@ -295,12 +300,9 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					cache.put(fileUri, newCache)
 
 					if(response.status == 200) {
-						// Check for GZip
-						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
-							if(gzipFile.exists()) {
-								file = gzipFile
-								response.setHeader('Content-Encoding', 'gzip')
-							}
+						if(gzip) {
+							file = gzipFile
+							response.setHeader('Content-Encoding', 'gzip')
 						}
 						if(encoding) {
 							response.setCharacterEncoding(encoding)

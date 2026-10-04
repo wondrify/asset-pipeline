@@ -11,6 +11,8 @@ import java.text.SimpleDateFormat
 @CompileStatic
 public class AssetPipelineResponseBuilder {
 	public static final String HTTP_DATE_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz"
+	/** Ends the ETag of an asset sent gzipped, whose bytes differ from the ones sent as they are */
+	public static final String GZIP_ETAG_SUFFIX = '-gz'
     public String uri
     public String ifNoneMatchHeader
     public String ifModifiedSinceHeader
@@ -18,6 +20,7 @@ public class AssetPipelineResponseBuilder {
 	private Date lastModifiedDate
 	private final Properties manifest
 	private final String method
+	private final boolean gzip
 
 	// The digested names of the manifest a builder last read, so a request doesn't scan every entry of it
 	private static volatile DigestedNames digestedNames
@@ -31,11 +34,13 @@ public class AssetPipelineResponseBuilder {
      * @param manifest the manifest the asset was compiled into; the application's unless given, which a class loader
      *        registered with its own assets passes instead
      * @param method the request's method: only GET and HEAD are answered 304, and any other fails its precondition
+     * @param gzip whether the gzipped asset is the one sent, which has an ETag of its own (RFC 9110 section 8.8.3.3)
      */
-    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest, String method = 'GET') {
+    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest, String method = 'GET', boolean gzip = false) {
         this.uri = uri
         this.manifest = manifest
         this.method = method
+        this.gzip = gzip
         this.ifNoneMatchHeader = ifNoneMatchHeader
         this.ifModifiedSinceHeader = ifModifiedSinceHeader
 		this.lastModifiedDate = lastModifiedDate
@@ -116,7 +121,7 @@ public class AssetPipelineResponseBuilder {
             manifestPath = uri.substring(1) //Omit forward slash
         }
 
-        return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + "\""
+        return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + (gzip ? GZIP_ETAG_SUFFIX : '') + "\""
     }
 
     /**
