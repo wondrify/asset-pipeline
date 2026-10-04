@@ -47,7 +47,6 @@ class AssetPipelineFilterSpec extends Specification {
         originalResolvers = AssetPipelineConfigHolder.resolvers
         AssetPipelineConfigHolder.config = [:]
         AssetPipelineConfigHolder.manifest = null
-        AssetPipelineFilter.fileCache.clear()
     }
 
     void cleanup() {
@@ -55,7 +54,7 @@ class AssetPipelineFilterSpec extends Specification {
         AssetPipelineConfigHolder.resolvers = originalResolvers
         AssetPipelineConfigHolder.config = [:]
         AssetPipelineConfigHolder.manifest = null
-        AssetPipelineFilter.fileCache.clear()
+        filter?.fileCache?.clear()
     }
 
     void 'in development, root path #uri is served from the root of context #contextPath'() {
@@ -205,6 +204,8 @@ class AssetPipelineFilterSpec extends Specification {
         applicationContext.registerBean('assetProcessorService', AssetProcessorService)
         applicationContext.refresh()
         filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
+        // Through the filter, whether the cache is shared by every filter or its own
+        filter.fileCache.clear()
     }
 
     private Exchange request(String contextPath, String uri) {
