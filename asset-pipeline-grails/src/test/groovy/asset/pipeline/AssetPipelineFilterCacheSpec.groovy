@@ -18,6 +18,7 @@ package asset.pipeline
 
 import asset.pipeline.grails.AssetProcessorService
 import asset.pipeline.grails.ProductionAssetCache
+import org.springframework.beans.factory.support.RootBeanDefinition
 import org.springframework.mock.web.MockFilterChain
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
@@ -128,7 +129,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
     private AssetPipelineFilter filter() {
         MockServletContext servletContext = new MockServletContext("file:${root.absolutePath}")
         applicationContext = new GenericWebApplicationContext(servletContext)
-        applicationContext.registerBean('assetProcessorService', AssetProcessorService)
+        applicationContext.registerBeanDefinition('assetProcessorService', new RootBeanDefinition(AssetProcessorService))
         applicationContext.refresh()
         new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
     }
