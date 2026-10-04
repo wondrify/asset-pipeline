@@ -194,9 +194,10 @@ public class AssetPipelineResponseBuilder {
         return lines != null && lines.hasMoreElements() ? Collections.list(lines).join(',') : null
     }
 
-    // One list member (including empty members), with RFC 9110's opaque-tag characters.
-    // Commas inside a quoted tag belong to the tag, rather than separating list members.
-    private static final Pattern ENTITY_TAG = ~/[ \t]*(?:(?:W\/)?("[\x21\x23-\x7E\x80-\xFF]*")[ \t]*)?(?:,|\z)/
+    // One list member (including empty members). Commas inside a quoted tag belong to the tag, rather than
+    // separating list members. The tag may hold any character but a quote, rather than only RFC 9110's
+    // etagc, as the tags this builder sends hold the asset's name as it is, a space included.
+    private static final Pattern ENTITY_TAG = ~/[ \t]*(?:(?:W\/)?("[^"]*")[ \t]*)?(?:,|\z)/
 
     private boolean matchesETag(String etag) {
         if (ifNoneMatchHeader.trim() == '*') {

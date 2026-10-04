@@ -50,29 +50,31 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         new AssetPipelineResponseBuilder('app.js', etag).statusCode == status
 
         where:
-        digest        | etag                                | status
-        'app-2222.js' | '"app-2222.js"'                     | 304
-        'app-2222.js' | 'W/"app-2222.js"'                   | 304
-        'app-2222.js' | '"app-1111.js", "app-2222.js"'       | 304
-        'app-2222.js' | '"app-2222.js", "app-1111.js"'       | 304
-        'app-2222.js' | ' "app-1111.js",\tW/"app-2222.js" ' | 304
-        'app-2222.js' | ', , "app-2222.js", ,'              | 304
-        'app-2222.js' | '*'                                | 304
-        'app-2222.js' | ' \t*\t '                          | 304
-        'app,2222.js' | '"old.js", W/"app,2222.js"'          | 304
-        'app-2222.js' | '"app,1111.js", "app-2222.js"'       | 304
-        'app-2222.js' | null                               | 200
-        'app-2222.js' | ''                                 | 200
-        'app-2222.js' | '"app-1111.js", W/"app-3333.js"'     | 200
-        'app-2222.js' | '"APP-2222.JS"'                     | 200
-        'app-2222.js' | '"*"'                              | 200
-        'app-2222.js' | 'app-2222.js'                       | 200
-        'app-2222.js' | 'w/"app-2222.js"'                   | 200
-        'app-2222.js' | 'W/ "app-2222.js"'                  | 200
-        'app-2222.js' | '"app-2222.js'                      | 200
-        'app-2222.js' | '"app-1111.js" "app-2222.js"'        | 200
-        'app-2222.js' | '"app-2222.js", invalid'            | 200
-        'app-2222.js' | '*, "app-1111.js"'                  | 200
+        digest            | etag                                | status
+        'app-2222.js'     | '"app-2222.js"'                     | 304
+        'app-2222.js'     | 'W/"app-2222.js"'                   | 304
+        'app-2222.js'     | '"app-1111.js", "app-2222.js"'      | 304
+        'app-2222.js'     | '"app-2222.js", "app-1111.js"'      | 304
+        'app-2222.js'     | ' "app-1111.js",\tW/"app-2222.js" ' | 304
+        'app-2222.js'     | ', , "app-2222.js", ,'              | 304
+        'app-2222.js'     | '*'                                 | 304
+        'app-2222.js'     | ' \t*\t '                           | 304
+        'app,2222.js'     | '"old.js", W/"app,2222.js"'         | 304
+        'app-2222.js'     | '"app,1111.js", "app-2222.js"'      | 304
+        'my icon-2222.js' | '"my icon-2222.js"'                 | 304
+        'my icon-2222.js' | '"old.js", W/"my icon-2222.js"'     | 304
+        'app-2222.js'     | null                                | 200
+        'app-2222.js'     | ''                                  | 200
+        'app-2222.js'     | '"app-1111.js", W/"app-3333.js"'    | 200
+        'app-2222.js'     | '"APP-2222.JS"'                     | 200
+        'app-2222.js'     | '"*"'                               | 200
+        'app-2222.js'     | 'app-2222.js'                       | 200
+        'app-2222.js'     | 'w/"app-2222.js"'                   | 200
+        'app-2222.js'     | 'W/ "app-2222.js"'                  | 200
+        'app-2222.js'     | '"app-2222.js'                      | 200
+        'app-2222.js'     | '"app-1111.js" "app-2222.js"'       | 200
+        'app-2222.js'     | '"app-2222.js", invalid'            | 200
+        'app-2222.js'     | '*, "app-1111.js"'                  | 200
     }
 
     @Unroll
