@@ -96,6 +96,30 @@ class AssetPathsSpec extends Specification {
         mapping << ['', null]
     }
 
+    void "immutable #configured matches #path: #matches"() {
+        expect:
+        AssetPaths.matchesAny(path, AssetPaths.immutable(configured)) == matches
+        where: 'patterns as includes takes them, from a list, the string a system property gives, or an array'
+        configured                          | path                             | matches
+        ['webjars/**']                      | 'webjars/jquery/3.7.1/jquery.js' | true
+        ['webjars/**']                      | 'app.js'                         | false
+        'vendor/*.js, webjars/**'           | 'vendor/lib.js'                  | true
+        ['regex:.*-v\\d+\\.js'] as String[] | 'lib-v2.js'                     | true
+        ['images/**/*.png']                 | 'images/logo.png'                | true
+        ['', ' ']                           | 'app.js'                         | false
+        null                                | 'app.js'                         | false
+    }
+
+    void "immutable rejects '#pattern', which cannot be read"() {
+        when:
+        AssetPaths.immutable([pattern])
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains("immutable pattern '${pattern}'")
+        where:
+        pattern << ['regex:[', 'images/{a']
+    }
+
     void "rootPaths rejects a setting that is not a list"() {
         when:
         AssetPaths.rootPaths([favicon: 'favicon.ico'], 'assets')

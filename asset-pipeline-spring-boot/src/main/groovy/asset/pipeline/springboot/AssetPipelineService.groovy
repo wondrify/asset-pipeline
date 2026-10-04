@@ -38,8 +38,14 @@ class AssetPipelineService {
 	@Bean
 	public FilterRegistrationBean assetPipelineFilterBean() {
 		// Read first, so that a rejected entry stops the application before anything is registered with AssetPipelineConfigHolder
-		List<String> rootPaths = AssetPaths.rootPaths(Binder.get(applicationContext.environment)
-				.bind('assets.root-paths', Bindable.listOf(String)).orElse([]), MAPPING)
+		Binder binder = Binder.get(applicationContext.environment)
+		List<String> rootPaths = AssetPaths.rootPaths(binder.bind('assets.root-paths', Bindable.listOf(String)).orElse([]), MAPPING)
+		List<String> immutable = binder.bind('assets.immutable', Bindable.listOf(String)).orElse([])
+		AssetPaths.immutable(immutable)
+		if(immutable) {
+			// Where the response builder reads it, as the Grails plugin leaves grails.assets there
+			AssetPipelineConfigHolder.config = (AssetPipelineConfigHolder.config ?: [:]) + [immutable: immutable]
+		}
 
 		def manifestProps = new Properties()
 

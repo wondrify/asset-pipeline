@@ -16,9 +16,6 @@
 
 package asset.pipeline
 
-import java.nio.file.FileSystems
-import java.nio.file.PathMatcher
-import java.nio.file.Paths
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.security.MessageDigest
@@ -275,23 +272,10 @@ public class AssetHelper {
      */
     @CompileStatic
     static boolean isFileMatchingPatterns(String filePath, List<String> patterns) {
+        // One pattern at a time, so a later pattern is read only when no earlier one matched
         for(pattern in patterns) {
-            String syntax = "glob"
-            if(pattern.startsWith('regex:')) {
-                syntax = "regex"
-                pattern = pattern.substring(6)
-            } else if(pattern.startsWith('glob:')) {
-                pattern = pattern.substring(5)
-            }
-            PathMatcher pathMatcher = FileSystems.getDefault().getPathMatcher("${syntax}:${pattern}")
-            if(pathMatcher.matches(Paths.get(filePath))) {
+            if(AssetPaths.matchesAny(filePath, AssetPaths.pathMatchers(pattern))) {
                 return true
-            }
-            if(syntax == "glob" && pattern.contains('**/')) {
-                pathMatcher = FileSystems.getDefault().getPathMatcher("${syntax}:${pattern.replace('**/','')}")
-                if(pathMatcher.matches(Paths.get(filePath))) {
-                    return true
-                }
             }
         }
         return false

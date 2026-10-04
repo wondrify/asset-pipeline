@@ -29,13 +29,43 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
 
     // Each context the specs start registers its resolvers with the holder, which outlives it
     Collection<AssetResolver> originalResolvers
+    Map originalConfig
 
     void setup() {
         originalResolvers = new ArrayList<AssetResolver>(AssetPipelineConfigHolder.resolvers)
+        originalConfig = AssetPipelineConfigHolder.config
     }
 
     void cleanup() {
         AssetPipelineConfigHolder.resolvers = originalResolvers
+        AssetPipelineConfigHolder.config = originalConfig
+    }
+
+    void 'assets.immutable reaches the response builder, from #properties'() {
+        expect:
+        contextRunner().withPropertyValues(properties as String[]).run { context ->
+            assert !context.startupFailure
+            assert AssetPipelineConfigHolder.config.immutable == ['webjars/**', 'vendor/*.js']
+        }
+
+        where: 'a list in application.yml, or a comma separated value in a properties file'
+        properties << [
+                ['assets.immutable[0]=webjars/**', 'assets.immutable[1]=vendor/*.js'],
+                ['assets.immutable=webjars/**,vendor/*.js']
+        ]
+    }
+
+    void 'an immutable pattern that cannot be read stops the application from starting'() {
+        expect:
+        contextRunner().withPropertyValues('assets.immutable=regex:[').run { context ->
+            assert context.startupFailure
+            Throwable cause = context.startupFailure
+            while (cause.cause && !(cause instanceof IllegalArgumentException)) {
+                cause = cause.cause
+            }
+            assert cause instanceof IllegalArgumentException
+            assert cause.message.contains("immutable pattern 'regex:['")
+        }
     }
 
     void 'the auto-configuration is one Spring Boot will find'() {

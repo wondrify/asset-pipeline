@@ -153,4 +153,43 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         cleanup:
         AssetPipelineConfigHolder.manifest = null
     }
+
+    @Unroll
+    def "#uri, which immutable #matching, is sent #cacheControl though there is no manifest"() {
+        given:
+        Map originalConfig = AssetPipelineConfigHolder.config
+        AssetPipelineConfigHolder.manifest = null
+        AssetPipelineConfigHolder.config = [immutable: ['webjars/**']]
+
+        expect:
+        new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
+
+        cleanup:
+        AssetPipelineConfigHolder.config = originalConfig
+
+        where:
+        uri                               | matching          | cacheControl
+        'webjars/jquery/3.7.1/jquery.js'  | 'matches'         | 'public, max-age=31536000'
+        '/webjars/jquery/3.7.1/jquery.js' | 'matches'         | 'public, max-age=31536000'
+        'app.js'                          | 'does not match'  | 'no-cache'
+    }
+
+    def "a configuration given anew is read anew"() {
+        given:
+        Map originalConfig = AssetPipelineConfigHolder.config
+        AssetPipelineConfigHolder.manifest = null
+
+        when:
+        AssetPipelineConfigHolder.config = [immutable: ['a.js']]
+        String first = new AssetPipelineResponseBuilder('a.js').headers['Cache-Control']
+        AssetPipelineConfigHolder.config = [immutable: ['b.js']]
+
+        then:
+        first == 'public, max-age=31536000'
+        new AssetPipelineResponseBuilder('a.js').headers['Cache-Control'] == 'no-cache'
+        new AssetPipelineResponseBuilder('b.js').headers['Cache-Control'] == 'public, max-age=31536000'
+
+        cleanup:
+        AssetPipelineConfigHolder.config = originalConfig
+    }
 }

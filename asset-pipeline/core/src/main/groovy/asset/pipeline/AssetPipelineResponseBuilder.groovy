@@ -2,6 +2,8 @@ package asset.pipeline
 
 import groovy.transform.CompileStatic
 import java.util.TimeZone
+import java.nio.file.InvalidPathException
+import java.nio.file.PathMatcher
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 
@@ -17,6 +19,9 @@ public class AssetPipelineResponseBuilder {
 
 	// The digested names of the manifest a builder last read, so a request doesn't scan every entry of it
 	private static volatile DigestedNames digestedNames
+
+	// The immutable patterns of the configuration a builder last read, compiled once rather than on each request
+	private static volatile ImmutablePatterns immutablePatterns
 
     public Map<String, String> headers = [:]
 
@@ -110,16 +115,43 @@ public class AssetPipelineResponseBuilder {
     }
 
     /**
-     * Whether the uri is the digested name the manifest gives an asset, which changes whenever the asset does and so
-     * can be cached for a year. A name that is not one, including every name when there is no manifest, may be sent
-     * different content tomorrow.
+     * Whether the uri can be cached for a year: the digested name the manifest gives an asset, which changes whenever
+     * the asset does, or an asset the {@code immutable} setting says never changes at its url. Any other name,
+     * including every name when there is no manifest, may be sent different content tomorrow.
      */
     public boolean isDigestVersion() {
         String manifestPath = uri
         if (uri.startsWith('/')) {
             manifestPath = uri.substring(1) //Omit forward slash
         }
-        return manifest != null && digestedNamesOf(manifest).contains(manifestPath)
+        return (manifest != null && digestedNamesOf(manifest).contains(manifestPath)) || isImmutable(manifestPath)
+    }
+
+    private static boolean isImmutable(String path) {
+        Object configured = AssetPipelineConfigHolder.config?.get('immutable')
+        if(configured == null) {
+            return false
+        }
+        ImmutablePatterns current = immutablePatterns
+        if(current == null || !current.configured.is(configured)) {
+            current = new ImmutablePatterns(configured)
+            immutablePatterns = current
+        }
+        try {
+            return AssetPaths.matchesAny(path, current.matchers)
+        } catch(InvalidPathException ignored) {
+            return false // a name no file could have
+        }
+    }
+
+    private static final class ImmutablePatterns {
+        final Object configured
+        final List<PathMatcher> matchers
+
+        ImmutablePatterns(Object configured) {
+            this.configured = configured
+            this.matchers = AssetPaths.immutable(configured)
+        }
     }
 
     private static Set<String> digestedNamesOf(Properties manifest) {

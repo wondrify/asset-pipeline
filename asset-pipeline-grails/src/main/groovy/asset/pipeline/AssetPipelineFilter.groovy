@@ -61,6 +61,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		// The plugin fills the holder before Spring creates any bean, and sizing the cache again when
 		// the servlet container starts the filter changes nothing
 		cache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
+		// Read now, so a pattern that cannot be read stops the application rather than the first request
+		AssetPaths.immutable(AssetPipelineConfigHolder.config.get('immutable'))
 		if(!rootPaths) {
 			// A filter the application registers itself has not been given them, as the registrar's has
 			setRootPaths(AssetPaths.rootPaths(AssetPipelineConfigHolder.config.get('rootPaths'), null))

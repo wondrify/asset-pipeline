@@ -47,6 +47,15 @@ assets:
 
 An entry that does not name a single asset, that has a character a url must encode, such as a space, that is under `WEB-INF` or `META-INF`, or that is already under `/assets`, stops the application from starting. A root url is answered only for `GET` and `HEAD`.
 
+A compiled asset's digested url is cached for a year. Any other url, and every url when the application runs without a manifest, is sent `no-cache` with an ETag, since it may be sent different content tomorrow. Assets that never change at their url although it has no digest, such as a webjar whose path carries its version, can be cached for a year as well by listing patterns, as `includes` takes, in `assets.immutable`:
+
+[source,yml]
+----
+assets:
+  immutable:
+    - 'webjars/**'
+----
+
 ==== Development Runtime
 
 A great feature built into asset-pipeline is its development runtime support. All assets that are used in your application are automatically generated and processed on the fly when requested. This means when a change is made in a css file or javascript file, the results are instant. A refresh of the page will reflect the changes without needing to wait for any type of `FileWatcher`. These results are also cached making it highly performant as your project grows.

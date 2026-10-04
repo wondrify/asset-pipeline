@@ -29,6 +29,22 @@ An application that serves more distinct assets than that can raise it; an evict
 
 The setting can also be given as a system property, `-Dgrails.assets.maxCacheSize=50000`.
 
+==== Caching Assets Without a Digest
+
+A compiled asset's digested url, such as `/assets/app-0123456789abcdef.js`, changes whenever the asset does, so it is sent with `Cache-Control: public, max-age=31536000`. Any other url may be sent different content tomorrow, so it is sent `no-cache` with an ETag, and a browser revalidates it. Examples are `/assets/app.js`, an asset missing from the manifest, and every asset when there is no manifest.
+
+Some assets never change at their url although it has no digest, such as a webjar whose path carries its version. List them in `immutable` to cache them for a year as well. Each entry is a pattern, as `includes` and `excludes` take, matched against the asset's path:
+
+[source,yml]
+----
+grails:
+  assets:
+    immutable:
+      - 'webjars/**'
+----
+
+A pattern that cannot be read fails at startup.
+
 ==== Mappings and Asset Taglib URLs
 
 In many cases you may want to change the URL for which to include your static assets. This can be useful when using a CDN or perhaps even using nginx to serve your static assets.

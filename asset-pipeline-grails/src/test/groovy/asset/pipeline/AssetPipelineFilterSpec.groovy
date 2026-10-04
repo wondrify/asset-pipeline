@@ -281,6 +281,39 @@ class AssetPipelineFilterSpec extends Specification {
         new AssetPipelineFilter(rootPaths: ['/favicon.ico', 'favicon.ico', ' apple-touch-icon.png ']).rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
     }
 
+    void 'from a compiled war, an asset without a digest is sent #cacheControl when grails.assets.immutable is #immutable'() {
+        given: 'an asset the manifest gives no digested name, as a webjar whose path carries its version'
+        compiled()
+        File lib = new File(root, 'assets/webjars/lib/1.0/lib.js')
+        lib.parentFile.mkdirs()
+        lib.text = '// lib'
+        AssetPipelineConfigHolder.config = [immutable: immutable]
+
+        when:
+        Exchange exchange = request('', '/assets/webjars/lib/1.0/lib.js')
+
+        then:
+        exchange.response.status == 200
+        exchange.response.getHeader('Cache-Control') == cacheControl
+
+        where:
+        immutable      | cacheControl
+        ['webjars/**'] | 'public, max-age=31536000'
+        ['vendor/**']  | 'no-cache'
+    }
+
+    void 'an immutable pattern that cannot be read stops the filter, and the application, starting'() {
+        given:
+        AssetPipelineConfigHolder.config = [immutable: ['regex:[']]
+
+        when:
+        new AssetPipelineFilter().afterPropertiesSet()
+
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains("immutable pattern 'regex:['")
+    }
+
     void 'a filter the application sets up itself takes its root paths from grails.assets.rootPaths'() {
         given: 'one the registrar did not define, and so did not give them'
         AssetPipelineConfigHolder.config = [rootPaths: ['favicon.ico', '/apple-touch-icon.png']]

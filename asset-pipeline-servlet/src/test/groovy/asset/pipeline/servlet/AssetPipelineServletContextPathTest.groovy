@@ -33,10 +33,13 @@ class AssetPipelineServletContextPathTest {
     private static Server server
     private static int port
     private static Collection<AssetResolver> originalAssetResolvers
+    private static Map originalConfig
 
     @BeforeClass
     static void startServer() {
         originalAssetResolvers = AssetPipelineConfigHolder.getResolvers()
+        originalConfig = AssetPipelineConfigHolder.config
+        AssetPipelineConfigHolder.config = [immutable: ['assets-test.css']]
         AssetPipelineConfigHolder.setResolvers([new FileSystemAssetResolver("Test assets", "src/test/resources/fixtures", false)])
 
         AssetPipelineFilter prodFilter = new AssetPipelineFilter()
@@ -80,6 +83,7 @@ class AssetPipelineServletContextPathTest {
     @AfterClass
     static void stopServer() {
         AssetPipelineConfigHolder.setResolvers(originalAssetResolvers)
+        AssetPipelineConfigHolder.config = originalConfig
         server.stop()
     }
 
@@ -135,6 +139,13 @@ class AssetPipelineServletContextPathTest {
     @Test
     void testFilterWithoutAMappingServesEveryUrlItIsRegisteredForByItsPath() {
         assertServed("/plain/test.css")
+    }
+
+    @Test
+    void testAssetListedInImmutableIsCachedForAYearWithoutAManifest() {
+        HttpResponse res = Request.Get("http://localhost:${port}/app/assets-test.css").execute().returnResponse()
+        assertEquals(200, res.statusLine.statusCode)
+        assertEquals('public, max-age=31536000', res.getFirstHeader('Cache-Control')?.value)
     }
 
     @Test

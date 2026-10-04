@@ -19,6 +19,10 @@ package asset.pipeline
 import groovy.transform.CompileStatic
 
 import java.nio.charset.StandardCharsets
+import java.nio.file.FileSystems
+import java.nio.file.Path
+import java.nio.file.PathMatcher
+import java.nio.file.Paths
 import java.util.regex.Pattern
 
 /**
@@ -75,18 +79,7 @@ final class AssetPaths {
      * @throws IllegalArgumentException for an entry that does not name exactly one asset outside the mapping
      */
     static List<String> rootPaths(Object configured, String mapping) {
-        Collection<?> entries
-        if(configured == null) {
-            entries = []
-        } else if(configured instanceof CharSequence) {
-            entries = configured.toString().split(',').toList()
-        } else if(configured instanceof Collection) {
-            entries = (Collection<?>) configured
-        } else if(configured instanceof Object[]) {
-            entries = Arrays.asList((Object[]) configured)
-        } else {
-            throw new IllegalArgumentException("rootPaths must be a list of asset paths, not a ${configured.getClass().name}")
-        }
+        Collection<?> entries = entriesOf(configured, 'rootPaths', 'asset paths')
         Set<String> paths = new LinkedHashSet<String>()
         for(Object entry in entries) {
             String path = entry == null ? '' : entry.toString().trim()
@@ -115,6 +108,78 @@ final class AssetPaths {
             paths << path
         }
         return new ArrayList<String>(paths)
+    }
+
+    // A list setting as configuration gives it: a collection or array, or a comma separated string, the form a system
+    // property gives a list
+    private static Collection<?> entriesOf(Object configured, String setting, String what) {
+        if(configured == null) {
+            return []
+        }
+        if(configured instanceof CharSequence) {
+            return configured.toString().split(',').toList()
+        }
+        if(configured instanceof Collection) {
+            return (Collection<?>) configured
+        }
+        if(configured instanceof Object[]) {
+            return Arrays.asList((Object[]) configured)
+        }
+        throw new IllegalArgumentException("${setting} must be a list of ${what}, not a ${configured.getClass().name}")
+    }
+
+    /**
+     * The assets read from the {@code immutable} setting: patterns of assets whose url never changes content although
+     * it has no digest in its name, such as a versioned webjar, so that they are cached for a year as a digested
+     * asset is. Each is a pattern as {@code includes} and {@code excludes} take, matched against the asset's path.
+     * @param configured a collection or array of patterns, a comma separated string of them, or null
+     * @return a matcher for each pattern, blank ones skipped
+     * @throws IllegalArgumentException for a pattern that cannot be read
+     */
+    static List<PathMatcher> immutable(Object configured) {
+        List<PathMatcher> matchers = []
+        for(Object entry in entriesOf(configured, 'immutable', 'asset path patterns')) {
+            String pattern = entry == null ? '' : entry.toString().trim()
+            if(!pattern) {
+                continue
+            }
+            try {
+                matchers.addAll(pathMatchers(pattern))
+            } catch(IllegalArgumentException e) {
+                throw new IllegalArgumentException("immutable pattern '${pattern}' cannot be read: ${e.message}", e)
+            }
+        }
+        return matchers
+    }
+
+    /**
+     * The matchers for one asset path pattern, as {@link AssetHelper#isFileMatchingPatterns} reads it: a glob, or a
+     * regular expression after a {@code regex:} prefix. A glob with a {@code ** /} also matches with it left out, so
+     * that a pattern for every directory matches the top one too.
+     */
+    static List<PathMatcher> pathMatchers(String pattern) {
+        String syntax = 'glob'
+        String expression = pattern
+        if(pattern.startsWith('regex:')) {
+            syntax = 'regex'
+            expression = pattern.substring(6)
+        } else if(pattern.startsWith('glob:')) {
+            expression = pattern.substring(5)
+        }
+        List<PathMatcher> matchers = [FileSystems.getDefault().getPathMatcher("${syntax}:${expression}".toString())]
+        if(syntax == 'glob' && expression.contains('**/')) {
+            matchers << FileSystems.getDefault().getPathMatcher("${syntax}:${expression.replace('**/', '')}".toString())
+        }
+        return matchers
+    }
+
+    /** Whether an asset's path matches any of the matchers. */
+    static boolean matchesAny(String path, Collection<PathMatcher> matchers) {
+        if(!matchers) {
+            return false
+        }
+        Path asPath = Paths.get(path)
+        return matchers.any { PathMatcher matcher -> matcher.matches(asPath) }
     }
 
     /**
