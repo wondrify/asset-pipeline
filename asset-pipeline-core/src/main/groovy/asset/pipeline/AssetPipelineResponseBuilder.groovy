@@ -2,6 +2,7 @@ package asset.pipeline
 
 import groovy.transform.CompileStatic
 import java.util.TimeZone
+import java.util.regex.Pattern
 import java.text.SimpleDateFormat
 
 @CompileStatic
@@ -34,41 +35,51 @@ public class AssetPipelineResponseBuilder {
         }
     }
 
+	// qvalue = ( "0" [ "." 0*3DIGIT ] ) / ( "1" [ "." 0*3("0") ] ), from RFC 9110
+	private static final Pattern QVALUE = ~/0(\.\d{0,3})?|1(\.0{0,3})?/
+
 	/**
-	 * Whether a request's Accept-Encoding allows a gzipped response. Codings are separated by commas
-	 * and optional whitespace and matched without regard to case, and each may carry a weight, one of
-	 * zero refusing it: "gzip;q=0". x-gzip is gzip, and * stands for any coding not listed.
+	 * Whether a request's Accept-Encoding field lines allow a gzipped response. They form one list,
+	 * so a request that sends the field twice is read as one that lists both lines' codings.
+	 */
+	public static boolean acceptsGzip(Enumeration<String> acceptEncodingLines) {
+		return acceptsGzip(acceptEncodingLines == null ? null : Collections.list(acceptEncodingLines).join(','))
+	}
+
+	/**
+	 * Whether a request's Accept-Encoding allows a gzipped response, read as RFC 9110 lays it out:
+	 * codings separated by commas and optional whitespace, matched without regard to case, each
+	 * with an optional weight. x-gzip is gzip, and * stands for any coding not listed. A weight of
+	 * zero refuses a coding wherever else it is listed, and so does a weight that is not a qvalue,
+	 * so a request that can't be understood gets the response as it is.
 	 */
 	public static boolean acceptsGzip(String acceptEncoding) {
 		if(!acceptEncoding) {
 			return false
 		}
-		boolean anyAccepted = false
+		Boolean gzip = null
+		Boolean any = null
 		for(String element : acceptEncoding.split(',')) {
 			String[] parameters = element.split(';')
 			String coding = parameters[0].trim()
 			if(coding.equalsIgnoreCase('gzip') || coding.equalsIgnoreCase('x-gzip')) {
-				return weightOf(parameters) > 0
-			}
-			if(coding == '*') {
-				anyAccepted = weightOf(parameters) > 0
+				gzip = (gzip == null || gzip) && accepts(parameters)
+			} else if(coding == '*') {
+				any = (any == null || any) && accepts(parameters)
 			}
 		}
-		return anyAccepted
+		return gzip != null ? gzip : (any != null && any)
 	}
 
-	private static double weightOf(String[] parameters) {
+	private static boolean accepts(String[] parameters) {
 		for(int i = 1; i < parameters.length; i++) {
-			String parameter = parameters[i].trim()
-			if(parameter.length() >= 2 && parameter.substring(0, 2).equalsIgnoreCase('q=')) {
-				try {
-					return Double.parseDouble(parameter.substring(2).trim())
-				} catch(NumberFormatException ignored) {
-					return 0 // Refused, so a weight that can't be read gets the response as it is
-				}
+			String[] nameAndValue = parameters[i].split('=', 2)
+			if(nameAndValue[0].trim().equalsIgnoreCase('q')) {
+				String weight = nameAndValue.length > 1 ? nameAndValue[1].trim() : ''
+				return QVALUE.matcher(weight).matches() && new BigDecimal(weight).signum() > 0
 			}
 		}
-		return 1
+		return true
 	}
 
     public Map<String, String> getHeaders() {
