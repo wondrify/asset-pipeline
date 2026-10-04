@@ -33,7 +33,6 @@ import org.springframework.core.NestedExceptionUtils
 import org.springframework.core.env.MapPropertySource
 import org.springframework.core.env.MutablePropertySources
 import org.springframework.core.env.StandardEnvironment
-import org.springframework.core.env.SystemEnvironmentPropertySource
 import org.springframework.context.aot.ApplicationContextAotGenerator
 import org.springframework.mock.web.MockFilterConfig
 import org.springframework.mock.web.MockServletContext
@@ -102,15 +101,19 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         filter.applicationContext.is(applicationContext)
     }
 
-    void 'the filter registration survives Spring ahead-of-time processing'() {
+    void 'the filter registration survives Spring ahead-of-time processing, configured with #assetsConfig'() {
         given: 'the filter registration contributed by the plugin'
-        applicationContext.registerBeanDefinition('assetPipelineFilter', filterRegistrationDefinition())
+        applicationContext.registerBeanDefinition('assetPipelineFilter',
+                registrarDefinitions(assetsConfig).getBeanDefinition('assetPipelineFilter'))
 
         when: 'the definitions are processed ahead of time, as they are when building a native image'
         new ApplicationContextAotGenerator().processAheadOfTime(applicationContext, new TestGenerationContext())
 
         then: 'no value in the definition defeats code generation'
         noExceptionThrown()
+
+        where:
+        assetsConfig << [[:], [rootPaths: ['favicon.ico', 'apple-touch-icon.png']]]
     }
 
     void 'the resource locator inherits its search locations from the abstract Grails definition'() {
@@ -127,6 +130,49 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         registrarDefinitions(mapping: 'static')
                 .getBeanDefinition('assetPipelineFilter')
                 .propertyValues.getPropertyValue('urlPatterns').value == ['/static/*']
+    }
+
+    void 'each root path reaches the filter as an exact url pattern, from #rootPaths'() {
+        expect: 'only those urls at the root pass through the filter, beside everything under the mapping'
+        urlPatterns(rootPaths: rootPaths) == ['/assets/*', '/favicon.ico', '/apple-touch-icon.png', '/icons/apple-touch-icon-precomposed.png']
+
+        where: 'a list from application.yml or application.groovy, or a string from a system property'
+        rootPaths << [
+                ['favicon.ico', '/apple-touch-icon.png', 'icons/apple-touch-icon-precomposed.png'],
+                'favicon.ico,apple-touch-icon.png,icons/apple-touch-icon-precomposed.png'
+        ]
+    }
+
+    void 'the root paths reach the filter, which answers no other url outside the mapping'() {
+        when:
+        BeanDefinition filter = registrarDefinitions(rootPaths: 'favicon.ico, apple-touch-icon.png,')
+                .getBeanDefinition('assetPipelineFilter')
+                .propertyValues.getPropertyValue('filter').value as BeanDefinition
+
+        then: 'as read and checked, whatever url patterns the filter is registered for'
+        filter.propertyValues.getPropertyValue('rootPaths').value == ['favicon.ico', 'apple-touch-icon.png']
+    }
+
+    void 'root paths sit beside a configured mapping'() {
+        expect:
+        urlPatterns(mapping: 'static', rootPaths: ['favicon.ico']) == ['/static/*', '/favicon.ico']
+    }
+
+    void 'an empty mapping already passes every url through the filter, so root paths add no patterns'() {
+        expect:
+        urlPatterns(mapping: '', rootPaths: ['favicon.ico']) == ['/*']
+    }
+
+    void 'root path #entry, which names no single asset outside the mapping, fails at startup rather than registering a pattern'() {
+        when:
+        registrarDefinitions(rootPaths: [entry])
+
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains("'${entry}'")
+
+        where: 'a pattern, or an asset already served under the mapping'
+        entry << ['*.ico', 'assets/app.js']
     }
 
     void 'what beanRegistrar() contributes survives Spring ahead-of-time processing'() {
@@ -177,21 +223,6 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         startedFilter().cache.maximumSize == 250
     }
 
-    void 'an environment variable reaches grails.assets.maxCacheSize only through a placeholder'() {
-        given: 'environment variables ahead of application.yml, as a Grails application orders them'
-        MutablePropertySources sources = new MutablePropertySources()
-        sources.addLast(new SystemEnvironmentPropertySource('systemEnvironment',
-                [GRAILS_ASSETS_MAXCACHESIZE: '50', ASSET_CACHE_SIZE: '250'] as Map<String, Object>))
-        sources.addLast(new MapPropertySource('application', ['grails.assets.maxCacheSize': '${ASSET_CACHE_SIZE:10000}'] as Map<String, Object>))
-        grailsApplication.config = new PropertySourcesConfig(sources)
-
-        when:
-        startWithPlugin()
-
-        then: 'the placeholder takes ASSET_CACHE_SIZE there, and GRAILS_ASSETS_MAXCACHESIZE, which would win if Grails mapped it, does not'
-        startedFilter().cache.maximumSize == 250
-    }
-
     void 'an invalid grails.assets.maxCacheSize stops the application starting'() {
         given:
         configure('grails.assets.maxCacheSize': '1.5')
@@ -212,6 +243,28 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         grailsApplication.config = new PropertySourcesConfig(sources)
     }
 
+    void 'a filter the application registers itself serves grails.assets.rootPaths as well, from #properties'() {
+        given: 'the application\'s own filter, for every url, which the plugin leaves in place of its own'
+        configure(properties)
+        GenericBeanDefinition own = new GenericBeanDefinition()
+        own.beanClass = FilterRegistrationBean
+        own.propertyValues.add('filter', new RootBeanDefinition(AssetPipelineFilter))
+        own.propertyValues.add('urlPatterns', ['/*'])
+        applicationContext.registerBeanDefinition('assetPipelineFilter', own)
+
+        when:
+        startWithPlugin()
+
+        then:
+        startedFilter().rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
+
+        where: 'a list, as application.groovy gives it, or indexed entries, as application.yml does'
+        properties << [
+                ['grails.assets.rootPaths': ['favicon.ico', 'apple-touch-icon.png']],
+                ['grails.assets.rootPaths[0]': 'favicon.ico', 'grails.assets.rootPaths[1]': 'apple-touch-icon.png']
+        ]
+    }
+
     private AssetPipelineFilter startedFilter() {
         applicationContext.getBean('assetPipelineFilter', FilterRegistrationBean).filter as AssetPipelineFilter
     }
@@ -230,6 +283,12 @@ class AssetPipelineGrailsPluginSpec extends Specification {
 
     private BeanDefinition filterRegistrationDefinition() {
         registrarDefinitions().getBeanDefinition('assetPipelineFilter')
+    }
+
+    private List<String> urlPatterns(Map<String, Object> assetsConfig) {
+        registrarDefinitions(assetsConfig)
+                .getBeanDefinition('assetPipelineFilter')
+                .propertyValues.getPropertyValue('urlPatterns').value as List<String>
     }
 
     /** What the plugin contributes through its BeanDefinitionRegistryPostProcessor. */

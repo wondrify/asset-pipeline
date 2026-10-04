@@ -15,6 +15,8 @@
  */
 package asset.pipeline.springboot
 
+import asset.pipeline.AssetPipelineConfigHolder
+import asset.pipeline.fs.AssetResolver
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner
@@ -25,6 +27,47 @@ import spock.lang.Specification
  */
 class AssetPipelineAutoConfigurationSpec extends Specification {
 
+    // Each context the specs start registers its resolvers with the holder, which outlives it
+    Collection<AssetResolver> originalResolvers
+    Map originalConfig
+
+    void setup() {
+        originalResolvers = new ArrayList<AssetResolver>(AssetPipelineConfigHolder.resolvers)
+        originalConfig = AssetPipelineConfigHolder.config
+    }
+
+    void cleanup() {
+        AssetPipelineConfigHolder.resolvers = originalResolvers
+        AssetPipelineConfigHolder.config = originalConfig
+    }
+
+    void 'assets.immutable reaches the response builder, from #properties'() {
+        expect:
+        contextRunner().withPropertyValues(properties as String[]).run { context ->
+            assert !context.startupFailure
+            assert AssetPipelineConfigHolder.config.immutable == ['webjars/**', 'vendor/*.js']
+        }
+
+        where: 'a list in application.yml, or a comma separated value in a properties file'
+        properties << [
+                ['assets.immutable[0]=webjars/**', 'assets.immutable[1]=vendor/*.js'],
+                ['assets.immutable=webjars/**,vendor/*.js']
+        ]
+    }
+
+    void 'an immutable pattern that cannot be read stops the application from starting'() {
+        expect:
+        contextRunner().withPropertyValues('assets.immutable=regex:[').run { context ->
+            assert context.startupFailure
+            Throwable cause = context.startupFailure
+            while (cause.cause && !(cause instanceof IllegalArgumentException)) {
+                cause = cause.cause
+            }
+            assert cause instanceof IllegalArgumentException
+            assert cause.message.contains("immutable pattern 'regex:['")
+        }
+    }
+
     void 'the auto-configuration is one Spring Boot will find'() {
         given: 'the tests above import the class themselves, so none of them would notice its absence here'
         String imports = getClass().getResourceAsStream(
@@ -32,6 +75,16 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
 
         expect:
         imports.readLines()*.trim().contains(AssetPipelineAutoConfiguration.name)
+    }
+
+    void 'the settings are described where an IDE looks for them'() {
+        given: "this module's, not the first of that name on the class path, which may be one of Spring Boot's own"
+        String metadata = getClass().classLoader.getResources('META-INF/spring-configuration-metadata.json').toList()
+                *.text.find { String json -> json.contains('"name": "assets"') }
+
+        expect:
+        metadata?.contains('"name": "assets.root-paths"')
+        metadata.contains('"name": "assets.enabled"')
     }
 
     private WebApplicationContextRunner contextRunner() {
@@ -46,6 +99,45 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
             // built without a manifest, so what serves an asset is what compiles it as it is asked for
             assert registration.filter instanceof AssetPipelineDevFilter
         }
+    }
+
+    void 'each of assets.rootPaths is registered as an exact url, from #properties'() {
+        expect: 'only those urls at the root pass through the filter, beside everything under /assets'
+        contextRunner().withPropertyValues(properties as String[]).run { context ->
+            FilterRegistrationBean registration = context.getBean(FilterRegistrationBean)
+            assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/apple-touch-icon.png']
+            // and the filter answers those urls outside /assets and no others
+            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
+        }
+
+        where: 'a list in application.yml, or a comma separated value in a properties file, stray commas included'
+        properties << [
+                ['assets.rootPaths[0]=favicon.ico', 'assets.rootPaths[1]=/apple-touch-icon.png'],
+                ['assets.root-paths=favicon.ico,apple-touch-icon.png'],
+                ['assets.root-paths=favicon.ico,apple-touch-icon.png,']
+        ]
+    }
+
+    void 'root path #entry, which names no single asset outside /assets, stops the application from starting'() {
+        given:
+        Collection<AssetResolver> resolvers = new ArrayList<>(AssetPipelineConfigHolder.resolvers)
+
+        expect:
+        contextRunner().withPropertyValues("assets.rootPaths=${entry}").run { context ->
+            assert context.startupFailure
+            Throwable cause = context.startupFailure
+            while (cause.cause) {
+                cause = cause.cause
+            }
+            assert cause instanceof IllegalArgumentException
+            assert cause.message.contains("'${entry}'")
+        }
+
+        and: 'before anything is registered for later contexts in the same JVM to find'
+        AssetPipelineConfigHolder.resolvers.toList() == resolvers.toList()
+
+        where:
+        entry << ['images/*', 'assets/app.js']
     }
 
     void 'an application that does not want the filter says so'() {

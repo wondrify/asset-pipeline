@@ -27,7 +27,23 @@ grails:
 
 An application that serves more distinct assets than that can raise it; an evicted url is only looked up again. `0` turns the cache off. Development, where assets are compiled as they are asked for, does not use it.
 
-The setting can also be given as a system property, `-Dgrails.assets.maxCacheSize=50000`. Grails does not map an environment variable such as `GRAILS_ASSETS_MAXCACHESIZE` onto `grails.assets`, so to take it from one, use a placeholder: `maxCacheSize: ${ASSET_CACHE_SIZE:10000}`.
+The setting can also be given as a system property, `-Dgrails.assets.maxCacheSize=50000`.
+
+==== Caching Assets Without a Digest
+
+A compiled asset's digested url, such as `/assets/app-0123456789abcdef.js`, changes whenever the asset does, so it is sent with `Cache-Control: public, max-age=31536000`. Any other url may be sent different content tomorrow, so it is sent `no-cache` with an ETag, and a browser revalidates it. Examples are `/assets/app.js`, an asset missing from the manifest, and every asset when there is no manifest.
+
+Some assets never change at their url although it has no digest, such as a webjar whose path carries its version. List them in `immutable` to cache them for a year as well. Each entry is a pattern, as `includes` and `excludes` take, matched against the asset's path:
+
+[source,yml]
+----
+grails:
+  assets:
+    immutable:
+      - 'webjars/**'
+----
+
+A pattern that cannot be read fails at startup.
 
 ==== Mappings and Asset Taglib URLs
 
@@ -74,6 +90,26 @@ grails:
   assets:
     mapping: assets
 ----
+
+==== Serving Assets at the Root
+
+Some assets are asked for by a fixed name at the root of a site, whatever a page links to: browsers request `/favicon.ico`, and Safari `/apple-touch-icon.png` and `/apple-touch-icon-precomposed.png`. List them in `rootPaths` to serve those assets at the root as well as under the mapping:
+
+[source,yml]
+----
+grails:
+  assets:
+    rootPaths:
+      - favicon.ico
+      - apple-touch-icon.png
+      - apple-touch-icon-precomposed.png
+----
+
+Each entry names one asset the way a tag does, so `favicon.ico` is `grails-app/assets/images/favicon.ico`, and `/favicon.ico` is served in development and, through the manifest, from a compiled application. The filter is registered for the exact url of each entry and answers no other url outside the mapping, so other requests never reach it. That holds for a filter an application registers itself as well: registered for more than the mapping, such as `/*`, it used to serve any asset at the root, and now serves only the entries of `rootPaths` there. Wildcards are not supported, and an entry that does not name a single asset, that has a character a url must encode, such as a space, that is under `WEB-INF` or `META-INF`, which a servlet container never routes to a filter, or that is already under the mapping, fails at startup.
+
+A root url is served without a digest in its name, so it is sent with `Cache-Control: no-cache` and an ETag rather than cached for a year. If an entry has no asset, the request is passed on to the application rather than answered with a 404, so a controller or url mapping can still answer it. For the same reason a root url is answered only for `GET` and `HEAD`, and a request with any other method is passed on. The tags are unaffected: `<asset:link rel="icon" href="favicon.ico"/>` still renders the digested url under the mapping.
+
+Setting `mapping` to an empty string serves every asset at the root instead, at the cost of passing every request in the application through the filter.
 
 For all these configuration options, you will want to put these config values in the appropriate environment in `application.yml` or in groovy format in `application.groovy`.
 

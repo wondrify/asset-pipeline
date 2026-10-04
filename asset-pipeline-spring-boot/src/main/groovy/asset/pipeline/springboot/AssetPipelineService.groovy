@@ -1,11 +1,14 @@
 package asset.pipeline.springboot
 
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.fs.ClasspathAssetResolver
 import asset.pipeline.fs.FileSystemAssetResolver
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.bind.Bindable
+import org.springframework.boot.context.properties.bind.Binder
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -21,6 +24,9 @@ import org.springframework.context.ApplicationContext
 @ConditionalOnProperty(name = AssetPipelineAutoConfiguration.ENABLED, matchIfMissing = true)
 class AssetPipelineService {
 
+	// The url the filters serve assets under, which they and the url patterns registered for them share
+	static final String MAPPING = 'assets'
+
 	// The context itself, rather than the one the servlet context holds: it is the same context,
 	// and it is there before a servlet container is. Asked for as an ApplicationContext rather than
 	// as the ResourceLoader it also is, because a field of that name would be satisfied by an
@@ -31,6 +37,16 @@ class AssetPipelineService {
 
 	@Bean
 	public FilterRegistrationBean assetPipelineFilterBean() {
+		// Read first, so that a rejected entry stops the application before anything is registered with AssetPipelineConfigHolder
+		Binder binder = Binder.get(applicationContext.environment)
+		List<String> rootPaths = AssetPaths.rootPaths(binder.bind('assets.root-paths', Bindable.listOf(String)).orElse([]), MAPPING)
+		List<String> immutable = binder.bind('assets.immutable', Bindable.listOf(String)).orElse([])
+		AssetPaths.immutable(immutable)
+		if(immutable) {
+			// Where the response builder reads it, as the Grails plugin leaves grails.assets there
+			AssetPipelineConfigHolder.config = (AssetPipelineConfigHolder.config ?: [:]) + [immutable: immutable]
+		}
+
 		def manifestProps = new Properties()
 
 		def manifestFile = applicationContext.getResource("classpath:assets/manifest.properties")
@@ -47,6 +63,7 @@ class AssetPipelineService {
             AssetPipelineConfigHolder.registerResolver(new ClasspathAssetResolver('classpath','META-INF/static'))
             AssetPipelineConfigHolder.registerResolver(new ClasspathAssetResolver('classpath','META-INF/resources'))
 			AssetPipelineDevFilter filter = new AssetPipelineDevFilter();
+			filter.rootPaths = rootPaths
 			registrationBean.setFilter(filter);
 		}
 		else {
@@ -57,9 +74,11 @@ class AssetPipelineService {
 					log.warn "Failed to load Manifest",e
 				}
 				AssetPipelineFilter filter = new AssetPipelineFilter();
+				filter.rootPaths = rootPaths
 				registrationBean.setFilter(filter);
 		}
-		registrationBean.urlPatterns = ["/assets/*".toString()]
+		// An exact pattern for each of assets.rootPaths, the files a client asks for by name at the root
+		registrationBean.urlPatterns = AssetPaths.urlPatterns(MAPPING, rootPaths)
 		registrationBean.setOrder(0);
 		return registrationBean;
 	}

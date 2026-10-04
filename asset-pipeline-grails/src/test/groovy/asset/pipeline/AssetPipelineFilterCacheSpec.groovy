@@ -132,7 +132,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
         expect:
         filter(maxCacheSize: configured).cache.maximumSize == 250
 
-        where: 'a number from application.yml, or a string from a system property or a placeholder'
+        where: 'a number from application.yml, or a string from a system property'
         configured << [250, 250L, 250.0d, '250', ' 250 ']
     }
 
