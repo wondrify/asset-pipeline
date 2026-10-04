@@ -112,6 +112,29 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
     }
 
     @Unroll
+    def "#method with #validator #value is answered #status"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        String ifNoneMatch = validator == 'If-None-Match' ? value : null
+        String ifModifiedSince = validator == 'If-Modified-Since' ? value : null
+
+        expect:
+        new AssetPipelineResponseBuilder('app.js', ifNoneMatch, ifModifiedSince, new Date(1700000000000L), manifest, method).statusCode == status
+
+        where: 'only GET and HEAD are told an asset has not changed, and If-Modified-Since is read for them alone'
+        method   | validator           | value                           | status
+        'GET'    | 'If-None-Match'     | '"app-2222.js"'                 | 304
+        'HEAD'   | 'If-None-Match'     | '"app-2222.js"'                 | 304
+        'POST'   | 'If-None-Match'     | '"app-2222.js"'                 | 412
+        'PUT'    | 'If-None-Match'     | '*'                             | 412
+        'POST'   | 'If-None-Match'     | '"app-1111.js"'                 | 200
+        'HEAD'   | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 304
+        'POST'   | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+        'DELETE' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+    }
+
+    @Unroll
     def "make sure etag is quoted for #filename"() {
         given:
         Properties props = new Properties()

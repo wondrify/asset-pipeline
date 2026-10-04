@@ -235,6 +235,32 @@ class AssetPipelineFilterCacheSpec extends Specification {
         '/favicon.ico'        | 'If-Modified-Since' | 'no-cache'
     }
 
+    void '#method with #validator is answered #status before and after caching the asset'() {
+        given:
+        AssetPipelineFilter filter = filter()
+        assert new File(assets, DIGESTED).setLastModified(1700000000000L)
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, method, '/assets/favicon.ico')
+            request.addHeader(validator, value)
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+
+        then:
+        responses.every { it.status == status }
+        responses.every { it.contentAsByteArray == (status == 200 ? FAVICON : new byte[0]) }
+
+        where: 'only GET and HEAD are told an asset has not changed, and If-Modified-Since is read for them alone'
+        method | validator           | value                           | status
+        'POST' | 'If-None-Match'     | "\"${DIGESTED}\""               | 412
+        'POST' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+        'HEAD' | 'If-None-Match'     | "\"${DIGESTED}\""               | 304
+        'HEAD' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 304
+    }
+
     void 'conditional requests with If-None-Match #etags work before and after caching the asset'() {
         given:
         AssetPipelineFilter filter = filter()

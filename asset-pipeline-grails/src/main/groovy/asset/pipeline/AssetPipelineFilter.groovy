@@ -130,7 +130,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 					request.getHeader('If-Modified-Since'),
 					null,
-					manifest
+					manifest,
+					request.method
 				)
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
@@ -139,7 +140,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					response.setHeader(header.key, header.value)
 				}
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
-				if(response.status != 304) {
+				if(response.status == 200) {
 					// Check for GZip
 					if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 						if(gzipFile) {
@@ -202,7 +203,9 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						manifestPath,
 						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
-						attributeCache.getLastModified()
+						attributeCache.getLastModified(),
+						manifest,
+						request.method
 					)
 
 					responseBuilder.headers.each { final header ->
@@ -213,7 +216,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						response.status = responseBuilder.statusCode
 					}
 
-					if(response.status != 304) {
+					if(response.status == 200) {
 						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && attributeCache.gzipExists()) {
 							file = attributeCache.getGzipResource()
 							response.setHeader('Content-Encoding', 'gzip')
@@ -261,7 +264,9 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						manifestPath,
 						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
-						file.lastModified() ? new Date(file.lastModified()) : null
+						file.lastModified() ? new Date(file.lastModified()) : null,
+						manifest,
+						request.method
 					)
 
 					if(responseBuilder.statusCode) {
@@ -289,7 +294,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					)
 					cache.put(fileUri, newCache)
 
-					if(response.status != 304) {
+					if(response.status == 200) {
 						// Check for GZip
 						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 							if(gzipFile.exists()) {

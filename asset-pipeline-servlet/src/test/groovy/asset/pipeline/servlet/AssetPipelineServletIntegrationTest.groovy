@@ -156,6 +156,24 @@ class AssetPipelineServletIntegrationTest {
     }
 
     @Test
+    void testOtherMethodsFailTheirPreconditionRatherThanRevalidate() {
+        String url = "http://localhost:${port}/prod_assets/css/test.css"
+        HttpResponse initial = Request.Get(url).execute().returnResponse()
+        String etag = initial.getFirstHeader('ETag').value
+        String lastModified = initial.getFirstHeader('Last-Modified').value
+        EntityUtils.consume(initial.entity)
+
+        HttpResponse failed = Request.Post(url).setHeader('If-None-Match', etag).execute().returnResponse()
+        assertEquals(412, failed.statusLine.statusCode)
+        assertEquals('', failed.entity == null ? '' : EntityUtils.toString(failed.entity))
+
+        // If-Modified-Since is read for GET and HEAD alone
+        HttpResponse served = Request.Post(url).setHeader('If-Modified-Since', lastModified).execute().returnResponse()
+        assertEquals(200, served.statusLine.statusCode)
+        assertEquals('body { font-family: "Comic Sans", sans-serif; }', EntityUtils.toString(served.entity))
+    }
+
+    @Test
     void testAssetPipelineDevServlet() {
         FileSystemAssetResolver assetResolver = new FileSystemAssetResolver("Test assets", "src/test/resources/fixtures", false)
         AssetPipelineConfigHolder.setResolvers([assetResolver])

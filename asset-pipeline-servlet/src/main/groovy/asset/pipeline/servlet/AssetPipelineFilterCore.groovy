@@ -68,7 +68,9 @@ class AssetPipelineFilterCore {
 				manifestPath,
 				AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 				request.getHeader('If-Modified-Since'),
-				lastModifiedDate
+				lastModifiedDate,
+				manifest,
+				request.method
 			)
 
 			responseBuilder.headers.each { final header ->
@@ -78,7 +80,7 @@ class AssetPipelineFilterCore {
 				response.status = responseBuilder.statusCode
 			}
 
-			if(response.status != 304) {
+			if(response.status == 200) {
 				// Check for GZip
 				if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders("Accept-Encoding"))) {
 					final AssetPipelineServletResource gzipResource = assetPipelineServletResourceRepository.getGzippedResource(fileUri)
