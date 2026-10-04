@@ -60,5 +60,26 @@ grails:
     mapping: assets
 ----
 
+==== Serving Assets at the Root
+
+Some files are asked for by a fixed name at the root of a site, whatever a page links to: browsers request `/favicon.ico`, Safari `/apple-touch-icon.png` and `/apple-touch-icon-precomposed.png`, crawlers `/robots.txt`, and security scanners `/.well-known/security.txt`. List them in `rootPaths` to serve those assets at the root as well as under the mapping:
+
+[source,yml]
+----
+grails:
+  assets:
+    rootPaths:
+      - favicon.ico
+      - apple-touch-icon.png
+      - robots.txt
+      - .well-known/security.txt
+----
+
+Each entry names one asset the way a tag does, so `favicon.ico` is `grails-app/assets/images/favicon.ico`, and `/favicon.ico` is served in development and, through the manifest, from a compiled application. The filter is registered for the exact url of each entry and for nothing else outside the mapping, so other requests never pass through it. Wildcards are not supported, and an entry that does not name a single asset fails at startup.
+
+A root url is served without a digest in its name, so it is sent with `Cache-Control: no-cache` and an ETag rather than cached for a year. If an entry has no asset, the request is passed on to the application rather than answered with a 404, so a controller or url mapping can still answer it. The tags are unaffected: `<asset:link rel="icon" href="favicon.ico"/>` still renders the digested url under the mapping.
+
+Setting `mapping` to an empty string serves every asset at the root instead, at the cost of passing every request in the application through the filter.
+
 For all these configuration options, you will want to put these config values in the appropriate environment in `application.yml` or in groovy format in `application.groovy`.
 

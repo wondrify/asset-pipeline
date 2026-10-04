@@ -35,8 +35,12 @@ class AssetPipelineFilterCore {
 
 		String fileUri = request.requestURI
 		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping" : "${request.contextPath}/${mapping}"
-		if(fileUri.startsWith(baseAssetUrl)) {
+		// A whole segment, so that a root path such as /assets.txt is not read as under /assets
+		if(fileUri == baseAssetUrl || fileUri.startsWith(baseAssetUrl.endsWith('/') ? baseAssetUrl : baseAssetUrl + '/')) {
 			fileUri = fileUri.substring(baseAssetUrl.length())
+		} else if(fileUri.startsWith(request.contextPath)) {
+			// Outside the mapping, as Spring Boot's assets.rootPaths are, a url names the asset from the root of the context
+			fileUri = fileUri.substring(request.contextPath.length())
 		}
 		fileUri = AssetHelper.normalizePath(fileUri) //JETTY Security bug, we MUST prevent reverse
 		final Properties manifest = AssetPipelineConfigHolder.manifest

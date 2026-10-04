@@ -50,7 +50,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 	@Override
 	void doFilterInternal(final HttpServletRequest request, final HttpServletResponse response, final FilterChain chain) throws IOException, ServletException {
 		final boolean warDeployed = AssetPipelineConfigHolder.manifest ? true : false
-		final boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
+		boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
 		String fileUri = new URI(request.requestURI).path
@@ -60,8 +60,14 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		final String format       = servletContext.getMimeType(fileUri)
 		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
 
-		if(fileUri.startsWith(baseAssetUrl)) {
+		// A whole segment, so that a root path such as /assets.txt is not read as under /assets
+		if(fileUri == baseAssetUrl || fileUri.startsWith(baseAssetUrl.endsWith('/') ? baseAssetUrl : baseAssetUrl + '/')) {
 			fileUri = fileUri.substring(baseAssetUrl.length())
+		} else if(fileUri.startsWith(request.contextPath)) {
+			// One of the rootPaths, which name an asset from the root of the context. The application
+			// may answer such a url itself, so a missing asset passes the request on rather than ending it.
+			fileUri = fileUri.substring(request.contextPath.length())
+			skipNotFound = true
 		}
 
 		String classRegistryKey = AssetPipelineConfigHolder.classLoaderKeyForUri(fileUri)

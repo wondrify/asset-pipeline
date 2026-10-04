@@ -15,9 +15,11 @@
  */
 package asset.pipeline.grails;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import asset.pipeline.AssetHelper;
 import asset.pipeline.AssetPipelineFilter;
 
 import org.grails.web.config.http.GrailsFilters;
@@ -51,8 +53,11 @@ public class AssetPipelineBeanDefinitionRegistrar implements BeanDefinitionRegis
 
     private final String mapping;
 
+    private final List<String> rootPaths;
+
     public AssetPipelineBeanDefinitionRegistrar(Map<String, Object> assetsConfig) {
         this.mapping = mappingOf(assetsConfig);
+        this.rootPaths = AssetHelper.rootPaths(assetsConfig == null ? null : assetsConfig.get("rootPaths"));
     }
 
     @Override
@@ -90,7 +95,17 @@ public class AssetPipelineBeanDefinitionRegistrar implements BeanDefinitionRegis
     }
 
     private List<String> urlPatterns() {
-        return List.of(this.mapping == null || this.mapping.isEmpty() ? "/*" : "/" + this.mapping + "/*");
+        if (this.mapping == null || this.mapping.isEmpty()) {
+            // The filter already sees every request, root paths included.
+            return List.of("/*");
+        }
+        List<String> patterns = new ArrayList<>();
+        patterns.add("/" + this.mapping + "/*");
+        // An exact pattern for each root path, so no other request passes through the filter.
+        for (String rootPath : this.rootPaths) {
+            patterns.add("/" + rootPath);
+        }
+        return List.copyOf(patterns);
     }
 
     private static String mappingOf(Map<String, Object> assetsConfig) {

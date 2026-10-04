@@ -29,6 +29,9 @@ class AssetPipelineDevFilterCore {
 		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping/" : "${request.contextPath}/${mapping}/"
 		if(fileUri.startsWith(baseAssetUrl)) {
 			fileUri = fileUri.substring(baseAssetUrl.length())
+		} else if(fileUri.startsWith(request.contextPath + '/')) {
+			// Outside the mapping, as Spring Boot's assets.rootPaths are, a url names the asset from the root of the context
+			fileUri = fileUri.substring(request.contextPath.length() + 1)
 		}
 		final String format = servletContext.getMimeType(request.requestURI)
 

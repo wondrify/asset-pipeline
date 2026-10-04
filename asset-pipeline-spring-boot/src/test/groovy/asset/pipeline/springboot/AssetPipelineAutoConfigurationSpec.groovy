@@ -48,6 +48,33 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
         }
     }
 
+    void 'each of assets.rootPaths is registered as an exact url, from #properties'() {
+        expect: 'only those urls at the root pass through the filter, beside everything under /assets'
+        contextRunner().withPropertyValues(properties as String[]).run { context ->
+            FilterRegistrationBean registration = context.getBean(FilterRegistrationBean)
+            assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/robots.txt']
+        }
+
+        where: 'a list in application.yml, or a comma separated value in a properties file or the environment'
+        properties << [
+                ['assets.rootPaths[0]=favicon.ico', 'assets.rootPaths[1]=/robots.txt'],
+                ['assets.root-paths=favicon.ico,robots.txt']
+        ]
+    }
+
+    void 'a root path that names no single asset stops the application from starting'() {
+        expect:
+        contextRunner().withPropertyValues('assets.rootPaths=images/*').run { context ->
+            assert context.startupFailure
+            Throwable cause = context.startupFailure
+            while (cause.cause) {
+                cause = cause.cause
+            }
+            assert cause instanceof IllegalArgumentException
+            assert cause.message.contains("'images/*'")
+        }
+    }
+
     void 'an application that does not want the filter says so'() {
         expect: 'a library on the class path is not the same as a library that was asked for'
         contextRunner().withPropertyValues('assets.enabled=false').run { context ->

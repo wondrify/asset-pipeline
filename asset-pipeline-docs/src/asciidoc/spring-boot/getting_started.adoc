@@ -35,6 +35,16 @@ class Application {
 
 By default a servlet filter will be registered to the url `/assets` from which all assets will be served.
 
+Files that clients ask for by a fixed name at the root of a site, such as `/favicon.ico` or `/robots.txt`, can be served there as well by listing them in `assets.rootPaths`. Each entry names one asset, and the filter is registered for its exact url:
+
+[source,yml]
+----
+assets:
+  rootPaths:
+    - favicon.ico
+    - robots.txt
+----
+
 ==== Development Runtime
 
 A great feature built into asset-pipeline is its development runtime support. All assets that are used in your application are automatically generated and processed on the fly when requested. This means when a change is made in a css file or javascript file, the results are instant. A refresh of the page will reflect the changes without needing to wait for any type of `FileWatcher`. These results are also cached making it highly performant as your project grows.

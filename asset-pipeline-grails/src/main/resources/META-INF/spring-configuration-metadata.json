@@ -43,6 +43,12 @@
       "defaultValue": false
     },
     {
+      "name": "grails.assets.rootPaths",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Assets also served at the root of the context under their own name, such as favicon.ico or robots.txt. Each entry names one asset; a missing one passes the request on to the application.",
+      "defaultValue": []
+    },
+    {
       "name": "grails.assets.includes",
       "type": "java.util.List<java.lang.String>",
       "description": "Glob patterns of assets to include during compilation.",

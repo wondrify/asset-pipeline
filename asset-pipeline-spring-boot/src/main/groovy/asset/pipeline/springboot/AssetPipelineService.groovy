@@ -1,11 +1,14 @@
 package asset.pipeline.springboot
 
+import asset.pipeline.AssetHelper
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.fs.ClasspathAssetResolver
 import asset.pipeline.fs.FileSystemAssetResolver
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.context.properties.bind.Bindable
+import org.springframework.boot.context.properties.bind.Binder
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -59,7 +62,10 @@ class AssetPipelineService {
 				AssetPipelineFilter filter = new AssetPipelineFilter();
 				registrationBean.setFilter(filter);
 		}
-		registrationBean.urlPatterns = ["/assets/*".toString()]
+		// An exact pattern for each of assets.rootPaths, the files a client asks for by name at the root
+		List<String> rootPaths = AssetHelper.rootPaths(Binder.get(applicationContext.environment)
+				.bind('assets.root-paths', Bindable.listOf(String)).orElse([]))
+		registrationBean.urlPatterns = ["/assets/*".toString()] + rootPaths.collect { "/${it}".toString() }
 		registrationBean.setOrder(0);
 		return registrationBean;
 	}

@@ -267,6 +267,46 @@ public class AssetHelper {
     }
 
     /**
+     * The assets an application also serves from the root of its context, read from the {@code rootPaths} setting.
+     * Browsers and crawlers ask for some files by a fixed name whatever a page links to: {@code /favicon.ico},
+     * {@code /apple-touch-icon.png}, {@code /robots.txt}, {@code /.well-known/security.txt}. Each entry names one
+     * asset the way a tag does, and becomes an exact servlet url pattern, so an entry with a wildcard, an empty,
+     * {@code .} or {@code ..} segment, or no file name is rejected.
+     * @param configured a collection of paths, a comma separated string of them (the form an environment variable
+     *        or a system property gives a list), or null
+     * @return the paths without a leading slash, in the order configured, each once
+     * @throws IllegalArgumentException for an entry that does not name exactly one asset
+     */
+    @CompileStatic
+    static List<String> rootPaths(Object configured) {
+        Collection<?> entries
+        if(configured == null) {
+            entries = []
+        } else if(configured instanceof CharSequence) {
+            entries = configured.toString().tokenize(',')
+        } else if(configured instanceof Collection) {
+            entries = (Collection<?>) configured
+        } else {
+            throw new IllegalArgumentException("rootPaths must be a list of asset paths, not a ${configured.getClass().name}")
+        }
+        Set<String> paths = new LinkedHashSet<String>()
+        for(Object entry in entries) {
+            String path = entry == null ? '' : entry.toString().trim()
+            while(path.startsWith('/')) {
+                path = path.substring(1)
+            }
+            if(path.find(/[*%?#\\]/)) {
+                throw new IllegalArgumentException("rootPaths entry '${entry}' names a pattern; each entry names one asset, such as favicon.ico")
+            }
+            if(!path || path.endsWith('/') || path.split('/').any { String segment -> segment in ['', '.', '..'] }) {
+                throw new IllegalArgumentException("rootPaths entry '${entry}' does not name one asset, such as favicon.ico")
+            }
+            paths << path
+        }
+        return new ArrayList<String>(paths)
+    }
+
+    /**
      * Checks if a file path matches any pattern provided. These default to glob format but can be changed to use
      * regular expressions by prefixing the pattern string with 'regex:'
      * @param filePath String the fully qualified asset path we are checking

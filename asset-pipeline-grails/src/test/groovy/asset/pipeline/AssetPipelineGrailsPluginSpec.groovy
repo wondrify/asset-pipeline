@@ -95,15 +95,19 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         filter.applicationContext.is(applicationContext)
     }
 
-    void 'the filter registration survives Spring ahead-of-time processing'() {
+    void 'the filter registration survives Spring ahead-of-time processing, configured with #assetsConfig'() {
         given: 'the filter registration contributed by the plugin'
-        applicationContext.registerBeanDefinition('assetPipelineFilter', filterRegistrationDefinition())
+        applicationContext.registerBeanDefinition('assetPipelineFilter',
+                registrarDefinitions(assetsConfig).getBeanDefinition('assetPipelineFilter'))
 
         when: 'the definitions are processed ahead of time, as they are when building a native image'
         new ApplicationContextAotGenerator().processAheadOfTime(applicationContext, new TestGenerationContext())
 
         then: 'no value in the definition defeats code generation'
         noExceptionThrown()
+
+        where:
+        assetsConfig << [[:], [rootPaths: ['favicon.ico', 'robots.txt']]]
     }
 
     void 'the resource locator inherits its search locations from the abstract Grails definition'() {
@@ -120,6 +124,36 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         registrarDefinitions(mapping: 'static')
                 .getBeanDefinition('assetPipelineFilter')
                 .propertyValues.getPropertyValue('urlPatterns').value == ['/static/*']
+    }
+
+    void 'each root path reaches the filter as an exact url pattern, from #rootPaths'() {
+        expect: 'only those urls at the root pass through the filter, beside everything under the mapping'
+        urlPatterns(rootPaths: rootPaths) == ['/assets/*', '/favicon.ico', '/robots.txt', '/.well-known/security.txt']
+
+        where: 'a list from application.yml or application.groovy, or a string from an environment variable'
+        rootPaths << [
+                ['favicon.ico', '/robots.txt', '.well-known/security.txt'],
+                'favicon.ico,robots.txt,.well-known/security.txt'
+        ]
+    }
+
+    void 'root paths sit beside a configured mapping'() {
+        expect:
+        urlPatterns(mapping: 'static', rootPaths: ['favicon.ico']) == ['/static/*', '/favicon.ico']
+    }
+
+    void 'an empty mapping already passes every url through the filter, so root paths add no patterns'() {
+        expect:
+        urlPatterns(mapping: '', rootPaths: ['favicon.ico']) == ['/*']
+    }
+
+    void 'a root path that names no single asset fails at startup rather than registering a pattern the container rejects'() {
+        when:
+        registrarDefinitions(rootPaths: ['*.ico'])
+
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains("'*.ico'")
     }
 
     void 'what beanRegistrar() contributes survives Spring ahead-of-time processing'() {
@@ -148,6 +182,12 @@ class AssetPipelineGrailsPluginSpec extends Specification {
 
     private BeanDefinition filterRegistrationDefinition() {
         registrarDefinitions().getBeanDefinition('assetPipelineFilter')
+    }
+
+    private List<String> urlPatterns(Map<String, Object> assetsConfig) {
+        registrarDefinitions(assetsConfig)
+                .getBeanDefinition('assetPipelineFilter')
+                .propertyValues.getPropertyValue('urlPatterns').value as List<String>
     }
 
     /** What the plugin contributes through its BeanDefinitionRegistryPostProcessor. */
