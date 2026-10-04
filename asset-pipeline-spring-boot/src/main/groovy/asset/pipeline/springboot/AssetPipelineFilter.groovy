@@ -15,10 +15,15 @@ class AssetPipelineFilter implements Filter {
 	AssetPipelineFilterCore assetPipelineFilterCore = new AssetPipelineFilterCore()
 
 
+	/** The validated assets.rootPaths, the urls outside /assets that name an asset */
+	void setRootPaths(final Collection<String> rootPaths) {
+		assetPipelineFilterCore.rootPaths = rootPaths
+	}
+
 	@Override
 	void init(final FilterConfig config) throws ServletException {
 		assetPipelineFilterCore.servletContext = config.servletContext
-		assetPipelineFilterCore.mapping = "assets"
+		assetPipelineFilterCore.mapping = AssetPipelineService.MAPPING
 
 		final WebApplicationContext applicationContext = WebApplicationContextUtils.getWebApplicationContext(config.servletContext)
 		assetPipelineFilterCore.assetPipelineServletResourceRepository = new SpringServletResourceRepository(applicationContext)

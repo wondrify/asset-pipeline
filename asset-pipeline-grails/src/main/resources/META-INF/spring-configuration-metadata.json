@@ -43,6 +43,18 @@
       "defaultValue": false
     },
     {
+      "name": "grails.assets.rootPaths",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Assets also served at the root of the context under their own name, such as favicon.ico or apple-touch-icon.png. Each entry names one asset; a missing one passes the request on to the application.",
+      "defaultValue": []
+    },
+    {
+      "name": "grails.assets.immutable",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Patterns of assets whose url never changes content although it has no digest, such as a versioned webjar, cached for a year as a digested asset is. Glob patterns, or regular expressions after a regex: prefix, as includes takes.",
+      "defaultValue": []
+    },
+    {
       "name": "grails.assets.includes",
       "type": "java.util.List<java.lang.String>",
       "description": "Glob patterns of assets to include during compilation.",

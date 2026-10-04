@@ -1,6 +1,7 @@
 package asset.pipeline.servlet
 
 import asset.pipeline.AssetHelper
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.AssetPipelineResponseBuilder
 import jakarta.servlet.*
@@ -15,7 +16,15 @@ class AssetPipelineFilterCore {
 	static final String HTTP_DATE_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz"
 
 
-	String mapping = "mapping"
+	/** The url assets are served under; empty, as it is unless set, serves every url the filter is registered for by its path */
+	String mapping = ""
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
+
+	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
+	}
 	AssetPipelineServletResourceRepository assetPipelineServletResourceRepository
 	ServletContext servletContext
 
@@ -33,12 +42,14 @@ class AssetPipelineFilterCore {
 			throw new IllegalStateException("Property 'assetPipelineServletResourceRepository' is null")
 		}
 
-		String fileUri = request.requestURI
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping" : "${request.contextPath}/${mapping}"
-		if(fileUri.startsWith(baseAssetUrl)) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
+			// Neither under the mapping nor one of the root paths
+			filterChain.doFilter(request, response)
+			return
 		}
-		fileUri = AssetHelper.normalizePath(fileUri) //JETTY Security bug, we MUST prevent reverse
+		String fileUri = AssetHelper.normalizePath(assetUrl.path) //JETTY Security bug, we MUST prevent reverse
 		final Properties manifest = AssetPipelineConfigHolder.manifest
 		String manifestPath = fileUri
 		if(fileUri.startsWith('/')) {
@@ -51,8 +62,10 @@ class AssetPipelineFilterCore {
 		AssetPipelineServletResource resource = assetPipelineServletResourceRepository.getResource(fileUri)
 		if(resource) {
 			final Date lastModifiedDate = resource.getLastModified() ? new Date(resource.getLastModified()) : null
+			// The name asked for, as the Grails filter passes it: fileUri is the digested name by now, which
+			// the builder would take for a url that can be cached for a year
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
-				fileUri,
+				manifestPath,
 				request.getHeader('If-None-Match'),
 				request.getHeader('If-Modified-Since'),
 				lastModifiedDate
@@ -74,7 +87,7 @@ class AssetPipelineFilterCore {
 						response.setHeader('Content-Encoding', 'gzip')
 					}
 				}
-				final String format = servletContext.getMimeType(request.requestURI)
+				final String format = servletContext.getMimeType(path)
 				final String encoding = request.getCharacterEncoding()
 				if(encoding) {
 					response.setCharacterEncoding(encoding)

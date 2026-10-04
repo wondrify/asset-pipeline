@@ -1,0 +1,28 @@
+{
+  "groups": [
+    {
+      "name": "assets",
+      "description": "Asset Pipeline Configuration"
+    }
+  ],
+  "properties": [
+    {
+      "name": "assets.enabled",
+      "type": "java.lang.Boolean",
+      "description": "Whether to register the filter that serves assets.",
+      "defaultValue": true
+    },
+    {
+      "name": "assets.root-paths",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Assets also served at the root of the context under their own name, such as favicon.ico or apple-touch-icon.png. Each entry names one asset.",
+      "defaultValue": []
+    },
+    {
+      "name": "assets.immutable",
+      "type": "java.util.List<java.lang.String>",
+      "description": "Patterns of assets whose url never changes content although it has no digest, such as a versioned webjar, cached for a year as a digested asset is. Glob patterns, or regular expressions after a regex: prefix.",
+      "defaultValue": []
+    }
+  ]
+}

@@ -44,6 +44,13 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 	ApplicationContext applicationContext
 	ServletContext     servletContext
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
+
+	// Read as the registrar reads them, so that a filter an application sets up itself may write /favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
+	}
 
 	AssetPipelineFilter() {
 		latestCache = cache
@@ -54,6 +61,12 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		// The plugin fills the holder before Spring creates any bean, and sizing the cache again when
 		// the servlet container starts the filter changes nothing
 		cache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
+		// Read now, so a pattern that cannot be read stops the application rather than the first request
+		AssetPaths.immutable(AssetPipelineConfigHolder.config.get('immutable'))
+		if(!rootPaths) {
+			// A filter the application registers itself has not been given them, as the registrar's has
+			setRootPaths(AssetPaths.rootPaths(AssetPipelineConfigHolder.config.get('rootPaths'), null))
+		}
 
 		// GenericFilterBean implements InitializingBean, so when this filter is a container-managed
 		// bean (a nested bean definition of the FilterRegistrationBean) Spring calls this from
@@ -75,19 +88,25 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 	@Override
 	void doFilterInternal(final HttpServletRequest request, final HttpServletResponse response, final FilterChain chain) throws IOException, ServletException {
 		final boolean warDeployed = AssetPipelineConfigHolder.manifest ? true : false
-		final boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
+		boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
-		String fileUri = new URI(request.requestURI).path
-
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping" : "${request.contextPath}/${mapping}"
-
-		final String format       = servletContext.getMimeType(fileUri)
-		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
-
-		if(fileUri.startsWith(baseAssetUrl)) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
+			// Registered for more than the mapping and the root paths, the filter leaves every other url to the application
+			chain.doFilter(request, response)
+			return
 		}
+		String fileUri = assetUrl.path
+		if(assetUrl.rootPath) {
+			// One of the rootPaths, which name an asset from the root of the context. The application may answer
+			// such a url itself, so a missing asset passes the request on rather than ending it.
+			skipNotFound = true
+		}
+
+		final String format       = servletContext.getMimeType(path)
+		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
 
 		String classRegistryKey = AssetPipelineConfigHolder.classLoaderKeyForUri(fileUri)
 
@@ -110,7 +129,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					manifestPath,
 					request.getHeader('If-None-Match'),
 					request.getHeader('If-Modified-Since'),
-					null
+					null,
+					manifest
 				)
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
