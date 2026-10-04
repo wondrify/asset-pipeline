@@ -7,7 +7,7 @@ This guide documents configuration and usage examples of the asset-pipeline plug
 
 === Release History
 * July 2026
-** 5.2.0 - Grails 8.0.0-M2 support, Srping Boot 4, dependency upgrades.
+** 5.2.0 - Grails 8 support, Spring Boot 4, dependency upgrades.
 * January 2026
 ** Documentation migrated to GitHub Pages at https://wondrify.github.io/asset-pipeline/[https://wondrify.github.io/asset-pipeline/]. The old asset-pipeline.com site is no longer maintained.
 * Feb 18, 2024
