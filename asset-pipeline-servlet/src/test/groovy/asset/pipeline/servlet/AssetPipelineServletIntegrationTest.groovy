@@ -7,7 +7,6 @@ import jakarta.servlet.DispatcherType
 import org.apache.http.Header
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
-import org.apache.http.client.utils.DateUtils
 import org.apache.http.util.EntityUtils
 import org.eclipse.jetty.ee11.servlet.FilterHolder
 import org.eclipse.jetty.ee11.webapp.WebAppContext
@@ -135,33 +134,6 @@ class AssetPipelineServletIntegrationTest {
     }
 
     @Test
-    void testNotModifiedCacheHeaders() {
-        ['css/test.css', 'maybe_gzipped/css/test.js'].each { path ->
-            String url = "http://localhost:${port}/prod_assets/${path}"
-            HttpResponse initial = Request.Get(url).execute().returnResponse()
-            assertEquals(200, initial.statusLine.statusCode)
-            assertEquals('Accept-Encoding', initial.getFirstHeader('Vary').value)
-            assertEquals('public, max-age=31536000', initial.getFirstHeader('Cache-Control').value)
-            Map<String, String> headers = ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].collectEntries { name ->
-                [(name): initial.getFirstHeader(name).value]
-            }
-            EntityUtils.consume(initial.entity)
-
-            Date modified = DateUtils.parseDate(headers['Last-Modified'])
-            Map<String, String> validators = ['If-None-Match': headers['ETag'],
-                                              'If-Modified-Since': DateUtils.formatDate(new Date(modified.time + 1000L))]
-            validators.each { name, value ->
-                HttpResponse unchanged = Request.Get(url).setHeader(name, value).execute().returnResponse()
-                assertEquals("${path} with ${name}", 304, unchanged.statusLine.statusCode)
-                headers.each { header, expected ->
-                    assertEquals("${path} with ${name}: ${header}", expected, unchanged.getFirstHeader(header)?.value)
-                }
-                assertEquals(null, unchanged.entity)
-            }
-        }
-    }
-
-    @Test
     void testAssetPipelineDevServlet() {
         FileSystemAssetResolver assetResolver = new FileSystemAssetResolver("Test assets", "src/test/resources/fixtures", false)
         AssetPipelineConfigHolder.setResolvers([assetResolver])
@@ -172,3 +144,4 @@ class AssetPipelineServletIntegrationTest {
         assertEquals("""body { font-family: "Comic Sans", sans-serif; }""", EntityUtils.toString(res.getEntity()).trim())
     }
 }
+

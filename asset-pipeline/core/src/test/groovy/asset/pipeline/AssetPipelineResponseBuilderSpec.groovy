@@ -6,13 +6,16 @@ import spock.lang.Unroll
 public class AssetPipelineResponseBuilderSpec extends Specification {
 
     Properties originalManifest
+    Map originalConfig
 
     void setup() {
         originalManifest = AssetPipelineConfigHolder.manifest
+        originalConfig = AssetPipelineConfigHolder.config
     }
 
     void cleanup() {
         AssetPipelineConfigHolder.manifest = originalManifest
+        AssetPipelineConfigHolder.config = originalConfig
     }
 
     @Unroll
@@ -84,6 +87,7 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         manifest.setProperty('app.js', 'app-2222.js')
         manifest.setProperty('index.html', 'index-2222.html')
         AssetPipelineConfigHolder.manifest = manifest
+        AssetPipelineConfigHolder.config = [immutable: ['vendor/**']]
         Date modified = new Date(1700000000000L)
 
         when:
@@ -110,6 +114,8 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         '/index.html'      | '"index-2222.html"' | 'no-cache'
         'index-2222.html'  | '"index-2222.html"' | 'no-cache'
         '/index-2222.html' | '"index-2222.html"' | 'no-cache'
+        'vendor/lib.js'    | '"vendor/lib.js"'   | 'public, max-age=31536000'
+        '/vendor/lib.js'   | '"vendor/lib.js"'   | 'public, max-age=31536000'
     }
 
     def "ETag validation retains cache headers when no last-modified date is available"() {

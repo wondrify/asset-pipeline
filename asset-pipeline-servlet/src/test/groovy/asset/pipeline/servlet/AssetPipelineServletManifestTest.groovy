@@ -4,6 +4,7 @@ import asset.pipeline.AssetPipelineConfigHolder
 import jakarta.servlet.DispatcherType
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
+import org.apache.http.client.utils.DateUtils
 import org.apache.http.util.EntityUtils
 import org.eclipse.jetty.ee11.servlet.FilterHolder
 import org.eclipse.jetty.ee11.webapp.WebAppContext
@@ -15,6 +16,7 @@ import org.junit.BeforeClass
 import org.junit.Test
 
 import static org.junit.Assert.assertEquals
+import static org.junit.Assert.assertNull
 
 /**
  * The production filter serving a compiled application through its manifest, registered the way Spring Boot
@@ -90,6 +92,32 @@ class AssetPipelineServletManifestTest {
     void testRootPathAnswersARevalidationWithNotModified() {
         HttpResponse res = Request.Get("http://localhost:${port}/test.css").setHeader('If-None-Match', "\"${DIGESTED}\"").execute().returnResponse()
         assertEquals(304, res.statusLine.statusCode)
+    }
+
+    @Test
+    void testNotModifiedCarriesTheCacheHeadersOfTheFullResponse() {
+        ['/test.css': 'no-cache', '/assets/test.css': 'no-cache', "/assets/${DIGESTED}": 'public, max-age=31536000'].each { String uri, String cacheControl ->
+            HttpResponse full = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
+            assertEquals(uri, 200, full.statusLine.statusCode)
+            assertEquals(uri, cacheControl, full.getFirstHeader('Cache-Control')?.value)
+            assertEquals(uri, 'Accept-Encoding', full.getFirstHeader('Vary')?.value)
+            Map<String, String> headers = ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].collectEntries { String name ->
+                [(name): full.getFirstHeader(name).value]
+            }
+            EntityUtils.consume(full.entity)
+
+            Date modified = DateUtils.parseDate(headers['Last-Modified'])
+            Map<String, String> validators = ['If-None-Match': headers['ETag'],
+                                              'If-Modified-Since': DateUtils.formatDate(new Date(modified.time + 1000L))]
+            validators.each { String name, String value ->
+                HttpResponse notModified = Request.Get("http://localhost:${port}${uri}").setHeader(name, value).execute().returnResponse()
+                assertEquals("${uri} with ${name}", 304, notModified.statusLine.statusCode)
+                headers.each { String header, String expected ->
+                    assertEquals("${uri} with ${name}: ${header}", expected, notModified.getFirstHeader(header)?.value)
+                }
+                assertNull("${uri} with ${name}", notModified.entity)
+            }
+        }
     }
 
     private static void assertServed(String uri, String cacheControl) {

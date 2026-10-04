@@ -195,7 +195,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
 
     void '304 responses for #uri using #validator retain cache headers before and after caching the asset'() {
         given:
-        AssetPipelineFilter filter = filter()
+        AssetPipelineFilter filter = filter(rootPaths: ['favicon.ico'])
         assert new File(assets, DIGESTED).setLastModified(1700000000000L)
         Map<String, String> validators = ['If-None-Match': "\"${DIGESTED}\"",
                                           'If-Modified-Since': 'Wed, 15 Nov 2023 22:13:20 GMT']
@@ -231,6 +231,8 @@ class AssetPipelineFilterCacheSpec extends Specification {
         '/assets/favicon.ico' | 'If-Modified-Since' | 'no-cache'
         "/assets/${DIGESTED}" | 'If-None-Match'     | 'public, max-age=31536000'
         "/assets/${DIGESTED}" | 'If-Modified-Since' | 'public, max-age=31536000'
+        '/favicon.ico'        | 'If-None-Match'     | 'no-cache'
+        '/favicon.ico'        | 'If-Modified-Since' | 'no-cache'
     }
 
     void 'each filter has a cache of its own, and getFileCache() answers with the last one created'() {
