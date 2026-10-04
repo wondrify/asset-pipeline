@@ -54,8 +54,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
 		String fileUri = new URI(request.requestURI).path
+		// Decoded as the uri is, so that the two compare under a context path with an encoded character
+		final String contextPath = new URI(request.contextPath).path
 
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping" : "${request.contextPath}/${mapping}"
+		final String baseAssetUrl = contextPath == "/" ? "/$mapping" : "${contextPath}/${mapping}"
 
 		final String format       = servletContext.getMimeType(fileUri)
 		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
@@ -63,10 +65,12 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		// A whole segment, so that a root path such as /assets.txt is not read as under /assets
 		if(fileUri == baseAssetUrl || fileUri.startsWith(baseAssetUrl.endsWith('/') ? baseAssetUrl : baseAssetUrl + '/')) {
 			fileUri = fileUri.substring(baseAssetUrl.length())
-		} else if(fileUri.startsWith(request.contextPath)) {
-			// One of the rootPaths, which name an asset from the root of the context. The application
-			// may answer such a url itself, so a missing asset passes the request on rather than ending it.
-			fileUri = fileUri.substring(request.contextPath.length())
+		} else {
+			// One of the rootPaths, the filter's only other urls, which name an asset from the root of the context.
+			// The application may answer such a url itself, so a missing asset passes the request on rather than ending it.
+			if(fileUri.startsWith(contextPath)) {
+				fileUri = fileUri.substring(contextPath.length())
+			}
 			skipNotFound = true
 		}
 

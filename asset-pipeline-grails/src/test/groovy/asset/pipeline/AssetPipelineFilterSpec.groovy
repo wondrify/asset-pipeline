@@ -69,10 +69,11 @@ class AssetPipelineFilterSpec extends Specification {
         exchange.response.contentAsByteArray == FAVICON
         !exchange.passedOn
 
-        where:
-        contextPath | uri
-        ''          | '/favicon.ico'
-        '/app'      | '/app/favicon.ico'
+        where: 'the context path as the container gives it, encoded, and the uri likewise'
+        contextPath  | uri
+        ''           | '/favicon.ico'
+        '/app'       | '/app/favicon.ico'
+        '/my%20app'  | '/my%20app/favicon.ico'
     }
 
     void 'in development, #uri under the mapping is served as before'() {
@@ -88,9 +89,10 @@ class AssetPipelineFilterSpec extends Specification {
         !exchange.passedOn
 
         where:
-        contextPath | uri
-        ''          | '/assets/favicon.ico'
-        '/app'      | '/app/assets/favicon.ico'
+        contextPath  | uri
+        ''           | '/assets/favicon.ico'
+        '/app'       | '/app/assets/favicon.ico'
+        '/my%20app'  | '/my%20app/assets/favicon.ico'
     }
 
     void 'a root path whose name begins with the mapping is not read as an asset under it'() {
@@ -105,17 +107,20 @@ class AssetPipelineFilterSpec extends Specification {
         exchange.response.contentAsByteArray == LOGO
     }
 
-    void 'in development, a root path with no asset passes the request on to the application'() {
+    void 'in development, a root path with no asset passes the request on to the application, under context #contextPath'() {
         given: 'robots.txt is configured as a root path, and the application may answer it itself'
         development()
 
         when:
-        Exchange exchange = request('', '/robots.txt')
+        Exchange exchange = request(contextPath, "${contextPath}/robots.txt")
 
         then:
         exchange.passedOn
         !exchange.response.committed
         exchange.response.status == 200
+
+        where:
+        contextPath << ['', '/my%20app']
     }
 
     void 'a missing asset under the mapping is still a 404'() {
