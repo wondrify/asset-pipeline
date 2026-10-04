@@ -16,9 +16,77 @@
 
 package asset.pipeline.grails;
 
-import asset.pipeline.grails.AssetAttributes;
+import java.util.Map;
 
-import java.util.concurrent.ConcurrentHashMap;
+import com.github.benmanes.caffeine.cache.Cache;
+import com.github.benmanes.caffeine.cache.Caffeine;
 
-public class ProductionAssetCache extends ConcurrentHashMap<String, AssetAttributes> {
+/**
+ * What the filter has learned about each url it looked up in a compiled application: whether the
+ * asset exists, and where. It holds at most {@code grails.assets.maxCacheSize} entries,
+ * {@value #DEFAULT_MAXIMUM_SIZE} unless configured. Caffeine admits an entry over the one it would
+ * evict by how often each is asked for, so the assets an application serves most stay cached.
+ */
+public class ProductionAssetCache {
+
+    public static final String MAXIMUM_SIZE_KEY = "maxCacheSize";
+
+    public static final long DEFAULT_MAXIMUM_SIZE = 10_000L;
+
+    private final Cache<String, AssetAttributes> cache;
+
+    public ProductionAssetCache() {
+        this(DEFAULT_MAXIMUM_SIZE);
+    }
+
+    /**
+     * @param maximumSize the most entries kept; zero keeps none
+     */
+    public ProductionAssetCache(long maximumSize) {
+        if (maximumSize < 0) {
+            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be zero or more, not " + maximumSize);
+        }
+        this.cache = Caffeine.newBuilder().maximumSize(maximumSize).build();
+    }
+
+    /**
+     * A cache sized by {@code maxCacheSize} in the asset pipeline configuration, a number or a
+     * string of one, as an environment variable or system property gives it.
+     */
+    public static ProductionAssetCache fromConfig(Map<?, ?> config) {
+        Object configured = config == null ? null : config.get(MAXIMUM_SIZE_KEY);
+        if (configured == null || configured.toString().isBlank()) {
+            return new ProductionAssetCache();
+        }
+        if (configured instanceof Number) {
+            return new ProductionAssetCache(((Number) configured).longValue());
+        }
+        try {
+            return new ProductionAssetCache(Long.parseLong(configured.toString().trim()));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be a number, not '" + configured + "'", e);
+        }
+    }
+
+    public AssetAttributes get(String uri) {
+        return cache.getIfPresent(uri);
+    }
+
+    public void put(String uri, AssetAttributes attributes) {
+        cache.put(uri, attributes);
+    }
+
+    public void clear() {
+        cache.invalidateAll();
+    }
+
+    /** The number of entries, once any eviction still pending has run. */
+    public long size() {
+        cache.cleanUp();
+        return cache.estimatedSize();
+    }
+
+    public long getMaximumSize() {
+        return cache.policy().eviction().orElseThrow().getMaximum();
+    }
 }
