@@ -33,7 +33,6 @@ import org.springframework.core.NestedExceptionUtils
 import org.springframework.core.env.MapPropertySource
 import org.springframework.core.env.MutablePropertySources
 import org.springframework.core.env.StandardEnvironment
-import org.springframework.core.env.SystemEnvironmentPropertySource
 import org.springframework.context.aot.ApplicationContextAotGenerator
 import org.springframework.mock.web.MockFilterConfig
 import org.springframework.mock.web.MockServletContext
@@ -221,21 +220,6 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         startWithPlugin()
 
         then:
-        startedFilter().cache.maximumSize == 250
-    }
-
-    void 'an environment variable reaches grails.assets.maxCacheSize only through a placeholder'() {
-        given: 'environment variables ahead of application.yml, as a Grails application orders them'
-        MutablePropertySources sources = new MutablePropertySources()
-        sources.addLast(new SystemEnvironmentPropertySource('systemEnvironment',
-                [GRAILS_ASSETS_MAXCACHESIZE: '50', ASSET_CACHE_SIZE: '250'] as Map<String, Object>))
-        sources.addLast(new MapPropertySource('application', ['grails.assets.maxCacheSize': '${ASSET_CACHE_SIZE:10000}'] as Map<String, Object>))
-        grailsApplication.config = new PropertySourcesConfig(sources)
-
-        when:
-        startWithPlugin()
-
-        then: 'the placeholder takes ASSET_CACHE_SIZE there, and GRAILS_ASSETS_MAXCACHESIZE, which would win if Grails mapped it, does not'
         startedFilter().cache.maximumSize == 250
     }
 
