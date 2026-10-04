@@ -51,8 +51,10 @@ class AssetPipelineFilterCore {
 		AssetPipelineServletResource resource = assetPipelineServletResourceRepository.getResource(fileUri)
 		if(resource) {
 			final Date lastModifiedDate = resource.getLastModified() ? new Date(resource.getLastModified()) : null
+			// The name asked for, as the Grails filter passes it: fileUri is the digested name by now, which
+			// the builder would take for a url that can be cached for a year
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
-				fileUri,
+				manifestPath,
 				request.getHeader('If-None-Match'),
 				request.getHeader('If-Modified-Since'),
 				lastModifiedDate
