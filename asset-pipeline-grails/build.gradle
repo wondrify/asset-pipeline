@@ -27,15 +27,15 @@ dependencies {
 
     implementation project(':asset-pipeline-core')
 
-    // implementation, as grails-core declares it, so the BOM versions the runtime dependencies too
-    implementation platform("org.apache.grails:grails-bom:$grailsVersion")
+    compileOnly platform("org.apache.grails:grails-bom:$grailsVersion")
     compileOnly 'org.apache.grails:grails-url-mappings'
 
-    implementation 'com.github.ben-manes.caffeine:caffeine' // ProductionAssetCache
+    implementation "com.github.ben-manes.caffeine:caffeine:$caffeineVersion" // ProductionAssetCache
     compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
     compileOnly 'org.apache.grails:grails-core' // Provided as this is a Grails plugin
     compileOnly 'org.apache.grails.views:grails-web-taglib' // For taglib compilation
 
+    testImplementation platform("org.apache.grails:grails-bom:$grailsVersion")
     testImplementation 'org.apache.grails:grails-testing-support-web'
     testImplementation 'org.spockframework:spock-core'
 
