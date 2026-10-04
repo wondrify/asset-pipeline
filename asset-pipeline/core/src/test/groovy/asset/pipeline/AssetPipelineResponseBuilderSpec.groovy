@@ -256,9 +256,6 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         expect: 'only a digested name the manifest gives is cached for a year; any other may change'
         new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
 
-        cleanup:
-        AssetPipelineConfigHolder.manifest = null
-
         where:
         uri                        | manifestGiven | cacheControl
         'app-0123456789abcdef.js'  | 'a manifest'  | 'public, max-age=31536000'
@@ -291,23 +288,16 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
         then:
         new AssetPipelineResponseBuilder('b-0123456789abcdef.js').headers['Cache-Control'] == 'public, max-age=31536000'
-
-        cleanup:
-        AssetPipelineConfigHolder.manifest = null
     }
 
     @Unroll
     def "#uri, which immutable #matching, is sent #cacheControl though there is no manifest"() {
         given:
-        Map originalConfig = AssetPipelineConfigHolder.config
         AssetPipelineConfigHolder.manifest = null
         AssetPipelineConfigHolder.config = [immutable: ['webjars/**']]
 
         expect:
         new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
-
-        cleanup:
-        AssetPipelineConfigHolder.config = originalConfig
 
         where:
         uri                               | matching          | cacheControl
@@ -318,7 +308,6 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
     def "a configuration given anew is read anew"() {
         given:
-        Map originalConfig = AssetPipelineConfigHolder.config
         AssetPipelineConfigHolder.manifest = null
 
         when:
@@ -330,8 +319,5 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         first == 'public, max-age=31536000'
         new AssetPipelineResponseBuilder('a.js').headers['Cache-Control'] == 'no-cache'
         new AssetPipelineResponseBuilder('b.js').headers['Cache-Control'] == 'public, max-age=31536000'
-
-        cleanup:
-        AssetPipelineConfigHolder.config = originalConfig
     }
 }

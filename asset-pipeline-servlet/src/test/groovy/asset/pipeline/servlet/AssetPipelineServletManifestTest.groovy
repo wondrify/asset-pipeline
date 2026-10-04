@@ -16,7 +16,7 @@ import org.junit.BeforeClass
 import org.junit.Test
 
 import static org.junit.Assert.assertEquals
-import static org.junit.Assert.assertNull
+import static org.junit.Assert.assertNotNull
 
 /**
  * The production filter serving a compiled application through its manifest, registered the way Spring Boot
@@ -95,29 +95,18 @@ class AssetPipelineServletManifestTest {
     }
 
     @Test
-    void testNotModifiedCarriesTheCacheHeadersOfTheFullResponse() {
-        ['/test.css': 'no-cache', '/assets/test.css': 'no-cache', "/assets/${DIGESTED}": 'public, max-age=31536000'].each { String uri, String cacheControl ->
-            HttpResponse full = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
-            assertEquals(uri, 200, full.statusLine.statusCode)
-            assertEquals(uri, cacheControl, full.getFirstHeader('Cache-Control')?.value)
-            assertEquals(uri, 'Accept-Encoding', full.getFirstHeader('Vary')?.value)
-            Map<String, String> headers = ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].collectEntries { String name ->
-                [(name): full.getFirstHeader(name).value]
-            }
-            EntityUtils.consume(full.entity)
+    void testRootPathKeepsItsCacheHeadersWhenNotModified() {
+        assertRevalidated('/test.css', 'no-cache')
+    }
 
-            Date modified = DateUtils.parseDate(headers['Last-Modified'])
-            Map<String, String> validators = ['If-None-Match': headers['ETag'],
-                                              'If-Modified-Since': DateUtils.formatDate(new Date(modified.time + 1000L))]
-            validators.each { String name, String value ->
-                HttpResponse notModified = Request.Get("http://localhost:${port}${uri}").setHeader(name, value).execute().returnResponse()
-                assertEquals("${uri} with ${name}", 304, notModified.statusLine.statusCode)
-                headers.each { String header, String expected ->
-                    assertEquals("${uri} with ${name}: ${header}", expected, notModified.getFirstHeader(header)?.value)
-                }
-                assertNull("${uri} with ${name}", notModified.entity)
-            }
-        }
+    @Test
+    void testUndigestedUrlKeepsItsCacheHeadersWhenNotModified() {
+        assertRevalidated('/assets/test.css', 'no-cache')
+    }
+
+    @Test
+    void testDigestedUrlKeepsItsCacheHeadersWhenNotModified() {
+        assertRevalidated("/assets/${DIGESTED}", 'public, max-age=31536000')
     }
 
     private static void assertServed(String uri, String cacheControl) {
@@ -126,6 +115,32 @@ class AssetPipelineServletManifestTest {
         assertEquals(uri, CSS, EntityUtils.toString(res.getEntity()).trim())
         assertEquals(uri, cacheControl, res.getFirstHeader('Cache-Control')?.value)
         assertEquals(uri, "\"${DIGESTED}\"".toString(), res.getFirstHeader('ETag')?.value)
+    }
+
+    // A 304 for either validator carries the headers the 200 did. HttpClient reads no body for a 304, so the
+    // Grails filter's spec is the one that checks none is written.
+    private static void assertRevalidated(String uri, String cacheControl) {
+        HttpResponse full = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
+        assertEquals(uri, 200, full.statusLine.statusCode)
+        EntityUtils.consume(full.entity)
+        Map<String, String> headers = ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].collectEntries { String name ->
+            String value = full.getFirstHeader(name)?.value
+            assertNotNull("${uri}: ${name}", value)
+            [(name): value]
+        }
+        assertEquals(uri, cacheControl, headers['Cache-Control'])
+        assertEquals(uri, 'Accept-Encoding', headers['Vary'])
+
+        Date modified = DateUtils.parseDate(headers['Last-Modified'])
+        Map<String, String> validators = ['If-None-Match': headers['ETag'],
+                                          'If-Modified-Since': DateUtils.formatDate(new Date(modified.time + 1000L))]
+        validators.each { String name, String value ->
+            HttpResponse notModified = Request.Get("http://localhost:${port}${uri}").setHeader(name, value).execute().returnResponse()
+            assertEquals("${uri} with ${name}", 304, notModified.statusLine.statusCode)
+            headers.each { String header, String expected ->
+                assertEquals("${uri} with ${name}: ${header}", expected, notModified.getFirstHeader(header)?.value)
+            }
+        }
     }
 
     private static final class FixtureResource implements AssetPipelineServletResource {

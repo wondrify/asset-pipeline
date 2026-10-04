@@ -154,7 +154,6 @@ class AssetPipelineServletIntegrationTest {
             tags.each { request.addHeader('If-None-Match', it) }
             HttpResponse unchanged = request.execute().returnResponse()
             assertEquals("If-None-Match: ${tags}", 304, unchanged.statusLine.statusCode)
-            assertEquals(null, unchanged.entity)
         }
     }
 
