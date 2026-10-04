@@ -133,6 +133,12 @@
       "defaultValue": null
     },
     {
+      "name": "grails.assets.maxCacheSize",
+      "type": "java.lang.Long",
+      "description": "Most assets the asset filter's lookup cache holds in a compiled application, and separately most urls that matched no asset. Zero caches none.",
+      "defaultValue": 10000
+    },
+    {
       "name": "grails.assets.digestAlgorithm",
       "type": "java.lang.String",
       "description": "Message digest algorithm used for asset digests.",
