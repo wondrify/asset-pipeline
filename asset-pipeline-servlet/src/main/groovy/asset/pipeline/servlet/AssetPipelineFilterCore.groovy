@@ -67,7 +67,7 @@ class AssetPipelineFilterCore {
 
 			if(response.status != 304) {
 				// Check for GZip
-				if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeader("Accept-Encoding"))) {
+				if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders("Accept-Encoding"))) {
 					final AssetPipelineServletResource gzipResource = assetPipelineServletResourceRepository.getGzippedResource(fileUri)
 					if(gzipResource) {
 						resource = gzipResource

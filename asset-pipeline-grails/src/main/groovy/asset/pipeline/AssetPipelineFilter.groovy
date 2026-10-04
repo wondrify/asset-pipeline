@@ -101,7 +101,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status != 304) {
 					// Check for GZip
-					if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeader('Accept-Encoding'))) {
+					if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 						if(gzipFile) {
 							file = gzipFile
 							response.setHeader('Content-Encoding', 'gzip')
@@ -174,7 +174,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					}
 
 					if(response.status != 304) {
-						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeader('Accept-Encoding')) && attributeCache.gzipExists()) {
+						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && attributeCache.gzipExists()) {
 							file = attributeCache.getGzipResource()
 							response.setHeader('Content-Encoding', 'gzip')
 							response.setHeader('Content-Length', attributeCache.getGzipFileSize().toString())
@@ -251,7 +251,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 					if(response.status != 304) {
 						// Check for GZip
-						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeader('Accept-Encoding'))) {
+						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 							if(gzipFile.exists()) {
 								file = gzipFile
 								response.setHeader('Content-Encoding', 'gzip')
