@@ -97,8 +97,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status != 304) {
 					// Check for GZip
-					final String acceptsEncoding = request.getHeader("Accept-Encoding")
-					if(acceptsEncoding?.tokenize(",")?.contains("gzip")) {
+					if(acceptsGzip(request)) {
 						if(gzipFile) {
 							file = gzipFile
 							response.setHeader('Content-Encoding', 'gzip')
@@ -171,8 +170,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					}
 
 					if(response.status != 304) {
-						final String acceptsEncoding = request.getHeader("Accept-Encoding")
-						if(acceptsEncoding?.tokenize(", ")?.contains("gzip") && attributeCache.gzipExists()) {
+						if(acceptsGzip(request) && attributeCache.gzipExists()) {
 							file = attributeCache.getGzipResource()
 							response.setHeader('Content-Encoding', 'gzip')
 							response.setHeader('Content-Length', attributeCache.getGzipFileSize().toString())
@@ -249,8 +247,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 					if(response.status != 304) {
 						// Check for GZip
-						final String acceptsEncoding = request.getHeader("Accept-Encoding")
-						if(acceptsEncoding?.tokenize(",")?.contains("gzip")) {
+						if(acceptsGzip(request)) {
 							if(gzipFile.exists()) {
 								file = gzipFile
 								response.setHeader('Content-Encoding', 'gzip')
@@ -323,5 +320,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		if(!response.committed) {
 			chain.doFilter(request, response)
 		}
+	}
+
+	// Split on the comma and on the whitespace that may follow it, "deflate, gzip", so " gzip" is not missed
+	private static boolean acceptsGzip(final HttpServletRequest request) {
+		request.getHeader('Accept-Encoding')?.tokenize(', ')?.contains('gzip') ?: false
 	}
 }

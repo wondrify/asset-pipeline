@@ -34,6 +34,7 @@ import spock.lang.TempDir
 class AssetPipelineFilterCacheSpec extends Specification {
 
     static final byte[] FAVICON = [0, 0, 1, 0, 1, 0] as byte[]
+    static final byte[] FAVICON_GZIPPED = [31, -117, 8, 0] as byte[]
     static final String DIGESTED = 'favicon-0123456789abcdef.ico'
 
     @TempDir
@@ -48,6 +49,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
         assets = new File(root, 'assets')
         assets.mkdirs()
         new File(assets, DIGESTED).bytes = FAVICON
+        new File(assets, "${DIGESTED}.gz").bytes = FAVICON_GZIPPED
         Properties manifest = new Properties()
         manifest.setProperty('favicon.ico', DIGESTED)
         AssetPipelineConfigHolder.manifest = manifest
@@ -148,6 +150,21 @@ class AssetPipelineFilterCacheSpec extends Specification {
         AssetPipelineFilter.fileCache.isEmpty()
     }
 
+    void 'gzip is served to "#acceptEncoding" whether or not the url is cached'() {
+        given:
+        AssetPipelineFilter filter = filter()
+
+        when: 'the first request finds the asset, and the second finds it in the cache'
+        MockHttpServletResponse miss = request(filter, '/assets/favicon.ico', acceptEncoding)
+        MockHttpServletResponse hit = request(filter, '/assets/favicon.ico', acceptEncoding)
+
+        then:
+        [miss, hit].every { it.getHeader('Content-Encoding') == 'gzip' && it.contentAsByteArray == FAVICON_GZIPPED }
+
+        where:
+        acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip']
+    }
+
     void 'the cache is still a Map of url to what the filter found'() {
         given:
         ProductionAssetCache cache = new ProductionAssetCache(10)
@@ -188,9 +205,13 @@ class AssetPipelineFilterCacheSpec extends Specification {
         new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
     }
 
-    private static MockHttpServletResponse request(AssetPipelineFilter filter, String uri) {
+    private static MockHttpServletResponse request(AssetPipelineFilter filter, String uri, String acceptEncoding = null) {
+        MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', uri)
+        if (acceptEncoding) {
+            request.addHeader('Accept-Encoding', acceptEncoding)
+        }
         MockHttpServletResponse response = new MockHttpServletResponse()
-        filter.doFilter(new MockHttpServletRequest(filter.servletContext, 'GET', uri), response, new MockFilterChain())
+        filter.doFilter(request, response, new MockFilterChain())
         response
     }
 }
