@@ -38,6 +38,7 @@ class AssetPipelineServletManifestTest {
 
         AssetPipelineFilter filter = new AssetPipelineFilter()
         filter.mapping = 'assets'
+        filter.rootPaths = ['test.css']
         filter.assetPipelineServletResourceRepository = new AssetPipelineServletResourceRepository() {
             @Override
             AssetPipelineServletResource getResource(String path) {

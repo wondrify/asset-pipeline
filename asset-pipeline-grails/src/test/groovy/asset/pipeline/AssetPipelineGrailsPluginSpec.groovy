@@ -130,11 +130,21 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         expect: 'only those urls at the root pass through the filter, beside everything under the mapping'
         urlPatterns(rootPaths: rootPaths) == ['/assets/*', '/favicon.ico', '/robots.txt', '/.well-known/security.txt']
 
-        where: 'a list from application.yml or application.groovy, or a string from an environment variable'
+        where: 'a list from application.yml or application.groovy, or a string from a system property'
         rootPaths << [
                 ['favicon.ico', '/robots.txt', '.well-known/security.txt'],
                 'favicon.ico,robots.txt,.well-known/security.txt'
         ]
+    }
+
+    void 'the root paths reach the filter, which answers no other url outside the mapping'() {
+        when:
+        BeanDefinition filter = registrarDefinitions(rootPaths: 'favicon.ico, robots.txt,')
+                .getBeanDefinition('assetPipelineFilter')
+                .propertyValues.getPropertyValue('filter').value as BeanDefinition
+
+        then: 'as read and checked, whatever url patterns the filter is registered for'
+        filter.propertyValues.getPropertyValue('rootPaths').value == ['favicon.ico', 'robots.txt']
     }
 
     void 'root paths sit beside a configured mapping'() {
@@ -147,13 +157,16 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         urlPatterns(mapping: '', rootPaths: ['favicon.ico']) == ['/*']
     }
 
-    void 'a root path that names no single asset fails at startup rather than registering a pattern the container rejects'() {
+    void 'root path #entry, which names no single asset outside the mapping, fails at startup rather than registering a pattern'() {
         when:
-        registrarDefinitions(rootPaths: ['*.ico'])
+        registrarDefinitions(rootPaths: [entry])
 
         then:
         IllegalArgumentException e = thrown()
-        e.message.contains("'*.ico'")
+        e.message.contains("'${entry}'")
+
+        where: 'a pattern, or an asset already served under the mapping'
+        entry << ['*.ico', 'assets/app.js']
     }
 
     void 'what beanRegistrar() contributes survives Spring ahead-of-time processing'() {

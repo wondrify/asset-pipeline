@@ -75,7 +75,7 @@ grails:
       - .well-known/security.txt
 ----
 
-Each entry names one asset the way a tag does, so `favicon.ico` is `grails-app/assets/images/favicon.ico`, and `/favicon.ico` is served in development and, through the manifest, from a compiled application. The filter is registered for the exact url of each entry and for nothing else outside the mapping, so other requests never pass through it. Wildcards are not supported, and an entry that does not name a single asset fails at startup.
+Each entry names one asset the way a tag does, so `favicon.ico` is `grails-app/assets/images/favicon.ico`, and `/favicon.ico` is served in development and, through the manifest, from a compiled application. The filter is registered for the exact url of each entry and answers no other url outside the mapping, so other requests never reach it. Wildcards are not supported, and an entry that does not name a single asset, or that is already under the mapping, fails at startup.
 
 A root url is served without a digest in its name, so it is sent with `Cache-Control: no-cache` and an ETag rather than cached for a year. If an entry has no asset, the request is passed on to the application rather than answered with a 404, so a controller or url mapping can still answer it. The tags are unaffected: `<asset:link rel="icon" href="favicon.ico"/>` still renders the digested url under the mapping.
 

@@ -1,5 +1,6 @@
 package asset.pipeline.servlet
 
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipeline
 import jakarta.servlet.*
 import jakarta.servlet.http.HttpServletRequest
@@ -13,6 +14,8 @@ class AssetPipelineDevFilterCore {
 
 
 	String mapping = "mapping"
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
 	ServletContext servletContext
 
 
@@ -25,15 +28,17 @@ class AssetPipelineDevFilterCore {
 	}
 
 	private void doFilterHttp(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) {
-		String fileUri = request.requestURI
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping/" : "${request.contextPath}/${mapping}/"
-		if(fileUri.startsWith(baseAssetUrl)) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
-		} else if(fileUri.startsWith(request.contextPath + '/')) {
-			// Outside the mapping, as Spring Boot's assets.rootPaths are, a url names the asset from the root of the context
-			fileUri = fileUri.substring(request.contextPath.length() + 1)
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
+		String fileUri = AssetPaths.assetPath(path, mapping, rootPaths)
+		if(fileUri == null) {
+			// Neither under the mapping nor one of the root paths
+			filterChain.doFilter(request, response)
+			return
 		}
-		final String format = servletContext.getMimeType(request.requestURI)
+		if(fileUri.startsWith('/')) {
+			fileUri = fileUri.substring(1)
+		}
+		final String format = servletContext.getMimeType(path)
 
 		final byte[] fileContents
 		if(request.getParameter('compile') == 'false') {
@@ -42,7 +47,8 @@ class AssetPipelineDevFilterCore {
 			fileContents = AssetPipeline.serveAsset(fileUri, format, null, request.characterEncoding)
 		}
 
-		if(fileContents) {
+		// An empty file, such as a robots.txt that allows everything, is served as well
+		if(fileContents != null) {
 			response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate"); // HTTP 1.1.
 			response.setHeader("Pragma", "no-cache"); // HTTP 1.0.
 			response.setDateHeader("Expires", 0); // Proxies.

@@ -129,37 +129,4 @@ class AssetHelperSpec extends Specification {
         '../fonts/test.eot'       | 'test.eot'
     }
 
-    void "rootPaths reads #configured as #paths"() {
-        expect:
-        AssetHelper.rootPaths(configured) == paths
-        where:
-        configured                                          | paths
-        null                                                | []
-        []                                                  | []
-        ''                                                  | []
-        ['favicon.ico', 'robots.txt']                       | ['favicon.ico', 'robots.txt']
-        ['/favicon.ico', ' robots.txt ']                    | ['favicon.ico', 'robots.txt']
-        ['.well-known/security.txt']                        | ['.well-known/security.txt']
-        'favicon.ico, apple-touch-icon.png'                 | ['favicon.ico', 'apple-touch-icon.png']
-        ['favicon.ico', '/favicon.ico']                     | ['favicon.ico']
-        new LinkedHashSet(['robots.txt', 'favicon.ico'])    | ['robots.txt', 'favicon.ico']
-    }
-
-    void "rootPaths rejects '#entry', which does not name one asset"() {
-        when:
-        AssetHelper.rootPaths([entry])
-        then:
-        IllegalArgumentException e = thrown()
-        e.message.contains("'${entry}'")
-        where:
-        entry << ['', '/', 'images/', '*.ico', 'images/*', 'webjars/bootstrap/%/favicon.ico', 'a//b.txt', './favicon.ico', '../favicon.ico', 'images/../favicon.ico', 'images\\favicon.ico', 'favicon.ico?v=1', 'favicon.ico#x']
-    }
-
-    void "rootPaths rejects a setting that is not a list"() {
-        when:
-        AssetHelper.rootPaths([favicon: 'favicon.ico'])
-        then:
-        thrown(IllegalArgumentException)
-    }
-
 }

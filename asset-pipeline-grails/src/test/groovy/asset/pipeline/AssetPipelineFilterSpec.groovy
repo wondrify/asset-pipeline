@@ -35,6 +35,7 @@ class AssetPipelineFilterSpec extends Specification {
 
     static final byte[] FAVICON = [0, 0, 1, 0, 1, 0] as byte[]
     static final byte[] LOGO = [(byte) 0x89, 0x50, 0x4E, 0x47] as byte[]
+    static final List<String> ROOT_PATHS = ['favicon.ico', 'assets-logo.png', 'robots.txt']
 
     @TempDir
     File root
@@ -42,9 +43,13 @@ class AssetPipelineFilterSpec extends Specification {
     GenericWebApplicationContext applicationContext
     AssetPipelineFilter filter
     Collection<AssetResolver> originalResolvers
+    Map originalConfig
+    Properties originalManifest
 
     void setup() {
         originalResolvers = AssetPipelineConfigHolder.resolvers
+        originalConfig = AssetPipelineConfigHolder.config
+        originalManifest = AssetPipelineConfigHolder.manifest
         AssetPipelineConfigHolder.config = [:]
         AssetPipelineConfigHolder.manifest = null
     }
@@ -52,8 +57,8 @@ class AssetPipelineFilterSpec extends Specification {
     void cleanup() {
         applicationContext?.close()
         AssetPipelineConfigHolder.resolvers = originalResolvers
-        AssetPipelineConfigHolder.config = [:]
-        AssetPipelineConfigHolder.manifest = null
+        AssetPipelineConfigHolder.config = originalConfig
+        AssetPipelineConfigHolder.manifest = originalManifest
         filter?.fileCache?.clear()
     }
 
@@ -123,6 +128,36 @@ class AssetPipelineFilterSpec extends Specification {
         contextPath << ['', '/my%20app']
     }
 
+    void 'a url outside the mapping that is not a root path is left to the application, though an asset has its name'() {
+        given: 'a filter registered more widely than the mapping and its root paths, as an application may register it'
+        development(['robots.txt'])
+
+        when:
+        Exchange exchange = request('', '/favicon.ico')
+
+        then:
+        exchange.passedOn
+        !exchange.response.committed
+        exchange.response.contentAsByteArray.length == 0
+    }
+
+    void 'path parameters, which the container leaves out when it maps a request, do not change the asset #uri names'() {
+        given:
+        development()
+
+        when:
+        Exchange exchange = request(contextPath, uri)
+
+        then:
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == FAVICON
+
+        where:
+        contextPath | uri
+        ''          | '/favicon.ico;jsessionid=0123'
+        '/app'      | '/app/assets/favicon.ico;v=1'
+    }
+
     void 'a missing asset under the mapping is still a 404'() {
         given:
         development()
@@ -181,14 +216,26 @@ class AssetPipelineFilterSpec extends Specification {
         !exchange.response.committed
     }
 
+    void 'from a compiled war, a missing root path is remembered once, whatever path parameters each request adds'() {
+        given:
+        compiled()
+
+        when:
+        List<Exchange> exchanges = (1..3).collect { int n -> request('', "/robots.txt;x=${n}") }
+
+        then:
+        exchanges.every { it.passedOn }
+        filter.fileCache.keySet() == ['robots.txt'] as Set
+    }
+
     /** Assets compiled on request, as in development: images/ flattened, as grails-app/assets is. */
-    private void development() {
+    private void development(List<String> rootPaths = ROOT_PATHS) {
         File images = new File(root, 'images')
         images.mkdirs()
         new File(images, 'favicon.ico').bytes = FAVICON
         new File(images, 'assets-logo.png').bytes = LOGO
         AssetPipelineConfigHolder.resolvers = [new FileSystemAssetResolver('application', root.absolutePath)]
-        start()
+        start(rootPaths)
     }
 
     /** Assets compiled ahead of time, as in a war: digested files beside a manifest. */
@@ -200,15 +247,15 @@ class AssetPipelineFilterSpec extends Specification {
         Properties manifest = new Properties()
         manifest.setProperty('favicon.ico', 'favicon-0123456789abcdef.ico')
         AssetPipelineConfigHolder.manifest = manifest
-        start()
+        start(ROOT_PATHS)
     }
 
-    private void start() {
+    private void start(List<String> rootPaths) {
         MockServletContext servletContext = new MockServletContext("file:${root.absolutePath}")
         applicationContext = new GenericWebApplicationContext(servletContext)
         applicationContext.registerBean('assetProcessorService', AssetProcessorService)
         applicationContext.refresh()
-        filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
+        filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext, rootPaths: rootPaths)
         // Through the filter, whether the cache is shared by every filter or its own
         filter.fileCache.clear()
     }

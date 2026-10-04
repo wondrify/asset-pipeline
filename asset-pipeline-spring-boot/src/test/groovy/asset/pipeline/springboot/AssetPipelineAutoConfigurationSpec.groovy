@@ -15,6 +15,8 @@
  */
 package asset.pipeline.springboot
 
+import asset.pipeline.AssetPipelineConfigHolder
+import asset.pipeline.fs.AssetResolver
 import org.springframework.boot.autoconfigure.AutoConfigurations
 import org.springframework.boot.web.servlet.FilterRegistrationBean
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner
@@ -62,26 +64,38 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
         contextRunner().withPropertyValues(properties as String[]).run { context ->
             FilterRegistrationBean registration = context.getBean(FilterRegistrationBean)
             assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/robots.txt']
+            // and the filter answers those urls outside /assets and no others
+            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths == ['favicon.ico', 'robots.txt']
         }
 
-        where: 'a list in application.yml, or a comma separated value in a properties file or the environment'
+        where: 'a list in application.yml, or a comma separated value in a properties file, stray commas included'
         properties << [
                 ['assets.rootPaths[0]=favicon.ico', 'assets.rootPaths[1]=/robots.txt'],
-                ['assets.root-paths=favicon.ico,robots.txt']
+                ['assets.root-paths=favicon.ico,robots.txt'],
+                ['assets.root-paths=favicon.ico,robots.txt,']
         ]
     }
 
-    void 'a root path that names no single asset stops the application from starting'() {
+    void 'root path #entry, which names no single asset outside /assets, stops the application from starting'() {
+        given:
+        Collection<AssetResolver> resolvers = new ArrayList<>(AssetPipelineConfigHolder.resolvers)
+
         expect:
-        contextRunner().withPropertyValues('assets.rootPaths=images/*').run { context ->
+        contextRunner().withPropertyValues("assets.rootPaths=${entry}").run { context ->
             assert context.startupFailure
             Throwable cause = context.startupFailure
             while (cause.cause) {
                 cause = cause.cause
             }
             assert cause instanceof IllegalArgumentException
-            assert cause.message.contains("'images/*'")
+            assert cause.message.contains("'${entry}'")
         }
+
+        and: 'before anything is registered for later contexts in the same JVM to find'
+        AssetPipelineConfigHolder.resolvers.toList() == resolvers.toList()
+
+        where:
+        entry << ['images/*', 'assets/app.js']
     }
 
     void 'an application that does not want the filter says so'() {

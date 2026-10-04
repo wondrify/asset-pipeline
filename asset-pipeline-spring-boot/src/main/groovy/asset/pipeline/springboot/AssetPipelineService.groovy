@@ -1,6 +1,6 @@
 package asset.pipeline.springboot
 
-import asset.pipeline.AssetHelper
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.fs.ClasspathAssetResolver
 import asset.pipeline.fs.FileSystemAssetResolver
@@ -24,6 +24,8 @@ import org.springframework.context.ApplicationContext
 @ConditionalOnProperty(name = AssetPipelineAutoConfiguration.ENABLED, matchIfMissing = true)
 class AssetPipelineService {
 
+	private static final String MAPPING = 'assets'
+
 	// The context itself, rather than the one the servlet context holds: it is the same context,
 	// and it is there before a servlet container is. Asked for as an ApplicationContext rather than
 	// as the ResourceLoader it also is, because a field of that name would be satisfied by an
@@ -34,6 +36,10 @@ class AssetPipelineService {
 
 	@Bean
 	public FilterRegistrationBean assetPipelineFilterBean() {
+		// Read first, so that a rejected entry stops the application before anything is registered with AssetPipelineConfigHolder
+		List<String> rootPaths = AssetPaths.rootPaths(Binder.get(applicationContext.environment)
+				.bind('assets.root-paths', Bindable.listOf(String)).orElse([]), MAPPING)
+
 		def manifestProps = new Properties()
 
 		def manifestFile = applicationContext.getResource("classpath:assets/manifest.properties")
@@ -50,6 +56,7 @@ class AssetPipelineService {
             AssetPipelineConfigHolder.registerResolver(new ClasspathAssetResolver('classpath','META-INF/static'))
             AssetPipelineConfigHolder.registerResolver(new ClasspathAssetResolver('classpath','META-INF/resources'))
 			AssetPipelineDevFilter filter = new AssetPipelineDevFilter();
+			filter.rootPaths = rootPaths
 			registrationBean.setFilter(filter);
 		}
 		else {
@@ -60,12 +67,11 @@ class AssetPipelineService {
 					log.warn "Failed to load Manifest",e
 				}
 				AssetPipelineFilter filter = new AssetPipelineFilter();
+				filter.rootPaths = rootPaths
 				registrationBean.setFilter(filter);
 		}
 		// An exact pattern for each of assets.rootPaths, the files a client asks for by name at the root
-		List<String> rootPaths = AssetHelper.rootPaths(Binder.get(applicationContext.environment)
-				.bind('assets.root-paths', Bindable.listOf(String)).orElse([]))
-		registrationBean.urlPatterns = ["/assets/*".toString()] + rootPaths.collect { "/${it}".toString() }
+		registrationBean.urlPatterns = AssetPaths.urlPatterns(MAPPING, rootPaths)
 		registrationBean.setOrder(0);
 		return registrationBean;
 	}

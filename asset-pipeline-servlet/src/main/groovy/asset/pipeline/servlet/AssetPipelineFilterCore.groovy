@@ -1,6 +1,7 @@
 package asset.pipeline.servlet
 
 import asset.pipeline.AssetHelper
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipelineConfigHolder
 import asset.pipeline.AssetPipelineResponseBuilder
 import jakarta.servlet.*
@@ -16,6 +17,8 @@ class AssetPipelineFilterCore {
 
 
 	String mapping = "mapping"
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
 	AssetPipelineServletResourceRepository assetPipelineServletResourceRepository
 	ServletContext servletContext
 
@@ -33,14 +36,12 @@ class AssetPipelineFilterCore {
 			throw new IllegalStateException("Property 'assetPipelineServletResourceRepository' is null")
 		}
 
-		String fileUri = request.requestURI
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping" : "${request.contextPath}/${mapping}"
-		// A whole segment, so that a root path such as /assets.txt is not read as under /assets
-		if(fileUri == baseAssetUrl || fileUri.startsWith(baseAssetUrl.endsWith('/') ? baseAssetUrl : baseAssetUrl + '/')) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
-		} else if(fileUri.startsWith(request.contextPath)) {
-			// Outside the mapping, as Spring Boot's assets.rootPaths are, a url names the asset from the root of the context
-			fileUri = fileUri.substring(request.contextPath.length())
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
+		String fileUri = AssetPaths.assetPath(path, mapping, rootPaths)
+		if(fileUri == null) {
+			// Neither under the mapping nor one of the root paths
+			filterChain.doFilter(request, response)
+			return
 		}
 		fileUri = AssetHelper.normalizePath(fileUri) //JETTY Security bug, we MUST prevent reverse
 		final Properties manifest = AssetPipelineConfigHolder.manifest
@@ -81,7 +82,7 @@ class AssetPipelineFilterCore {
 						response.setHeader('Content-Encoding', 'gzip')
 					}
 				}
-				final String format = servletContext.getMimeType(request.requestURI)
+				final String format = servletContext.getMimeType(path)
 				final String encoding = request.getCharacterEncoding()
 				if(encoding) {
 					response.setCharacterEncoding(encoding)

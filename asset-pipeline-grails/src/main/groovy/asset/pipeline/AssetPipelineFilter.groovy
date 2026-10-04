@@ -26,6 +26,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 	ApplicationContext applicationContext
 	ServletContext     servletContext
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
 
 
 	@Override
@@ -53,26 +55,23 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
-		String fileUri = new URI(request.requestURI).path
-		// Decoded as the uri is, so that the two compare under a context path with an encoded character
-		final String contextPath = new URI(request.contextPath).path
-
-		final String baseAssetUrl = contextPath == "/" ? "/$mapping" : "${contextPath}/${mapping}"
-
-		final String format       = servletContext.getMimeType(fileUri)
-		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
-
-		// A whole segment, so that a root path such as /assets.txt is not read as under /assets
-		if(fileUri == baseAssetUrl || fileUri.startsWith(baseAssetUrl.endsWith('/') ? baseAssetUrl : baseAssetUrl + '/')) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
-		} else {
-			// One of the rootPaths, the filter's only other urls, which name an asset from the root of the context.
-			// The application may answer such a url itself, so a missing asset passes the request on rather than ending it.
-			if(fileUri.startsWith(contextPath)) {
-				fileUri = fileUri.substring(contextPath.length())
+		// The context path is taken off before decoding, while the two compare as the container gives them
+		final String path = new URI(AssetPaths.pathWithinContext(request.requestURI, request.contextPath)).path
+		String fileUri = AssetPaths.pathUnderMapping(path, mapping)
+		if(fileUri == null) {
+			if(!AssetPaths.isRootPath(path, rootPaths)) {
+				// Registered for more than the mapping and the root paths, the filter leaves every other url to the application
+				chain.doFilter(request, response)
+				return
 			}
+			// One of the rootPaths, which name an asset from the root of the context. The application may answer
+			// such a url itself, so a missing asset passes the request on rather than ending it.
+			fileUri = path
 			skipNotFound = true
 		}
+
+		final String format       = servletContext.getMimeType(path)
+		final String encoding     = request.getParameter('encoding') ?: request.getCharacterEncoding()
 
 		String classRegistryKey = AssetPipelineConfigHolder.classLoaderKeyForUri(fileUri)
 

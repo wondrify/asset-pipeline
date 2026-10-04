@@ -45,6 +45,8 @@ assets:
     - robots.txt
 ----
 
+An entry that does not name a single asset, or that is already under `/assets`, stops the application from starting.
+
 ==== Development Runtime
 
 A great feature built into asset-pipeline is its development runtime support. All assets that are used in your application are automatically generated and processed on the fly when requested. This means when a change is made in a css file or javascript file, the results are instant. A refresh of the page will reflect the changes without needing to wait for any type of `FileWatcher`. These results are also cached making it highly performant as your project grows.

@@ -22,11 +22,13 @@ import static org.junit.Assert.assertEquals
 
 /**
  * The filters registered the way Spring Boot registers them, for the mapping and for the exact url of each of
- * assets.rootPaths, in applications that are not at the root of their server.
+ * assets.rootPaths, in applications that are not at the root of their server. One more url, /test.js, is registered
+ * without being a root path, as an application that registers the filters itself may do.
  */
 class AssetPipelineServletContextPathTest {
     private static final String CSS = """body { font-family: "Comic Sans", sans-serif; }"""
-    private static final List<String> URL_PATTERNS = ['/assets/*', '/test.css', '/assets-test.css']
+    private static final List<String> ROOT_PATHS = ['test.css', 'assets-test.css', 'empty.txt']
+    private static final List<String> URL_PATTERNS = ['/assets/*', '/test.js'] + ROOT_PATHS.collect { "/${it}".toString() }
 
     private static Server server
     private static int port
@@ -39,10 +41,11 @@ class AssetPipelineServletContextPathTest {
 
         AssetPipelineFilter prodFilter = new AssetPipelineFilter()
         prodFilter.mapping = "assets"
+        prodFilter.rootPaths = ROOT_PATHS
         prodFilter.assetPipelineServletResourceRepository = new AssetPipelineServletResourceRepository() {
             @Override
             AssetPipelineServletResource getResource(String path) {
-                return path in ['/test.css', '/assets-test.css'] ? new FixtureResource("fixtures/test.css") : null
+                return path in ['/test.css', '/assets-test.css', '/test.js'] ? new FixtureResource("fixtures/test.css") : null
             }
 
             @Override
@@ -52,6 +55,7 @@ class AssetPipelineServletContextPathTest {
         }
         AssetPipelineDevFilter devFilter = new AssetPipelineDevFilter()
         devFilter.mapping = "assets"
+        devFilter.rootPaths = ROOT_PATHS
 
         server = new Server(0)
         server.setHandler(new ContextHandlerCollection(context("/app", prodFilter), context("/dev", devFilter)))
@@ -97,10 +101,36 @@ class AssetPipelineServletContextPathTest {
         assertServed("/app/assets-test.css")
     }
 
+    @Test
+    void testUrlOutsideTheMappingThatIsNotARootPathIsLeftToTheApplication() {
+        // Both filters would find an asset for /test.js, and neither looks
+        assertStatus("/app/test.js", 404)
+        assertStatus("/dev/test.js", 404)
+    }
+
+    @Test
+    void testPathParametersDoNotChangeTheAsset() {
+        assertServed("/app/test.css;v=1")
+        assertServed("/dev/assets/test.css;jsessionid=0123")
+    }
+
+    @Test
+    void testEmptyRootPathIsServedInDevelopment() {
+        HttpResponse res = Request.Get("http://localhost:${port}/dev/empty.txt").execute().returnResponse()
+        assertEquals(200, res.statusLine.statusCode)
+        assertEquals('no-cache, no-store, must-revalidate', res.getFirstHeader('Cache-Control')?.value)
+        assertEquals('', EntityUtils.toString(res.getEntity()))
+    }
+
     private static void assertServed(String uri) {
         HttpResponse res = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
         assertEquals(uri, 200, res.statusLine.statusCode)
         assertEquals(uri, CSS, EntityUtils.toString(res.getEntity()).trim())
+    }
+
+    private static void assertStatus(String uri, int status) {
+        HttpResponse res = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
+        assertEquals(uri, status, res.statusLine.statusCode)
     }
 
     private static final class FixtureResource implements AssetPipelineServletResource {
