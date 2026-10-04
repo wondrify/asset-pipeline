@@ -34,6 +34,43 @@ public class AssetPipelineResponseBuilder {
         }
     }
 
+	/**
+	 * Whether a request's Accept-Encoding allows a gzipped response. Codings are separated by commas
+	 * and optional whitespace and matched without regard to case, and each may carry a weight, one of
+	 * zero refusing it: "gzip;q=0". x-gzip is gzip, and * stands for any coding not listed.
+	 */
+	public static boolean acceptsGzip(String acceptEncoding) {
+		if(!acceptEncoding) {
+			return false
+		}
+		boolean anyAccepted = false
+		for(String element : acceptEncoding.split(',')) {
+			String[] parameters = element.split(';')
+			String coding = parameters[0].trim()
+			if(coding.equalsIgnoreCase('gzip') || coding.equalsIgnoreCase('x-gzip')) {
+				return weightOf(parameters) > 0
+			}
+			if(coding == '*') {
+				anyAccepted = weightOf(parameters) > 0
+			}
+		}
+		return anyAccepted
+	}
+
+	private static double weightOf(String[] parameters) {
+		for(int i = 1; i < parameters.length; i++) {
+			String parameter = parameters[i].trim()
+			if(parameter.length() >= 2 && parameter.substring(0, 2).equalsIgnoreCase('q=')) {
+				try {
+					return Double.parseDouble(parameter.substring(2).trim())
+				} catch(NumberFormatException ignored) {
+					return 0 // Refused, so a weight that can't be read gets the response as it is
+				}
+			}
+		}
+		return 1
+	}
+
     public Map<String, String> getHeaders() {
         return headers;
     }

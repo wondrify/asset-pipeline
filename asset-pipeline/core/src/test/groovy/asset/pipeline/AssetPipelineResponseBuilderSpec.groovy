@@ -67,4 +67,24 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         filename << ['global.js', '/global.js']
     }
 
+    @Unroll
+    def "Accept-Encoding #acceptEncoding accepts gzip"() {
+        expect:
+        AssetPipelineResponseBuilder.acceptsGzip(acceptEncoding)
+
+        where:
+        acceptEncoding << ['gzip', 'GZIP', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'deflate,\tgzip',
+                           'gzip;q=1.0, identity;q=0.5', 'br, gzip ; q=0.5', 'x-gzip', '*', 'br, *;q=0.1']
+    }
+
+    @Unroll
+    def "Accept-Encoding #acceptEncoding does not accept gzip"() {
+        expect:
+        !AssetPipelineResponseBuilder.acceptsGzip(acceptEncoding)
+
+        where:
+        acceptEncoding << [null, '', 'identity', 'br, deflate', 'gzipped', 'gzip;q=0', 'gzip;q=0.000', 'GZIP; Q=0',
+                           '*;q=0', 'gzip;q=0, *', 'gzip;q=none']
+    }
+
 }

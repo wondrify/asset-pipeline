@@ -162,7 +162,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
         [miss, hit].every { it.getHeader('Content-Encoding') == 'gzip' && it.contentAsByteArray == FAVICON_GZIPPED }
 
         where:
-        acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip']
+        acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'GZIP', 'gzip;q=1.0, identity;q=0.5']
     }
 
     void 'the cache is still a Map of url to what the filter found'() {
