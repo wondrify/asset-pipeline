@@ -235,6 +235,36 @@ class AssetPipelineFilterCacheSpec extends Specification {
         '/favicon.ico'        | 'If-Modified-Since' | 'no-cache'
     }
 
+    void 'conditional requests with If-None-Match #etags work before and after caching the asset'() {
+        given:
+        AssetPipelineFilter filter = filter()
+        assert new File(assets, DIGESTED).setLastModified(1700000000000L)
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', '/assets/favicon.ico')
+            etags.each { request.addHeader('If-None-Match', it) }
+            request.addHeader('If-Modified-Since', 'Tue, 14 Nov 2023 22:13:20 GMT')
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+
+        then:
+        responses.every { it.status == status }
+        responses.every { it.contentAsByteArray == (status == 200 ? FAVICON : new byte[0]) }
+
+        where: 'an absent field allows date validation; an empty field still takes precedence'
+        etags                             | status
+        []                                | 304
+        ['']                              | 200
+        ['"old.ico"']                     | 200
+        ["W/\"${DIGESTED}\""]            | 304
+        ["\"old.ico\", \"${DIGESTED}\""] | 304
+        ['"old.ico"', "W/\"${DIGESTED}\""] | 304
+        ['*']                             | 304
+    }
+
     void 'each filter has a cache of its own, and getFileCache() answers with the last one created'() {
         given: 'a filter that has cached an asset'
         AssetPipelineFilter first = filter(maxCacheSize: 100)

@@ -66,7 +66,7 @@ class AssetPipelineFilterCore {
 			// the builder would take for a url that can be cached for a year
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 				manifestPath,
-				request.getHeader('If-None-Match'),
+				AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 				request.getHeader('If-Modified-Since'),
 				lastModifiedDate
 			)
