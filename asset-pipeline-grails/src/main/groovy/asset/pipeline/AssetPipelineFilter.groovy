@@ -21,10 +21,9 @@ import org.springframework.web.filter.OncePerRequestFilter
 @CompileStatic
 class AssetPipelineFilter extends OncePerRequestFilter {
 
+	// Sized by the plugin when it reads grails.assets
+	static final ProductionAssetCache fileCache = new ProductionAssetCache()
 	static final indexFile = 'index.html'
-
-	// Sized when the filter is created, by which time the plugin has read grails.assets into the holder
-	final ProductionAssetCache fileCache = ProductionAssetCache.fromConfig(AssetPipelineConfigHolder.config)
 
 	ApplicationContext applicationContext
 	ServletContext     servletContext

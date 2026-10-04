@@ -18,6 +18,7 @@ package asset.pipeline
 import asset.pipeline.fs.ClasspathAssetResolver
 import asset.pipeline.fs.FileSystemAssetResolver
 import asset.pipeline.grails.AssetResourceLocator
+import asset.pipeline.grails.ProductionAssetCache
 import grails.plugins.Plugin
 import grails.util.BuildSettings
 import groovy.util.logging.Slf4j
@@ -104,6 +105,10 @@ class AssetPipelineGrailsPlugin extends Plugin {
             } else {
                 AssetPipelineConfigHolder.config = assetsConfig
             }
+
+            // Beside the holder the filter reads its other settings from, rather than as a property of
+            // the filter's bean definition, which ahead-of-time processing would fix at the build's value
+            AssetPipelineFilter.fileCache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
 
             if (BuildSettings.TARGET_DIR?.exists()) {
                 AssetPipelineConfigHolder.config.cacheLocation = new File(BuildSettings.TARGET_DIR, CacheManager.CACHE_LOCATION).canonicalPath

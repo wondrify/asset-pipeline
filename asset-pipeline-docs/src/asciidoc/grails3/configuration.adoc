@@ -16,7 +16,7 @@ grails:
 
 ==== Lookup Cache
 
-In a compiled application the asset filter caches what it finds for each url it is asked for, so it does not look the same url up again. The cache holds at most `maxCacheSize` entries, 10000 unless configured, and keeps the urls asked for most often.
+In a compiled application the asset filter caches what it finds for each url it is asked for, so it does not look the same url up again. The cache holds at most `maxCacheSize` assets, 10000 unless configured, and keeps those asked for most often. It holds as many urls that matched no asset apart from them, so requests for urls that don't exist never push out an asset the application serves.
 
 [source,yml]
 ----
@@ -26,6 +26,8 @@ grails:
 ----
 
 An application that serves more distinct assets than that can raise it; an evicted url is only looked up again. `0` turns the cache off. Development, where assets are compiled as they are asked for, does not use it.
+
+The setting can also be given as a system property, `-Dgrails.assets.maxCacheSize=50000`. Grails does not map an environment variable such as `GRAILS_ASSETS_MAXCACHESIZE` onto `grails.assets`, so to take it from one, use a placeholder: `maxCacheSize: ${ASSET_CACHE_SIZE:10000}`.
 
 ==== Mappings and Asset Taglib URLs
 
