@@ -21,9 +21,11 @@ import asset.pipeline.grails.AssetProcessorService
 import asset.pipeline.grails.ProductionAssetCache
 import org.springframework.beans.factory.support.RootBeanDefinition
 import org.springframework.mock.web.MockFilterChain
+import org.springframework.mock.web.MockFilterConfig
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
 import org.springframework.mock.web.MockServletContext
+import org.springframework.web.context.WebApplicationContext
 import org.springframework.web.context.support.GenericWebApplicationContext
 import spock.lang.Specification
 import spock.lang.TempDir
@@ -124,13 +126,13 @@ class AssetPipelineFilterCacheSpec extends Specification {
 
     void 'the cache is bounded when nothing is configured'() {
         expect:
-        filter().cache.maximumSize == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
+        filter().cache.getMaximumSize() == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
         ProductionAssetCache.maximumSizeOf(null) == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
     }
 
     void 'grails.assets.maxCacheSize sets the bound, from #configured'() {
         expect:
-        filter(maxCacheSize: configured).cache.maximumSize == 250
+        filter(maxCacheSize: configured).cache.getMaximumSize() == 250
 
         where: 'a number from application.yml, or a string from a system property or a placeholder'
         configured << [250, 250L, 250.0d, '250', ' 250 ']
@@ -159,7 +161,7 @@ class AssetPipelineFilterCacheSpec extends Specification {
 
     void 'the largest bound allowed is the one Caffeine keeps'() {
         expect:
-        new ProductionAssetCache(ProductionAssetCache.LARGEST_MAXIMUM_SIZE).maximumSize == ProductionAssetCache.LARGEST_MAXIMUM_SIZE
+        new ProductionAssetCache(ProductionAssetCache.LARGEST_MAXIMUM_SIZE).getMaximumSize() == ProductionAssetCache.LARGEST_MAXIMUM_SIZE
     }
 
     void 'a bound of zero caches nothing and still serves every asset'() {
@@ -204,8 +206,8 @@ class AssetPipelineFilterCacheSpec extends Specification {
         then: 'it starts empty, and sizing it leaves the first alone'
         second.cache.isEmpty()
         first.cache.get(DIGESTED)
-        first.cache.maximumSize == 100
-        second.cache.maximumSize == 50
+        first.cache.getMaximumSize() == 100
+        second.cache.getMaximumSize() == 50
 
         and:
         AssetPipelineFilter.fileCache.is(second.cache)
@@ -233,15 +235,15 @@ class AssetPipelineFilterCacheSpec extends Specification {
         cache['b.js'].is(other)
 
         when: 'it is bounded anew, first above what it holds, then below'
-        cache.maximumSize = 5
+        cache.setMaximumSize(5)
         int afterGrowing = cache.size()
-        cache.maximumSize = 1
+        cache.setMaximumSize(1)
         int afterShrinking = cache.size()
 
         then: 'it keeps what it holds, until the bound leaves no room for it'
         afterGrowing == 2
         afterShrinking == 1
-        cache.maximumSize == 1
+        cache.getMaximumSize() == 1
 
         when:
         cache.clear()
@@ -258,8 +260,11 @@ class AssetPipelineFilterCacheSpec extends Specification {
         applicationContexts << applicationContext
         applicationContext.registerBeanDefinition('assetProcessorService', new RootBeanDefinition(AssetProcessorService))
         applicationContext.refresh()
-        AssetPipelineFilter filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
-        filter.afterPropertiesSet() // as Spring does, which sizes the cache
+        servletContext.setAttribute(WebApplicationContext.ROOT_WEB_APPLICATION_CONTEXT_ATTRIBUTE, applicationContext)
+        AssetPipelineFilter filter = new AssetPipelineFilter()
+        // As the servlet container does on this line, where the plugin registers a filter instance rather than a
+        // bean Spring initialises; init(FilterConfig) runs initFilterBean(), which sizes the cache
+        filter.init(new MockFilterConfig(servletContext))
         filter
     }
 
