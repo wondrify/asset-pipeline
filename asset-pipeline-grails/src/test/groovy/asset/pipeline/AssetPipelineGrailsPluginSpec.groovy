@@ -17,9 +17,11 @@ package asset.pipeline
 
 import asset.pipeline.grails.AssetPipelineBeanDefinitionRegistrar
 import asset.pipeline.grails.AssetResourceLocator
+import asset.pipeline.grails.ProductionAssetCache
 import grails.core.DefaultGrailsApplication
 import grails.core.GrailsApplication
 import jakarta.servlet.Filter
+import org.grails.config.PropertySourcesConfig
 import org.grails.web.config.http.GrailsFilters
 import org.springframework.aot.test.generate.TestGenerationContext
 import org.springframework.beans.factory.config.BeanDefinition
@@ -28,6 +30,8 @@ import org.springframework.beans.factory.support.GenericBeanDefinition
 import org.springframework.beans.factory.support.RootBeanDefinition
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry
 import org.springframework.boot.web.servlet.FilterRegistrationBean
+import org.springframework.core.env.MapPropertySource
+import org.springframework.core.env.MutablePropertySources
 import org.springframework.context.aot.ApplicationContextAotGenerator
 import org.springframework.mock.web.MockFilterConfig
 import org.springframework.mock.web.MockServletContext
@@ -54,6 +58,7 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         applicationContext.close()
         AssetPipelineConfigHolder.manifest = null
         AssetPipelineConfigHolder.config = [:]
+        AssetPipelineFilter.fileCache.maximumSize = ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
     }
 
     void 'the filter is contributed as a nested bean definition rather than a constructed instance'() {
@@ -144,6 +149,47 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         and: 'having actually contributed them, rather than passing over an empty context'
         applicationContext.containsBeanDefinition('assetPipelineFilter')
         applicationContext.containsBeanDefinition('assetResourceLocator')
+    }
+
+    void 'grails.assets.maxCacheSize sizes the filter cache as the plugin reads its configuration'() {
+        given:
+        configure('grails.assets.maxCacheSize': '250')
+
+        when:
+        startWithPlugin()
+
+        then:
+        AssetPipelineFilter.fileCache.maximumSize == 250
+    }
+
+    void 'an invalid grails.assets.maxCacheSize stops the application starting'() {
+        given:
+        configure('grails.assets.maxCacheSize': '1.5')
+
+        when:
+        startWithPlugin()
+
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains('grails.assets.maxCacheSize')
+    }
+
+    private void configure(Map<String, Object> properties) {
+        MutablePropertySources sources = new MutablePropertySources()
+        sources.addFirst(new MapPropertySource('test', properties))
+        grailsApplication.config = new PropertySourcesConfig(sources)
+    }
+
+    private void startWithPlugin() {
+        GenericBeanDefinition abstractLocator = new GenericBeanDefinition()
+        abstractLocator.abstract = true
+        abstractLocator.propertyValues.add('searchLocations', [])
+        applicationContext.registerBeanDefinition('abstractGrailsResourceLocator', abstractLocator)
+        AssetPipelineGrailsPlugin plugin = new AssetPipelineGrailsPlugin()
+        plugin.grailsApplication = grailsApplication
+        plugin.applicationContext = applicationContext
+        applicationContext.register(plugin.beanRegistrar())
+        applicationContext.refresh()
     }
 
     private BeanDefinition filterRegistrationDefinition() {

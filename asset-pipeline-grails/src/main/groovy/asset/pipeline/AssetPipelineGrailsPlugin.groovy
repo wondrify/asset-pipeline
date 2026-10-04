@@ -21,6 +21,7 @@ import asset.pipeline.grails.AssetPipelineBeanDefinitionRegistrar
 import asset.pipeline.grails.AssetProcessorService
 import asset.pipeline.grails.AssetSupportingCachingLinkGenerator
 import asset.pipeline.grails.AssetSupportingLinkGenerator
+import asset.pipeline.grails.ProductionAssetCache
 import grails.config.Settings
 import grails.plugins.Plugin
 import grails.util.BuildSettings
@@ -153,6 +154,10 @@ class AssetPipelineGrailsPlugin extends Plugin {
 
             AssetPipelineConfigHolder.config = assetsConfig instanceof NavigableMap ?
                     assetsConfig.toFlatConfig() : assetsConfig
+
+            // Beside the holder the filter reads its other settings from, rather than as a property of
+            // the filter's bean definition, which ahead-of-time processing would fix at the build's value
+            AssetPipelineFilter.fileCache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
 
             if (BuildSettings.TARGET_DIR?.exists()) {
                 AssetPipelineConfigHolder.config['cacheLocation'] =
