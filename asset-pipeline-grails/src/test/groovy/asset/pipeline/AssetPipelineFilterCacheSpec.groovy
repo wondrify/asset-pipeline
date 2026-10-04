@@ -122,8 +122,8 @@ class AssetPipelineFilterCacheSpec extends Specification {
         IllegalArgumentException e = thrown()
         e.message.contains('grails.assets.maxCacheSize')
 
-        where:
-        configured << [-1, 'ten thousand']
+        where: 'a negative, a non-number, or a fraction, as application.yml (a Double), Groovy config (a BigDecimal) or a string gives it'
+        configured << [-1, 'ten thousand', 1.5d, 1.5G, '1.5']
     }
 
     private AssetPipelineFilter filter() {

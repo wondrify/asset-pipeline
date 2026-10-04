@@ -16,6 +16,7 @@
 
 package asset.pipeline.grails;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 import com.github.benmanes.caffeine.cache.Cache;
@@ -50,7 +51,7 @@ public class ProductionAssetCache {
     }
 
     /**
-     * A cache sized by {@code maxCacheSize} in the asset pipeline configuration, a number or a
+     * A cache sized by {@code maxCacheSize} in the asset pipeline configuration, a whole number or a
      * string of one, as an environment variable or system property gives it.
      */
     public static ProductionAssetCache fromConfig(Map<?, ?> config) {
@@ -58,14 +59,14 @@ public class ProductionAssetCache {
         if (configured == null || configured.toString().isBlank()) {
             return new ProductionAssetCache();
         }
-        if (configured instanceof Number) {
-            return new ProductionAssetCache(((Number) configured).longValue());
-        }
+        long maximumSize;
         try {
-            return new ProductionAssetCache(Long.parseLong(configured.toString().trim()));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be a number, not '" + configured + "'", e);
+            // Rather than Number.longValue(), which would truncate 1.5 to 1
+            maximumSize = new BigDecimal(configured.toString().trim()).longValueExact();
+        } catch (NumberFormatException | ArithmeticException e) {
+            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be a whole number, not '" + configured + "'", e);
         }
+        return new ProductionAssetCache(maximumSize);
     }
 
     public AssetAttributes get(String uri) {
