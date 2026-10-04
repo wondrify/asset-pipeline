@@ -59,7 +59,6 @@ class AssetPipelineFilterSpec extends Specification {
         AssetPipelineConfigHolder.resolvers = originalResolvers
         AssetPipelineConfigHolder.config = originalConfig
         AssetPipelineConfigHolder.manifest = originalManifest
-        filter?.fileCache?.clear()
     }
 
     void 'in development, root path #uri is served from the root of context #contextPath'() {
@@ -74,11 +73,12 @@ class AssetPipelineFilterSpec extends Specification {
         exchange.response.contentAsByteArray == FAVICON
         !exchange.passedOn
 
-        where: 'the context path as the container gives it, encoded, and the uri likewise'
-        contextPath  | uri
-        ''           | '/favicon.ico'
-        '/app'       | '/app/favicon.ico'
-        '/my%20app'  | '/my%20app/favicon.ico'
+        where: 'the context path as the container gives it, encoded and, on Tomcat, with the path parameters of its segment'
+        contextPath         | uri
+        ''                  | '/favicon.ico'
+        '/app'              | '/app/favicon.ico'
+        '/my%20app'         | '/my%20app/favicon.ico'
+        '/app;jsessionid=a' | '/app;jsessionid=a/favicon.ico'
     }
 
     void 'in development, #uri under the mapping is served as before'() {
@@ -94,10 +94,27 @@ class AssetPipelineFilterSpec extends Specification {
         !exchange.passedOn
 
         where:
-        contextPath  | uri
-        ''           | '/assets/favicon.ico'
-        '/app'       | '/app/assets/favicon.ico'
-        '/my%20app'  | '/my%20app/assets/favicon.ico'
+        contextPath         | uri
+        ''                  | '/assets/favicon.ico'
+        '/app'              | '/app/assets/favicon.ico'
+        '/my%20app'         | '/my%20app/assets/favicon.ico'
+        '/app;jsessionid=a' | '/app;jsessionid=a/assets/favicon.ico'
+    }
+
+    void 'in development, #uri is read with its slashes as one, as the container mapped it under the mapping'() {
+        given: 'no root paths, so only the mapping can serve it'
+        development([])
+
+        when:
+        Exchange exchange = request('', uri)
+
+        then:
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == FAVICON
+        !exchange.passedOn
+
+        where: 'java.net.URI read a leading // as the start of an authority, which left /favicon.ico'
+        uri << ['//assets/favicon.ico', '/assets//favicon.ico']
     }
 
     void 'a root path whose name begins with the mapping is not read as an asset under it'() {
@@ -257,8 +274,11 @@ class AssetPipelineFilterSpec extends Specification {
         applicationContext.registerBean('assetProcessorService', AssetProcessorService)
         applicationContext.refresh()
         filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext, rootPaths: rootPaths)
-        // Through the filter, whether the cache is shared by every filter or its own
-        filter.fileCache.clear()
+    }
+
+    void 'root paths given to the filter directly are read as the registrar reads them'() {
+        expect: 'as an application that sets the filter up itself may write them'
+        new AssetPipelineFilter(rootPaths: ['/favicon.ico', 'favicon.ico', ' apple-touch-icon.png ']).rootPaths == ['favicon.ico', 'apple-touch-icon.png']
     }
 
     private Exchange request(String contextPath, String uri) {

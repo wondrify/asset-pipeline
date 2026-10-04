@@ -47,6 +47,11 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
 
+	// Read as the registrar reads them, so that a filter an application sets up itself may write /favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+	}
+
 	AssetPipelineFilter() {
 		latestCache = cache
 	}
@@ -80,10 +85,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		boolean skipNotFound = AssetPipelineConfigHolder.config.skipNotFound || AssetPipelineConfigHolder.config.mapping == ''
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
-		// The context path is taken off before decoding, while the two compare as the container gives them
-		final String path = new URI(AssetPaths.pathWithinContext(request.requestURI, request.contextPath)).path
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
 		String fileUri = AssetPaths.pathUnderMapping(path, mapping)
-		if(fileUri == null) {
+		final boolean rootPath = fileUri == null
+		if(rootPath) {
 			if(!AssetPaths.isRootPath(path, rootPaths)) {
 				// Registered for more than the mapping and the root paths, the filter leaves every other url to the application
 				chain.doFilter(request, response)
@@ -124,9 +129,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
 				}
-				responseBuilder.headers.each { final header ->
-					response.setHeader(header.key, header.value)
-				}
+				setHeaders(response, responseBuilder, rootPath)
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status != 304) {
 					// Check for GZip
@@ -194,9 +197,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						attributeCache.getLastModified()
 					)
 
-					responseBuilder.headers.each { final header ->
-						response.setHeader(header.key, header.value)
-					}
+					setHeaders(response, responseBuilder, rootPath)
 
 					if(responseBuilder.statusCode) {
 						response.status = responseBuilder.statusCode
@@ -256,9 +257,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					if(responseBuilder.statusCode) {
 						response.status = responseBuilder.statusCode
 					}
-					responseBuilder.headers.each { final header ->
-						response.setHeader(header.key, header.value)
-					}
+					setHeaders(response, responseBuilder, rootPath)
 
 					Resource gzipFile = applicationContext.getResource("assets/${fileUri}.gz")
 					if(!gzipFile.exists()) {
@@ -351,6 +350,16 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 		if(!response.committed) {
 			chain.doFilter(request, response)
+		}
+	}
+
+	// A root url never has a digest in its name, so it is revalidated, whatever the builder makes of the manifest
+	private static void setHeaders(final HttpServletResponse response, final AssetPipelineResponseBuilder responseBuilder, final boolean rootPath) {
+		responseBuilder.headers.each { final header ->
+			response.setHeader(header.key, header.value)
+		}
+		if(rootPath) {
+			response.setHeader('Cache-Control', 'no-cache')
 		}
 	}
 }

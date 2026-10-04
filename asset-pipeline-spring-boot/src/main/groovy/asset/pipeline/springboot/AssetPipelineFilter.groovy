@@ -23,7 +23,7 @@ class AssetPipelineFilter implements Filter {
 	@Override
 	void init(final FilterConfig config) throws ServletException {
 		assetPipelineFilterCore.servletContext = config.servletContext
-		assetPipelineFilterCore.mapping = "assets"
+		assetPipelineFilterCore.mapping = AssetPipelineService.MAPPING
 
 		final WebApplicationContext applicationContext = WebApplicationContextUtils.getWebApplicationContext(config.servletContext)
 		assetPipelineFilterCore.assetPipelineServletResourceRepository = new SpringServletResourceRepository(applicationContext)

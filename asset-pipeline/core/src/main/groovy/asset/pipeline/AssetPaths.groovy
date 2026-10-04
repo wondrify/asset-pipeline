@@ -18,6 +18,7 @@ package asset.pipeline
 
 import groovy.transform.CompileStatic
 
+import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
 /**
@@ -41,6 +42,19 @@ final class AssetPaths {
      */
     private static final Pattern URL_DELIMITER = Pattern.compile(/[?#;\\]/)
 
+    /**
+     * The characters a url path carries as they are. Any other, such as a space or a letter outside ASCII, is encoded
+     * in the url, and containers differ on whether an exact pattern written with it matches: Tomcat matches the
+     * decoded path, Jetty the encoded one.
+     */
+    private static final Pattern URL_PATH = Pattern.compile(/[A-Za-z0-9\-._~!$&'()+,=:@\/]+/)
+
+    /** Path parameters, such as {@code ;jsessionid=...}, which a container takes off a path before it maps a request. */
+    private static final Pattern PATH_PARAMETERS = Pattern.compile(/;[^\/]*/)
+
+    /** A run of slashes, which a container reads as one when it maps a request. */
+    private static final Pattern REPEATED_SLASHES = Pattern.compile(/\/{2,}/)
+
     private AssetPaths() {
     }
 
@@ -49,10 +63,11 @@ final class AssetPaths {
      * Browsers ask for some assets by a fixed name whatever a page links to: {@code /favicon.ico},
      * {@code /apple-touch-icon.png}, {@code /apple-touch-icon-precomposed.png}. Each entry names one
      * asset the way a tag does, and becomes an exact servlet url pattern, so an entry with a wildcard, a character a
-     * url pattern cannot match, an empty, {@code .} or {@code ..} segment, or no file name is rejected, as is one
-     * under the mapping, where the asset is already served. A blank entry, as a trailing comma leaves, is skipped.
-     * @param configured a collection of paths, a comma separated string of them (the form a system property gives a
-     *        list), or null
+     * url pattern cannot match, an empty, {@code .} or {@code ..} segment, or no file name is rejected, as is one with
+     * a character a url must encode, which containers match inconsistently, and one under the mapping, where the asset
+     * is already served. A blank entry, as a trailing comma leaves, is skipped.
+     * @param configured a collection or array of paths, a comma separated string of them (the form a system property
+     *        gives a list), or null
      * @param mapping the url the filter serves assets under, without slashes; empty or null when it serves them at
      *        the root, which leaves nothing for an entry to be under
      * @return the paths without a leading slash, in the order configured, each once
@@ -66,6 +81,8 @@ final class AssetPaths {
             entries = configured.toString().split(',').toList()
         } else if(configured instanceof Collection) {
             entries = (Collection<?>) configured
+        } else if(configured instanceof Object[]) {
+            entries = Arrays.asList((Object[]) configured)
         } else {
             throw new IllegalArgumentException("rootPaths must be a list of asset paths, not a ${configured.getClass().name}")
         }
@@ -83,6 +100,9 @@ final class AssetPaths {
             }
             if(!path || path.endsWith('/') || URL_DELIMITER.matcher(path).find() || path.split('/').any { String segment -> segment in ['', '.', '..'] }) {
                 throw new IllegalArgumentException("rootPaths entry '${entry}' does not name one asset, such as favicon.ico")
+            }
+            if(!URL_PATH.matcher(path).matches()) {
+                throw new IllegalArgumentException("rootPaths entry '${entry}' has a character a url must encode, which servlet containers match inconsistently; serve it under the mapping")
             }
             if(mapping && (path == mapping || path.startsWith(mapping + '/'))) {
                 throw new IllegalArgumentException("rootPaths entry '${entry}' is under /${mapping}, where its asset is already served")
@@ -109,17 +129,37 @@ final class AssetPaths {
     }
 
     /**
-     * The path a request names within its application: the request uri without the context path, and without path
-     * parameters such as {@code ;jsessionid=...}, which a container takes off before it maps a request. The two are
-     * compared as given, so they are passed both as the container gives them, encoded.
-     * @return the path, beginning with a slash
+     * The path a request names within its application, decoded, as a container reads it before it maps the request:
+     * the request uri without the context path, without path parameters such as {@code ;jsessionid=...}, and with
+     * each run of slashes read as one. The uri and the context path are compared before decoding, as the container
+     * gives them, and path parameters are taken off both, since a container such as Tomcat keeps those of the
+     * context's own segment in the context path.
+     * @return the decoded path, beginning with a slash
      */
     static String pathWithinContext(String requestUri, String contextPath) {
-        String path = requestUri.indexOf(';') < 0 ? requestUri : requestUri.replaceAll(/;[^\/]*/, '')
-        if(contextPath && contextPath != '/' && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length())
+        String path = withoutPathParameters(requestUri)
+        String context = contextPath ? withoutPathParameters(contextPath) : ''
+        if(context && context != '/' && path.startsWith(context)) {
+            path = path.substring(context.length())
         }
-        return path ?: '/'
+        return decoded(REPEATED_SLASHES.matcher(path ?: '/').replaceAll('/'))
+    }
+
+    private static String withoutPathParameters(String path) {
+        return path.indexOf(';') < 0 ? path : PATH_PARAMETERS.matcher(path).replaceAll('')
+    }
+
+    // Percent-decoded as a path, in which + is itself, rather than through java.net.URI, which reads a leading // as
+    // the start of an authority. A malformed escape names no asset, so a path with one is left as it is.
+    private static String decoded(String path) {
+        if(path.indexOf('%') < 0) {
+            return path
+        }
+        try {
+            return URLDecoder.decode(path.replace('+', '%2B'), StandardCharsets.UTF_8)
+        } catch(IllegalArgumentException ignored) {
+            return path
+        }
     }
 
     /**

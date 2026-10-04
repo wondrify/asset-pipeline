@@ -24,7 +24,8 @@ import org.springframework.context.ApplicationContext
 @ConditionalOnProperty(name = AssetPipelineAutoConfiguration.ENABLED, matchIfMissing = true)
 class AssetPipelineService {
 
-	private static final String MAPPING = 'assets'
+	// The url the filters serve assets under, which they and the url patterns registered for them share
+	static final String MAPPING = 'assets'
 
 	// The context itself, rather than the one the servlet context holds: it is the same context,
 	// and it is there before a servlet container is. Asked for as an ApplicationContext rather than

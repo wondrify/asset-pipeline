@@ -16,6 +16,11 @@ class AssetPipelineDevFilterCore {
 	String mapping = "mapping"
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
+
+	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+	}
 	ServletContext servletContext
 
 

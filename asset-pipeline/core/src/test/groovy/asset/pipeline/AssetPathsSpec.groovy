@@ -35,6 +35,7 @@ class AssetPathsSpec extends Specification {
         ['favicon.ico', '/favicon.ico']                     | ['favicon.ico']
         new LinkedHashSet(['apple-touch-icon.png', 'favicon.ico'])    | ['apple-touch-icon.png', 'favicon.ico']
         ['assets-logo.png', 'assetsx/a.txt']                | ['assets-logo.png', 'assetsx/a.txt']
+        ['/favicon.ico', 'apple-touch-icon.png'] as String[] | ['favicon.ico', 'apple-touch-icon.png']
     }
 
     void "rootPaths skips the blank entries a stray comma leaves, in '#configured'"() {
@@ -52,6 +53,16 @@ class AssetPathsSpec extends Specification {
         e.message.contains("'${entry}'")
         where:
         entry << ['/', 'images/', '*.ico', 'images/*', 'webjars/bootstrap/%/favicon.ico', 'images/%%/favicon.ico', 'a//b.txt', './favicon.ico', '../favicon.ico', 'images/../favicon.ico', 'images\\favicon.ico', 'favicon.ico?v=1', 'favicon.ico#x', 'favicon.ico;v=2']
+    }
+
+    void "rootPaths rejects '#entry', whose url would have to encode it"() {
+        when:
+        AssetPaths.rootPaths([entry], 'assets')
+        then: 'Tomcat matches an exact pattern against the decoded path and Jetty against the encoded one, so it would be served on one and not the other'
+        IllegalArgumentException e = thrown()
+        e.message.contains("'${entry}' has a character a url must encode")
+        where:
+        entry << ['my icon.png', 'café.png', 'a"b.png', 'a<b>.png', 'a{b}.png', 'a|b.png', 'a^b.png', 'a`b.png', 'a[b].png']
     }
 
     void "rootPaths rejects '#entry', which is under the mapping #mapping and already served there"() {
@@ -105,6 +116,13 @@ class AssetPathsSpec extends Specification {
         '/app'                              | '/app'       | '/'
         '/favicon.ico;x=1'                  | ''           | '/favicon.ico'
         '/app/assets;v=1/app.js;jsessionid=a' | '/app'     | '/assets/app.js'
+        '/app;jsessionid=a/assets/app.js'   | '/app;jsessionid=a' | '/assets/app.js'
+        '/my%20icon.png'                    | ''           | '/my icon.png'
+        '/caf%C3%A9.png'                    | ''           | '/café.png'
+        '/a+b.png'                          | ''           | '/a+b.png'
+        '//assets/app.js'                   | ''           | '/assets/app.js'
+        '/app//assets///app.js'             | '/app'       | '/assets/app.js'
+        '/bad%zz.png'                       | ''           | '/bad%zz.png'
     }
 
     void "#path is #asset under the mapping #mapping"() {

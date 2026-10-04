@@ -27,6 +27,17 @@ import spock.lang.Specification
  */
 class AssetPipelineAutoConfigurationSpec extends Specification {
 
+    // Each context the specs start registers its resolvers with the holder, which outlives it
+    Collection<AssetResolver> originalResolvers
+
+    void setup() {
+        originalResolvers = new ArrayList<AssetResolver>(AssetPipelineConfigHolder.resolvers)
+    }
+
+    void cleanup() {
+        AssetPipelineConfigHolder.resolvers = originalResolvers
+    }
+
     void 'the auto-configuration is one Spring Boot will find'() {
         given: 'the tests above import the class themselves, so none of them would notice its absence here'
         String imports = getClass().getResourceAsStream(
@@ -37,8 +48,9 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
     }
 
     void 'the settings are described where an IDE looks for them'() {
-        given:
-        String metadata = getClass().getResourceAsStream('/META-INF/spring-configuration-metadata.json')?.text
+        given: "this module's, not the first of that name on the class path, which may be one of Spring Boot's own"
+        String metadata = getClass().classLoader.getResources('META-INF/spring-configuration-metadata.json').toList()
+                *.text.find { String json -> json.contains('"name": "assets"') }
 
         expect:
         metadata?.contains('"name": "assets.root-paths"')

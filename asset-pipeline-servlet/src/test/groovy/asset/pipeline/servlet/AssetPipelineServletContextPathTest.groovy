@@ -45,7 +45,7 @@ class AssetPipelineServletContextPathTest {
         prodFilter.assetPipelineServletResourceRepository = new AssetPipelineServletResourceRepository() {
             @Override
             AssetPipelineServletResource getResource(String path) {
-                return path in ['/test.css', '/assets-test.css', '/test.js'] ? new FixtureResource("fixtures/test.css") : null
+                return path in ['/test.css', '/assets-test.css', '/test.js', '/my icon.css'] ? new FixtureResource("fixtures/test.css") : null
             }
 
             @Override
@@ -112,6 +112,21 @@ class AssetPipelineServletContextPathTest {
     void testPathParametersDoNotChangeTheAsset() {
         assertServed("/app/test.css;v=1")
         assertServed("/dev/assets/test.css;jsessionid=0123")
+    }
+
+    @Test
+    void testAssetWhoseNameIsEncodedInTheUrlIsServed() {
+        // Read decoded, as the Grails filter reads it: before, the production filter looked for my%20icon.css
+        assertServed("/app/assets/my%20icon.css")
+        assertServed("/dev/assets/my%20icon.css")
+    }
+
+    @Test
+    void testRootPathIsRevalidatedWithoutAManifest() {
+        // With no manifest the response builder takes any name for a digested one, but a root url never is
+        HttpResponse res = Request.Get("http://localhost:${port}/app/test.css").execute().returnResponse()
+        assertEquals(200, res.statusLine.statusCode)
+        assertEquals('no-cache', res.getFirstHeader('Cache-Control')?.value)
     }
 
     @Test

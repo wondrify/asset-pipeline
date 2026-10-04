@@ -19,6 +19,11 @@ class AssetPipelineFilterCore {
 	String mapping = "mapping"
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
+
+	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+	}
 	AssetPipelineServletResourceRepository assetPipelineServletResourceRepository
 	ServletContext servletContext
 
@@ -67,6 +72,10 @@ class AssetPipelineFilterCore {
 
 			responseBuilder.headers.each { final header ->
 				response.setHeader(header.key, header.value)
+			}
+			if(AssetPaths.pathUnderMapping(path, mapping) == null) {
+				// A root url never has a digest in its name, so it is revalidated, whatever the builder makes of the manifest
+				response.setHeader('Cache-Control', 'no-cache')
 			}
 			if(responseBuilder.statusCode) {
 				response.status = responseBuilder.statusCode
