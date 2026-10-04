@@ -45,7 +45,7 @@ assets:
     - apple-touch-icon.png
 ----
 
-An entry that does not name a single asset, that has a character a url must encode, such as a space, or that is already under `/assets`, stops the application from starting.
+An entry that does not name a single asset, that has a character a url must encode, such as a space, that is under `WEB-INF` or `META-INF`, or that is already under `/assets`, stops the application from starting. A root url is answered only for `GET` and `HEAD`.
 
 ==== Development Runtime
 

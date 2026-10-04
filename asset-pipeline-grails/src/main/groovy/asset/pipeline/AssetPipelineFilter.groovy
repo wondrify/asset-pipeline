@@ -49,7 +49,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 	// Read as the registrar reads them, so that a filter an application sets up itself may write /favicon.ico
 	void setRootPaths(final Collection<String> rootPaths) {
-		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
 	}
 
 	AssetPipelineFilter() {
@@ -61,6 +61,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		// The plugin fills the holder before Spring creates any bean, and sizing the cache again when
 		// the servlet container starts the filter changes nothing
 		cache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
+		if(!rootPaths) {
+			// A filter the application registers itself has not been given them, as the registrar's has
+			setRootPaths(AssetPaths.rootPaths(AssetPipelineConfigHolder.config.get('rootPaths'), null))
+		}
 
 		// GenericFilterBean implements InitializingBean, so when this filter is a container-managed
 		// bean (a nested bean definition of the FilterRegistrationBean) Spring calls this from
@@ -86,17 +90,16 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 		final String mapping = ((AssetProcessorService)(applicationContext.getBean('assetProcessorService', AssetProcessorService))).assetMapping
 
 		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
-		String fileUri = AssetPaths.pathUnderMapping(path, mapping)
-		final boolean rootPath = fileUri == null
-		if(rootPath) {
-			if(!AssetPaths.isRootPath(path, rootPaths)) {
-				// Registered for more than the mapping and the root paths, the filter leaves every other url to the application
-				chain.doFilter(request, response)
-				return
-			}
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
+			// Registered for more than the mapping and the root paths, the filter leaves every other url to the application
+			chain.doFilter(request, response)
+			return
+		}
+		String fileUri = assetUrl.path
+		if(assetUrl.rootPath) {
 			// One of the rootPaths, which name an asset from the root of the context. The application may answer
 			// such a url itself, so a missing asset passes the request on rather than ending it.
-			fileUri = path
 			skipNotFound = true
 		}
 
@@ -124,12 +127,15 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					manifestPath,
 					request.getHeader('If-None-Match'),
 					request.getHeader('If-Modified-Since'),
-					null
+					null,
+					manifest
 				)
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
 				}
-				setHeaders(response, responseBuilder, rootPath)
+				responseBuilder.headers.each { final header ->
+					response.setHeader(header.key, header.value)
+				}
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status != 304) {
 					// Check for GZip
@@ -197,7 +203,9 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						attributeCache.getLastModified()
 					)
 
-					setHeaders(response, responseBuilder, rootPath)
+					responseBuilder.headers.each { final header ->
+						response.setHeader(header.key, header.value)
+					}
 
 					if(responseBuilder.statusCode) {
 						response.status = responseBuilder.statusCode
@@ -257,7 +265,9 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					if(responseBuilder.statusCode) {
 						response.status = responseBuilder.statusCode
 					}
-					setHeaders(response, responseBuilder, rootPath)
+					responseBuilder.headers.each { final header ->
+						response.setHeader(header.key, header.value)
+					}
 
 					Resource gzipFile = applicationContext.getResource("assets/${fileUri}.gz")
 					if(!gzipFile.exists()) {
@@ -350,16 +360,6 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 		if(!response.committed) {
 			chain.doFilter(request, response)
-		}
-	}
-
-	// A root url never has a digest in its name, so it is revalidated, whatever the builder makes of the manifest
-	private static void setHeaders(final HttpServletResponse response, final AssetPipelineResponseBuilder responseBuilder, final boolean rootPath) {
-		responseBuilder.headers.each { final header ->
-			response.setHeader(header.key, header.value)
-		}
-		if(rootPath) {
-			response.setHeader('Cache-Control', 'no-cache')
 		}
 	}
 }

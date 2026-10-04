@@ -278,11 +278,51 @@ class AssetPipelineFilterSpec extends Specification {
 
     void 'root paths given to the filter directly are read as the registrar reads them'() {
         expect: 'as an application that sets the filter up itself may write them'
-        new AssetPipelineFilter(rootPaths: ['/favicon.ico', 'favicon.ico', ' apple-touch-icon.png ']).rootPaths == ['favicon.ico', 'apple-touch-icon.png']
+        new AssetPipelineFilter(rootPaths: ['/favicon.ico', 'favicon.ico', ' apple-touch-icon.png ']).rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
     }
 
-    private Exchange request(String contextPath, String uri) {
-        MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', uri)
+    void 'a filter the application sets up itself takes its root paths from grails.assets.rootPaths'() {
+        given: 'one the registrar did not define, and so did not give them'
+        AssetPipelineConfigHolder.config = [rootPaths: ['favicon.ico', '/apple-touch-icon.png']]
+        AssetPipelineFilter own = new AssetPipelineFilter()
+
+        when:
+        own.afterPropertiesSet()
+
+        then:
+        own.rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
+    }
+
+    void 'in development, a url the container reads as a root path, dot segments and all, is served as that root path'() {
+        given:
+        development()
+
+        when: 'the container removes the dot segments before it maps the request onto /favicon.ico'
+        Exchange exchange = request('', '/assets/a/%2e%2e/%2e%2e/favicon.ico')
+
+        then:
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == FAVICON
+        !exchange.passedOn
+    }
+
+    void 'a #method to a root path is left to the application, which may answer the url itself'() {
+        given:
+        development()
+
+        when:
+        Exchange exchange = request('', '/favicon.ico', method)
+
+        then:
+        exchange.passedOn
+        !exchange.response.committed
+
+        where:
+        method << ['POST', 'PUT', 'DELETE']
+    }
+
+    private Exchange request(String contextPath, String uri, String method = 'GET') {
+        MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, method, uri)
         request.contextPath = contextPath
         MockHttpServletResponse response = new MockHttpServletResponse()
         MockFilterChain chain = new MockFilterChain()

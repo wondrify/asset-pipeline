@@ -13,11 +13,20 @@ public class AssetPipelineResponseBuilder {
     public String ifModifiedSinceHeader
     public Integer statusCode = 200
 	private Date lastModifiedDate
+	private final Properties manifest
+
+	// The digested names of the manifest a builder last read, so a request doesn't scan every entry of it
+	private static volatile DigestedNames digestedNames
 
     public Map<String, String> headers = [:]
 
-    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null) {
+    /**
+     * @param manifest the manifest the asset was compiled into; the application's unless given, which a class loader
+     *        registered with its own assets passes instead
+     */
+    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest) {
         this.uri = uri
+        this.manifest = manifest
         this.ifNoneMatchHeader = ifNoneMatchHeader
         this.ifModifiedSinceHeader = ifModifiedSinceHeader
 		this.lastModifiedDate = lastModifiedDate
@@ -97,18 +106,41 @@ public class AssetPipelineResponseBuilder {
             manifestPath = uri.substring(1) //Omit forward slash
         }
 
-        Properties manifest = AssetPipelineConfigHolder.manifest
         return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + "\""
     }
 
+    /**
+     * Whether the uri is the digested name the manifest gives an asset, which changes whenever the asset does and so
+     * can be cached for a year. A name that is not one, including every name when there is no manifest, may be sent
+     * different content tomorrow.
+     */
     public boolean isDigestVersion() {
         String manifestPath = uri
         if (uri.startsWith('/')) {
             manifestPath = uri.substring(1) //Omit forward slash
         }
-        Properties manifest = AssetPipelineConfigHolder.manifest
-        
-        return manifest?.getProperty(manifestPath,null) ? false : true
+        return manifest != null && digestedNamesOf(manifest).contains(manifestPath)
+    }
+
+    private static Set<String> digestedNamesOf(Properties manifest) {
+        DigestedNames current = digestedNames
+        if(current == null || !current.manifest.is(manifest) || current.size != manifest.size()) {
+            current = new DigestedNames(manifest)
+            digestedNames = current
+        }
+        return current.names
+    }
+
+    private static final class DigestedNames {
+        final Properties manifest
+        final int size
+        final Set<String> names
+
+        DigestedNames(Properties manifest) {
+            this.manifest = manifest
+            this.size = manifest.size()
+            this.names = new HashSet<String>(manifest.stringPropertyNames().collect { String name -> manifest.getProperty(name) })
+        }
     }
 
     public Boolean checkETag() {

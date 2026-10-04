@@ -77,7 +77,7 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
             FilterRegistrationBean registration = context.getBean(FilterRegistrationBean)
             assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/apple-touch-icon.png']
             // and the filter answers those urls outside /assets and no others
-            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths == ['favicon.ico', 'apple-touch-icon.png']
+            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
         }
 
         where: 'a list in application.yml, or a comma separated value in a properties file, stray commas included'

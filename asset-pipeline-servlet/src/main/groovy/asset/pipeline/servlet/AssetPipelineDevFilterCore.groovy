@@ -13,13 +13,14 @@ class AssetPipelineDevFilterCore {
 	private final static Logger log = Logger.getLogger(getClass().getName())
 
 
-	String mapping = "mapping"
+	/** The url assets are served under; empty, as it is unless set, serves every url the filter is registered for by its path */
+	String mapping = ""
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
 
 	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
 	void setRootPaths(final Collection<String> rootPaths) {
-		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
 	}
 	ServletContext servletContext
 
@@ -34,12 +35,13 @@ class AssetPipelineDevFilterCore {
 
 	private void doFilterHttp(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) {
 		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
-		String fileUri = AssetPaths.assetPath(path, mapping, rootPaths)
-		if(fileUri == null) {
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
 			// Neither under the mapping nor one of the root paths
 			filterChain.doFilter(request, response)
 			return
 		}
+		String fileUri = assetUrl.path
 		if(fileUri.startsWith('/')) {
 			fileUri = fileUri.substring(1)
 		}

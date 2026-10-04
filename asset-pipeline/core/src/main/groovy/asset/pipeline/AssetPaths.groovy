@@ -64,8 +64,9 @@ final class AssetPaths {
      * {@code /apple-touch-icon.png}, {@code /apple-touch-icon-precomposed.png}. Each entry names one
      * asset the way a tag does, and becomes an exact servlet url pattern, so an entry with a wildcard, a character a
      * url pattern cannot match, an empty, {@code .} or {@code ..} segment, or no file name is rejected, as is one with
-     * a character a url must encode, which containers match inconsistently, and one under the mapping, where the asset
-     * is already served. A blank entry, as a trailing comma leaves, is skipped.
+     * a character a url must encode, which containers match inconsistently, one under {@code WEB-INF} or
+     * {@code META-INF}, which containers never route to a filter, and one under the mapping, where the asset is already
+     * served. A blank entry, as a trailing comma leaves, is skipped.
      * @param configured a collection or array of paths, a comma separated string of them (the form a system property
      *        gives a list), or null
      * @param mapping the url the filter serves assets under, without slashes; empty or null when it serves them at
@@ -104,6 +105,10 @@ final class AssetPaths {
             if(!URL_PATH.matcher(path).matches()) {
                 throw new IllegalArgumentException("rootPaths entry '${entry}' has a character a url must encode, which servlet containers match inconsistently; serve it under the mapping")
             }
+            String firstSegment = path.split('/')[0]
+            if(firstSegment.equalsIgnoreCase('WEB-INF') || firstSegment.equalsIgnoreCase('META-INF')) {
+                throw new IllegalArgumentException("rootPaths entry '${entry}' is under /${firstSegment}, which a servlet container never routes to a filter")
+            }
             if(mapping && (path == mapping || path.startsWith(mapping + '/'))) {
                 throw new IllegalArgumentException("rootPaths entry '${entry}' is under /${mapping}, where its asset is already served")
             }
@@ -129,24 +134,34 @@ final class AssetPaths {
     }
 
     /**
-     * The path a request names within its application, decoded, as a container reads it before it maps the request:
-     * the request uri without the context path, without path parameters such as {@code ;jsessionid=...}, and with
-     * each run of slashes read as one. The uri and the context path are compared before decoding, as the container
-     * gives them, and path parameters are taken off both, since a container such as Tomcat keeps those of the
-     * context's own segment in the context path.
-     * @return the decoded path, beginning with a slash
+     * The path a request names within its application, read as a container reads a path before it maps the request:
+     * without path parameters such as {@code ;jsessionid=...}, decoded, with each run of slashes as one, and without
+     * {@code .} and {@code ..} segments, which never climb above the root. The context path is read the same way and
+     * then taken off as whole segments, so it is found whether the container gives it as the client wrote it, path
+     * parameters included, as Tomcat does, or in its canonical form, as Jetty does.
+     * @return the path, beginning with a slash
      */
     static String pathWithinContext(String requestUri, String contextPath) {
-        String path = withoutPathParameters(requestUri)
-        String context = contextPath ? withoutPathParameters(contextPath) : ''
-        if(context && context != '/' && path.startsWith(context)) {
-            path = path.substring(context.length())
+        String path = normalized(requestUri)
+        String context = contextPath ? normalized(contextPath) : '/'
+        if(context != '/') {
+            if(path == context) {
+                return '/'
+            }
+            if(path.startsWith(context + '/')) {
+                return path.substring(context.length())
+            }
         }
-        return decoded(REPEATED_SLASHES.matcher(path ?: '/').replaceAll('/'))
+        return path
     }
 
-    private static String withoutPathParameters(String path) {
-        return path.indexOf(';') < 0 ? path : PATH_PARAMETERS.matcher(path).replaceAll('')
+    private static String normalized(String path) {
+        String result = path.indexOf(';') < 0 ? path : PATH_PARAMETERS.matcher(path).replaceAll('')
+        result = decoded(result)
+        if(result.contains('//')) {
+            result = REPEATED_SLASHES.matcher(result).replaceAll('/')
+        }
+        return withoutDotSegments(result.startsWith('/') ? result : '/' + result)
     }
 
     // Percent-decoded as a path, in which + is itself, rather than through java.net.URI, which reads a leading // as
@@ -160,6 +175,34 @@ final class AssetPaths {
         } catch(IllegalArgumentException ignored) {
             return path
         }
+    }
+
+    // RFC 3986 remove_dot_segments for a path that begins with a slash; .. at the root stays at the root
+    private static String withoutDotSegments(String path) {
+        if(!path.contains('/.')) {
+            return path
+        }
+        String[] parts = path.split('/', -1)
+        List<String> segments = []
+        for(int i = 1; i < parts.length; i++) {
+            String segment = parts[i]
+            boolean last = i == parts.length - 1
+            if(segment == '..') {
+                if(segments) {
+                    segments.remove(segments.size() - 1)
+                }
+                if(last) {
+                    segments << ''
+                }
+            } else if(segment == '.') {
+                if(last) {
+                    segments << ''
+                }
+            } else {
+                segments << segment
+            }
+        }
+        return '/' + segments.join('/')
     }
 
     /**
@@ -187,15 +230,38 @@ final class AssetPaths {
     }
 
     /**
-     * The asset a path within the application names, under the mapping or as one of the root paths, as a path from
-     * the root of the assets.
-     * @return the asset's path, or null for a url that names no asset, which the filter leaves to the application
+     * The asset a request names, under the mapping or as one of the root paths, as a path from the root of the assets.
+     * A root path is answered for {@code GET} and {@code HEAD} alone: the application may answer its url itself, so a
+     * request with any other method is left to it, with its body unread.
+     * @param method the request's method
+     * @param path the request's path within the application, as {@link #pathWithinContext} gives it
+     * @return the asset the request names, or null for a request the filter leaves to the application
      */
-    static String assetPath(String path, String mapping, Collection<String> rootPaths) {
+    static AssetUrl assetUrl(String method, String path, String mapping, Collection<String> rootPaths) {
         String underMapping = pathUnderMapping(path, mapping)
         if(underMapping != null) {
-            return underMapping
+            return new AssetUrl(underMapping, false)
         }
-        return isRootPath(path, rootPaths) ? path : null
+        if(isRootPath(path, rootPaths) && (method == 'GET' || method == 'HEAD')) {
+            return new AssetUrl(path, true)
+        }
+        return null
+    }
+
+    /**
+     * An asset a request names: its path from the root of the assets, and whether it was asked for at one of the
+     * root paths rather than under the mapping.
+     */
+    @CompileStatic
+    static final class AssetUrl {
+
+        final String path
+
+        final boolean rootPath
+
+        AssetUrl(String path, boolean rootPath) {
+            this.path = path
+            this.rootPath = rootPath
+        }
     }
 }

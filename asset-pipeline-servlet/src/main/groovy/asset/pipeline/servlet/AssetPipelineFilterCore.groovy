@@ -16,13 +16,14 @@ class AssetPipelineFilterCore {
 	static final String HTTP_DATE_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz"
 
 
-	String mapping = "mapping"
+	/** The url assets are served under; empty, as it is unless set, serves every url the filter is registered for by its path */
+	String mapping = ""
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
 
 	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
 	void setRootPaths(final Collection<String> rootPaths) {
-		this.rootPaths = AssetPaths.rootPaths(rootPaths, null)
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
 	}
 	AssetPipelineServletResourceRepository assetPipelineServletResourceRepository
 	ServletContext servletContext
@@ -42,13 +43,13 @@ class AssetPipelineFilterCore {
 		}
 
 		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
-		String fileUri = AssetPaths.assetPath(path, mapping, rootPaths)
-		if(fileUri == null) {
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
 			// Neither under the mapping nor one of the root paths
 			filterChain.doFilter(request, response)
 			return
 		}
-		fileUri = AssetHelper.normalizePath(fileUri) //JETTY Security bug, we MUST prevent reverse
+		String fileUri = AssetHelper.normalizePath(assetUrl.path) //JETTY Security bug, we MUST prevent reverse
 		final Properties manifest = AssetPipelineConfigHolder.manifest
 		String manifestPath = fileUri
 		if(fileUri.startsWith('/')) {
@@ -72,10 +73,6 @@ class AssetPipelineFilterCore {
 
 			responseBuilder.headers.each { final header ->
 				response.setHeader(header.key, header.value)
-			}
-			if(AssetPaths.pathUnderMapping(path, mapping) == null) {
-				// A root url never has a digest in its name, so it is revalidated, whatever the builder makes of the manifest
-				response.setHeader('Cache-Control', 'no-cache')
 			}
 			if(responseBuilder.statusCode) {
 				response.status = responseBuilder.statusCode

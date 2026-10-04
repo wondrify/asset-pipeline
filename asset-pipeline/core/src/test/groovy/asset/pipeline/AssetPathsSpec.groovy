@@ -55,6 +55,16 @@ class AssetPathsSpec extends Specification {
         entry << ['/', 'images/', '*.ico', 'images/*', 'webjars/bootstrap/%/favicon.ico', 'images/%%/favicon.ico', 'a//b.txt', './favicon.ico', '../favicon.ico', 'images/../favicon.ico', 'images\\favicon.ico', 'favicon.ico?v=1', 'favicon.ico#x', 'favicon.ico;v=2']
     }
 
+    void "rootPaths rejects '#entry', which a servlet container never routes to a filter"() {
+        when:
+        AssetPaths.rootPaths([entry], 'assets')
+        then:
+        IllegalArgumentException e = thrown()
+        e.message.contains("'${entry}' is under /")
+        where:
+        entry << ['WEB-INF/icon.png', 'META-INF/icon.png', 'web-inf/icon.png', '/META-INF/resources/favicon.ico']
+    }
+
     void "rootPaths rejects '#entry', whose url would have to encode it"() {
         when:
         AssetPaths.rootPaths([entry], 'assets')
@@ -123,6 +133,16 @@ class AssetPathsSpec extends Specification {
         '//assets/app.js'                   | ''           | '/assets/app.js'
         '/app//assets///app.js'             | '/app'       | '/assets/app.js'
         '/bad%zz.png'                       | ''           | '/bad%zz.png'
+        '/assets/a/../../favicon.ico'       | ''           | '/favicon.ico'
+        '/assets/a/%2e%2e/%2e%2e/favicon.ico' | ''         | '/favicon.ico'
+        '/assets/..%2F..%2Fsecret.js'       | ''           | '/secret.js'
+        '/../favicon.ico'                   | ''           | '/favicon.ico'
+        '/assets/./app.js'                  | ''           | '/assets/app.js'
+        '/assets/js/..'                     | ''           | '/assets/'
+        '/.well-known/favicon.ico'          | ''           | '/.well-known/favicon.ico'
+        '/%61pp/favicon.ico'                | '/app'       | '/favicon.ico'
+        '//app/favicon.ico'                 | '/app'       | '/favicon.ico'
+        '/apple/favicon.ico'                | '/app'       | '/apple/favicon.ico'
     }
 
     void "#path is #asset under the mapping #mapping"() {
@@ -139,16 +159,20 @@ class AssetPathsSpec extends Specification {
         '/favicon.ico'       | ''        | '/favicon.ico'
     }
 
-    void "#path names #asset, with root paths #rootPaths"() {
+    void "#method #path names #asset, with root paths #rootPaths"() {
         expect:
-        AssetPaths.assetPath(path, 'assets', rootPaths) == asset
-        where: 'only the listed urls outside the mapping name an asset, whatever the filter is registered for'
-        path                 | rootPaths        | asset
-        '/assets/app.js'     | []               | '/app.js'
-        '/favicon.ico'       | ['favicon.ico']  | '/favicon.ico'
-        '/favicon.ico'       | []               | null
-        '/favicon.ico'       | null             | null
-        '/app.js'            | ['favicon.ico']  | null
-        '/'                  | ['favicon.ico']  | null
+        AssetPaths.assetUrl(method, path, 'assets', rootPaths)?.with { AssetPaths.AssetUrl url -> [url.path, url.rootPath] } == asset
+        where: 'only the listed urls outside the mapping name an asset, and those only for GET and HEAD, whatever the filter is registered for'
+        method | path             | rootPaths       | asset
+        'GET'  | '/assets/app.js' | []              | ['/app.js', false]
+        'POST' | '/assets/app.js' | []              | ['/app.js', false]
+        'GET'  | '/favicon.ico'   | ['favicon.ico'] | ['/favicon.ico', true]
+        'HEAD' | '/favicon.ico'   | ['favicon.ico'] | ['/favicon.ico', true]
+        'POST' | '/favicon.ico'   | ['favicon.ico'] | null
+        'PUT'  | '/favicon.ico'   | ['favicon.ico'] | null
+        'GET'  | '/favicon.ico'   | []              | null
+        'GET'  | '/favicon.ico'   | null            | null
+        'GET'  | '/app.js'        | ['favicon.ico'] | null
+        'GET'  | '/'              | ['favicon.ico'] | null
     }
 }

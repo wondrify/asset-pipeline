@@ -58,17 +58,20 @@ class AssetPipelineServletContextPathTest {
         devFilter.rootPaths = ROOT_PATHS
 
         server = new Server(0)
-        server.setHandler(new ContextHandlerCollection(context("/app", prodFilter), context("/dev", devFilter)))
+        // As a web.xml sets one up, which cannot give it a mapping or root paths
+        WebAppContext plain = context("/plain", new AssetPipelineDevFilter(), ['/*'])
+
+        server.setHandler(new ContextHandlerCollection(context("/app", prodFilter), context("/dev", devFilter), plain))
         server.start()
         port = ((ServerConnector)server.getConnectors()[0]).getLocalPort()
     }
 
-    private static WebAppContext context(String contextPath, Filter filter) {
+    private static WebAppContext context(String contextPath, Filter filter, List<String> urlPatterns = URL_PATTERNS) {
         WebAppContext context = new WebAppContext()
         context.setBaseResource(ResourceFactory.of(context).newResource(new File("src/test/resources/web-app").absoluteFile.toPath()))
         context.setContextPath(contextPath)
         FilterHolder holder = new FilterHolder(filter)
-        URL_PATTERNS.each { String pattern ->
+        urlPatterns.each { String pattern ->
             context.addFilter(holder, pattern, EnumSet.of(DispatcherType.REQUEST))
         }
         return context
@@ -127,6 +130,11 @@ class AssetPipelineServletContextPathTest {
         HttpResponse res = Request.Get("http://localhost:${port}/app/test.css").execute().returnResponse()
         assertEquals(200, res.statusLine.statusCode)
         assertEquals('no-cache', res.getFirstHeader('Cache-Control')?.value)
+    }
+
+    @Test
+    void testFilterWithoutAMappingServesEveryUrlItIsRegisteredForByItsPath() {
+        assertServed("/plain/test.css")
     }
 
     @Test

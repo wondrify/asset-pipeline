@@ -243,6 +243,28 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         grailsApplication.config = new PropertySourcesConfig(sources)
     }
 
+    void 'a filter the application registers itself serves grails.assets.rootPaths as well, from #properties'() {
+        given: 'the application\'s own filter, for every url, which the plugin leaves in place of its own'
+        configure(properties)
+        GenericBeanDefinition own = new GenericBeanDefinition()
+        own.beanClass = FilterRegistrationBean
+        own.propertyValues.add('filter', new RootBeanDefinition(AssetPipelineFilter))
+        own.propertyValues.add('urlPatterns', ['/*'])
+        applicationContext.registerBeanDefinition('assetPipelineFilter', own)
+
+        when:
+        startWithPlugin()
+
+        then:
+        startedFilter().rootPaths as List == ['favicon.ico', 'apple-touch-icon.png']
+
+        where: 'a list, as application.groovy gives it, or indexed entries, as application.yml does'
+        properties << [
+                ['grails.assets.rootPaths': ['favicon.ico', 'apple-touch-icon.png']],
+                ['grails.assets.rootPaths[0]': 'favicon.ico', 'grails.assets.rootPaths[1]': 'apple-touch-icon.png']
+        ]
+    }
+
     private AssetPipelineFilter startedFilter() {
         applicationContext.getBean('assetPipelineFilter', FilterRegistrationBean).filter as AssetPipelineFilter
     }
