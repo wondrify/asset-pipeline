@@ -31,7 +31,8 @@ import spock.lang.TempDir
 import java.util.concurrent.ConcurrentMap
 
 /**
- * The record a compiled application's filter keeps of each url it has looked up.
+ * The record a compiled application's filter keeps of each url it has looked up. Each feature
+ * creates its own filter, and so starts with an empty cache of its own.
  */
 class AssetPipelineFilterCacheSpec extends Specification {
 
@@ -39,17 +40,15 @@ class AssetPipelineFilterCacheSpec extends Specification {
     static final byte[] FAVICON_GZIPPED = [31, -117, 8, 0] as byte[]
     static final String DIGESTED = 'favicon-0123456789abcdef.ico'
     static final AssetAttributes FOUND = new AssetAttributes(true, false, false, 1L, null, null, null, null)
-    static final AssetAttributes MISSING = new AssetAttributes(false, false, false, null, null, null, null, null)
 
     @TempDir
     File root
 
     File assets
-    GenericWebApplicationContext applicationContext
+    List<GenericWebApplicationContext> applicationContexts = []
 
     void setup() {
         AssetPipelineConfigHolder.config = [:]
-        resetCache()
         assets = new File(root, 'assets')
         assets.mkdirs()
         new File(assets, DIGESTED).bytes = FAVICON
@@ -60,72 +59,78 @@ class AssetPipelineFilterCacheSpec extends Specification {
     }
 
     void cleanup() {
-        applicationContext?.close()
+        applicationContexts*.close()
         AssetPipelineConfigHolder.config = [:]
         AssetPipelineConfigHolder.manifest = null
-        resetCache()
     }
 
-    void 'the cache holds no more urls than its bound'() {
+    void 'the cache holds no more assets than its bound, and no more missing urls'() {
         given: 'a small bound, and many more assets and missing urls than it allows'
-        AssetPipelineFilter.fileCache.maximumSize = 100
-        AssetPipelineFilter filter = filter()
+        AssetPipelineFilter filter = filter(maxCacheSize: 100)
         (1..300).each { int i -> new File(assets, "asset-${i}.js").text = "// ${i}" }
 
         when:
         List<Integer> found = (1..300).collect { int i -> request(filter, "/assets/asset-${i}.js").status }
         List<Integer> missing = (1..5000).collect { int i -> request(filter, "/assets/missing-${i}.js").status }
 
-        then: 'each is still answered, and the cache holds no more than it is allowed'
+        then: 'each is still answered, and the cache holds no more of either than it is allowed'
         found.every { it == 200 }
         missing.every { it == 404 }
-        AssetPipelineFilter.fileCache.size() <= 100
+        filter.cache.size() <= 100
+        (1..5000).count { int i -> filter.cache.isMissing("missing-${i}.js") } <= 100
     }
 
-    // The two below use a cache of their own: the filter's is static, and Caffeine's record of how
-    // often each url is asked for outlives clear(), so it would carry over from one feature to the next
+    void 'a url that matched no asset is answered from the cache'() {
+        given:
+        AssetPipelineFilter filter = filter()
+
+        when:
+        int first = request(filter, '/assets/later.js').status
+        new File(assets, 'later.js').text = '// added after it was looked up'
+        int second = request(filter, '/assets/later.js').status
+
+        then: 'the second request is not looked up again, so it is still a 404'
+        first == 404
+        second == 404
+        filter.cache.isMissing('later.js')
+        !filter.cache.containsKey('later.js')
+    }
 
     void 'an asset asked for often stays cached after many more recent ones asked for once'() {
         given: 'a cache already full, as it is once an application has run a while'
-        ProductionAssetCache cache = new ProductionAssetCache(100)
-        (1..100).each { int i -> ask(cache, "asset-${i}.js", FOUND) }
+        AssetPipelineFilter filter = filter(maxCacheSize: 100)
+        (1..1100).each { int i -> new File(assets, "asset-${i}.js").text = "// ${i}" }
+        (1..100).each { int i -> request(filter, "/assets/asset-${i}.js") }
 
         when: 'it is asked for a few times, then ten times as many other assets as the cache holds once each'
-        5.times { ask(cache, DIGESTED, FOUND) }
-        (101..1100).each { int i -> ask(cache, "asset-${i}.js", FOUND) }
+        5.times { assert request(filter, '/assets/favicon.ico').status == 200 }
+        (101..1100).each { int i -> assert request(filter, "/assets/asset-${i}.js").status == 200 }
 
         then: 'it is still cached, where a cache that kept only the most recent would have dropped it'
-        cache.get(DIGESTED)
+        filter.cache.get(DIGESTED)?.exists()
     }
 
-    void 'an asset asked for now and then stays cached through a flood of missing urls asked for once each'() {
-        given: 'a cache already full'
-        ProductionAssetCache cache = new ProductionAssetCache(100)
-        (1..100).each { int i -> ask(cache, "missing-${i}.js", MISSING) }
+    void 'urls that match no asset never evict an asset, however often they are asked for'() {
+        given:
+        AssetPipelineFilter filter = filter(maxCacheSize: 100)
 
-        when: 'a scanner asks for 5,000 urls that do not exist, while the asset is asked for every 200 requests'
-        (1..5000).each { int i ->
-            if (i % 200 == 1) {
-                ask(cache, DIGESTED, FOUND)
-            }
-            ask(cache, "scanned-${i}.php", MISSING)
-        }
+        when: 'an asset is asked for once, then a scanner asks for 2,000 urls that do not exist, each twice'
+        request(filter, '/assets/favicon.ico')
+        (1..2000).each { int i -> 2.times { assert request(filter, "/assets/scanned-${i}.php").status == 404 } }
 
-        then: 'it is still cached, 200 urls after it was last asked for, twice what the cache holds'
-        cache.get(DIGESTED)
-        cache.size() <= 100
+        then:
+        filter.cache.get(DIGESTED)?.exists()
     }
 
     void 'the cache is bounded when nothing is configured'() {
         expect:
-        ProductionAssetCache.maximumSizeOf([:]) == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
+        filter().cache.maximumSize == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
         ProductionAssetCache.maximumSizeOf(null) == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
-        new ProductionAssetCache().maximumSize == ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
     }
 
     void 'grails.assets.maxCacheSize sets the bound, from #configured'() {
         expect:
-        ProductionAssetCache.maximumSizeOf([maxCacheSize: configured]) == 250
+        filter(maxCacheSize: configured).cache.maximumSize == 250
 
         where: 'a number from application.yml, or a string from a system property or a placeholder'
         configured << [250, 250L, 250.0d, '250', ' 250 ']
@@ -147,14 +152,19 @@ class AssetPipelineFilterCacheSpec extends Specification {
         1.5d                  | 'must be a whole number'
         1.5G                  | 'must be a whole number'
         '1.5'                 | 'must be a whole number'
-        99999999999999999999G | 'must be at most 9223372036854775807'
-        1e20d                 | 'must be at most 9223372036854775807'
+        Long.MAX_VALUE        | 'must be at most 9223372034707292160'
+        99999999999999999999G | 'must be at most 9223372034707292160'
+        1e20d                 | 'must be at most 9223372034707292160'
+    }
+
+    void 'the largest bound allowed is the one Caffeine keeps'() {
+        expect:
+        new ProductionAssetCache(ProductionAssetCache.LARGEST_MAXIMUM_SIZE).maximumSize == ProductionAssetCache.LARGEST_MAXIMUM_SIZE
     }
 
     void 'a bound of zero caches nothing and still serves every asset'() {
         given:
-        AssetPipelineFilter.fileCache.maximumSize = 0
-        AssetPipelineFilter filter = filter()
+        AssetPipelineFilter filter = filter(maxCacheSize: 0)
 
         when:
         MockHttpServletResponse hit = request(filter, '/assets/favicon.ico')
@@ -164,10 +174,11 @@ class AssetPipelineFilterCacheSpec extends Specification {
         hit.status == 200
         hit.contentAsByteArray == FAVICON
         miss.status == 404
-        AssetPipelineFilter.fileCache.isEmpty()
+        filter.cache.isEmpty()
+        !filter.cache.isMissing('missing.js')
     }
 
-    void 'gzip is served to "#acceptEncoding" whether or not the url is cached'() {
+    void 'gzip is served to #acceptEncoding whether or not the url is cached'() {
         given:
         AssetPipelineFilter filter = filter()
 
@@ -178,29 +189,48 @@ class AssetPipelineFilterCacheSpec extends Specification {
         then:
         [miss, hit].every { it.getHeader('Content-Encoding') == 'gzip' && it.contentAsByteArray == FAVICON_GZIPPED }
 
-        where:
-        acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'GZIP', 'gzip;q=1.0, identity;q=0.5']
+        where: 'a list is the field sent on more than one line'
+        acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'GZIP', 'gzip;q=1.0, identity;q=0.5', ['br', 'gzip']]
     }
 
-    void 'the cache is still a ConcurrentMap of url to what the filter found'() {
+    void 'each filter has a cache of its own, and getFileCache() answers with the last one created'() {
+        given: 'a filter that has cached an asset'
+        AssetPipelineFilter first = filter(maxCacheSize: 100)
+        request(first, '/assets/favicon.ico')
+
+        when: 'another is created, as it is when a context starts again in the same JVM'
+        AssetPipelineFilter second = filter(maxCacheSize: 50)
+
+        then: 'it starts empty, and sizing it leaves the first alone'
+        second.cache.isEmpty()
+        first.cache.get(DIGESTED)
+        first.cache.maximumSize == 100
+        second.cache.maximumSize == 50
+
+        and:
+        AssetPipelineFilter.fileCache.is(second.cache)
+    }
+
+    void 'the cache is still a ConcurrentMap of url to the asset found'() {
         given:
         ProductionAssetCache cache = new ProductionAssetCache(10)
-        AssetAttributes found = FOUND
-        AssetAttributes missing = MISSING
+        AssetAttributes other = new AssetAttributes(true, false, false, 2L, null, null, null, null)
 
         when:
-        cache.put('a.js', found)
-        cache['b.js'] = missing
+        cache.put('a.js', FOUND)
+        cache['b.js'] = FOUND
+        cache.putMissing('c.js')
 
-        then:
+        then: 'it holds the assets, and keeps urls that matched none apart from them'
         cache instanceof ConcurrentMap
         cache.size() == 2
         cache.keySet() == ['a.js', 'b.js'] as Set
-        cache['b.js'].is(missing)
-        cache.putIfAbsent('b.js', found).is(missing)
-        cache.computeIfAbsent('b.js') { throw new AssertionError('b.js is cached') }.is(missing)
-        cache.replace('b.js', missing, found)
-        cache['b.js'].is(found)
+        cache.isMissing('c.js')
+        !cache.containsKey('c.js')
+        cache.putIfAbsent('b.js', other).is(FOUND)
+        cache.computeIfAbsent('b.js') { throw new AssertionError('b.js is cached') }.is(FOUND)
+        cache.replace('b.js', FOUND, other)
+        cache['b.js'].is(other)
 
         when: 'it is bounded anew, first above what it holds, then below'
         cache.maximumSize = 5
@@ -216,35 +246,26 @@ class AssetPipelineFilterCacheSpec extends Specification {
         when:
         cache.clear()
 
-        then:
+        then: 'it forgets both'
         cache.isEmpty()
+        !cache.isMissing('c.js')
     }
 
-    // What the filter does with each url: look it up, and record what it finds when it is not cached
-    private static void ask(ProductionAssetCache cache, String uri, AssetAttributes attributes) {
-        if (cache.get(uri) == null) {
-            cache.put(uri, attributes)
-        }
-    }
-
-    private static void resetCache() {
-        AssetPipelineFilter.fileCache.maximumSize = ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
-        AssetPipelineFilter.fileCache.clear()
-    }
-
-    private AssetPipelineFilter filter() {
+    private AssetPipelineFilter filter(Map config = [:]) {
+        AssetPipelineConfigHolder.config = config
         MockServletContext servletContext = new MockServletContext("file:${root.absolutePath}")
-        applicationContext = new GenericWebApplicationContext(servletContext)
+        GenericWebApplicationContext applicationContext = new GenericWebApplicationContext(servletContext)
+        applicationContexts << applicationContext
         applicationContext.registerBeanDefinition('assetProcessorService', new RootBeanDefinition(AssetProcessorService))
         applicationContext.refresh()
-        new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
+        AssetPipelineFilter filter = new AssetPipelineFilter(applicationContext: applicationContext, servletContext: servletContext)
+        filter.afterPropertiesSet() // as Spring does, which sizes the cache
+        filter
     }
 
-    private static MockHttpServletResponse request(AssetPipelineFilter filter, String uri, String acceptEncoding = null) {
+    private static MockHttpServletResponse request(AssetPipelineFilter filter, String uri, Object acceptEncoding = null) {
         MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', uri)
-        if (acceptEncoding) {
-            request.addHeader('Accept-Encoding', acceptEncoding)
-        }
+        (acceptEncoding instanceof List ? acceptEncoding : [acceptEncoding]).findAll().each { request.addHeader('Accept-Encoding', it) }
         MockHttpServletResponse response = new MockHttpServletResponse()
         filter.doFilter(request, response, new MockFilterChain())
         response
