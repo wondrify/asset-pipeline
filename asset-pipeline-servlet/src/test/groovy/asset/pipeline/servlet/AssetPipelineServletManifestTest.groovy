@@ -5,11 +5,11 @@ import jakarta.servlet.DispatcherType
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
 import org.apache.http.util.EntityUtils
-import org.eclipse.jetty.ee11.servlet.FilterHolder
-import org.eclipse.jetty.ee11.webapp.WebAppContext
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.server.ServerConnector
-import org.eclipse.jetty.util.resource.ResourceFactory
+import org.eclipse.jetty.servlet.FilterHolder
+import org.eclipse.jetty.util.resource.ResourceCollection
+import org.eclipse.jetty.webapp.WebAppContext
 import org.junit.AfterClass
 import org.junit.BeforeClass
 import org.junit.Test
@@ -51,7 +51,7 @@ class AssetPipelineServletManifestTest {
         }
 
         WebAppContext context = new WebAppContext()
-        context.setBaseResource(ResourceFactory.of(context).newResource(new File('src/test/resources/web-app').absoluteFile.toPath()))
+        context.setBaseResource(new ResourceCollection(['src/test/resources/web-app'] as String[]))
         context.setContextPath('/')
         FilterHolder holder = new FilterHolder(filter)
         ['/assets/*', '/test.css'].each { String pattern ->
