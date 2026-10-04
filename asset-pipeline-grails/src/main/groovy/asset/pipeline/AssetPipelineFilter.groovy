@@ -21,17 +21,42 @@ import org.springframework.web.filter.OncePerRequestFilter
 @CompileStatic
 class AssetPipelineFilter extends OncePerRequestFilter {
 
-	static final ProductionAssetCache fileCache = new ProductionAssetCache()
 	static final indexFile = 'index.html'
+
+	// What the cache answers for a url it recorded as matching no asset
+	private static final AssetAttributes MISSING = new AssetAttributes(false, false, false, null, null, null, null, null)
+
+	private static volatile ProductionAssetCache latestCache = new ProductionAssetCache()
+
+	/**
+	 * The cache of the filter created last, which in an application with one filter is that filter's.
+	 *
+	 * @deprecated each filter has its own cache; use {@link #getCache()}
+	 */
+	@Deprecated
+	static ProductionAssetCache getFileCache() {
+		latestCache
+	}
+
+	// This filter's own, so a context started again in the same JVM starts with an empty one.
+	// Sized by initFilterBean() from grails.assets.
+	final ProductionAssetCache cache = new ProductionAssetCache()
 
 	ApplicationContext applicationContext
 	ServletContext     servletContext
 	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
 	Collection<String> rootPaths = []
 
+	AssetPipelineFilter() {
+		latestCache = cache
+	}
 
 	@Override
 	void initFilterBean() throws ServletException {
+		// The plugin fills the holder before Spring creates any bean, and sizing the cache again when
+		// the servlet container starts the filter changes nothing
+		cache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
+
 		// GenericFilterBean implements InitializingBean, so when this filter is a container-managed
 		// bean (a nested bean definition of the FilterRegistrationBean) Spring calls this from
 		// afterPropertiesSet() - long before the servlet container supplies a FilterConfig.
@@ -105,8 +130,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				URL gzipFile = classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz")
 				if(response.status != 304) {
 					// Check for GZip
-					final String acceptsEncoding = request.getHeader("Accept-Encoding")
-					if(acceptsEncoding?.tokenize(",")?.contains("gzip")) {
+					if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 						if(gzipFile) {
 							file = gzipFile
 							response.setHeader('Content-Encoding', 'gzip')
@@ -158,7 +182,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 
 
-			final AssetAttributes attributeCache = fileCache.get(fileUri)
+			final AssetAttributes attributeCache = cache.get(fileUri) ?: (cache.isMissing(fileUri) ? MISSING : null)
 
 			if(attributeCache) {
 				if(attributeCache.exists()) {
@@ -179,8 +203,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					}
 
 					if(response.status != 304) {
-						final String acceptsEncoding = request.getHeader("Accept-Encoding")
-						if(acceptsEncoding?.tokenize(", ")?.contains("gzip") && attributeCache.gzipExists()) {
+						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && attributeCache.gzipExists()) {
 							file = attributeCache.getGzipResource()
 							response.setHeader('Content-Encoding', 'gzip')
 							response.setHeader('Content-Length', attributeCache.getGzipFileSize().toString())
@@ -253,12 +276,11 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						file,
 						gzipFile
 					)
-					fileCache.put(fileUri, newCache)
+					cache.put(fileUri, newCache)
 
 					if(response.status != 304) {
 						// Check for GZip
-						final String acceptsEncoding = request.getHeader("Accept-Encoding")
-						if(acceptsEncoding?.tokenize(",")?.contains("gzip")) {
+						if(AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding'))) {
 							if(gzipFile.exists()) {
 								file = gzipFile
 								response.setHeader('Content-Encoding', 'gzip')
@@ -288,8 +310,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						response.flushBuffer()
 					}
 				} else {
-					final AssetAttributes newCache = new AssetAttributes(false, false, false, null, null, null, null, null)
-					fileCache.put(fileUri, newCache)
+					cache.putMissing(fileUri)
 					if(!skipNotFound){
 						response.status = 404
 						response.flushBuffer()
