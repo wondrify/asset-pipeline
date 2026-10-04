@@ -4,7 +4,6 @@ import asset.pipeline.AssetPipelineConfigHolder
 import jakarta.servlet.DispatcherType
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
-import org.apache.http.client.utils.DateUtils
 import org.apache.http.util.EntityUtils
 import org.eclipse.jetty.ee11.servlet.FilterHolder
 import org.eclipse.jetty.ee11.webapp.WebAppContext
@@ -131,9 +130,7 @@ class AssetPipelineServletManifestTest {
         assertEquals(uri, cacheControl, headers['Cache-Control'])
         assertEquals(uri, 'Accept-Encoding', headers['Vary'])
 
-        Date modified = DateUtils.parseDate(headers['Last-Modified'])
-        Map<String, String> validators = ['If-None-Match': headers['ETag'],
-                                          'If-Modified-Since': DateUtils.formatDate(new Date(modified.time + 1000L))]
+        Map<String, String> validators = ['If-None-Match': headers['ETag'], 'If-Modified-Since': headers['Last-Modified']]
         validators.each { String name, String value ->
             HttpResponse notModified = Request.Get("http://localhost:${port}${uri}").setHeader(name, value).execute().returnResponse()
             assertEquals("${uri} with ${name}", 304, notModified.statusLine.statusCode)

@@ -196,9 +196,9 @@ class AssetPipelineFilterCacheSpec extends Specification {
     void '304 responses for #uri using #validator retain cache headers before and after caching the asset'() {
         given:
         AssetPipelineFilter filter = filter(rootPaths: ['favicon.ico'])
-        assert new File(assets, DIGESTED).setLastModified(1700000000000L)
+        assert new File(assets, DIGESTED).setLastModified(1700000000999L)
         Map<String, String> validators = ['If-None-Match': "\"${DIGESTED}\"",
-                                          'If-Modified-Since': 'Wed, 15 Nov 2023 22:13:20 GMT']
+                                          'If-Modified-Since': 'Tue, 14 Nov 2023 22:13:20 GMT']
 
         when:
         List<MockHttpServletResponse> responses = (1..2).collect {

@@ -227,7 +227,8 @@ public class AssetPipelineResponseBuilder {
 		// RFC 9110 section 13.1.3: even an empty If-None-Match suppresses date validation.
 		if (ifNoneMatchHeader == null && ifModifiedSinceHeader && lastModifiedDate) {
 			try {
-				hasNotChanged = lastModifiedDate <= sdf.parse(ifModifiedSinceHeader)
+				// Last-Modified is sent in whole seconds, so the date a client sends back is compared in them too
+				hasNotChanged = Math.floorDiv(lastModifiedDate.time, 1000L) <= Math.floorDiv(sdf.parse(ifModifiedSinceHeader).time, 1000L)
 			} catch (Exception e) {
 				//Ignore this just a parse error
 			}

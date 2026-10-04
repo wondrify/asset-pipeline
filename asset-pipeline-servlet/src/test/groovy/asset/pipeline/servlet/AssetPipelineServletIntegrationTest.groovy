@@ -7,7 +7,6 @@ import jakarta.servlet.DispatcherType
 import org.apache.http.Header
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
-import org.apache.http.client.utils.DateUtils
 import org.apache.http.util.EntityUtils
 import org.eclipse.jetty.ee11.servlet.FilterHolder
 import org.eclipse.jetty.ee11.webapp.WebAppContext
@@ -139,18 +138,17 @@ class AssetPipelineServletIntegrationTest {
         String url = "http://localhost:${port}/prod_assets/css/test.css"
         HttpResponse initial = Request.Get(url).execute().returnResponse()
         String etag = initial.getFirstHeader('ETag').value
-        Date lastModified = DateUtils.parseDate(initial.getFirstHeader('Last-Modified').value)
-        String laterDate = DateUtils.formatDate(new Date(lastModified.time + 1000L))
+        String lastModified = initial.getFirstHeader('Last-Modified').value
 
         HttpResponse changed = Request.Get(url)
                 .setHeader('If-None-Match', '"old.css"')
-                .setHeader('If-Modified-Since', laterDate)
+                .setHeader('If-Modified-Since', lastModified)
                 .execute().returnResponse()
         assertEquals(200, changed.statusLine.statusCode)
         assertEquals('body { font-family: "Comic Sans", sans-serif; }', EntityUtils.toString(changed.entity))
 
         [['W/' + etag], ['"old.css", ' + etag], ['"old.css"', 'W/' + etag], ['*'], []].each { List<String> tags ->
-            Request request = Request.Get(url).setHeader('If-Modified-Since', laterDate)
+            Request request = Request.Get(url).setHeader('If-Modified-Since', lastModified)
             tags.each { request.addHeader('If-None-Match', it) }
             HttpResponse unchanged = request.execute().returnResponse()
             assertEquals("If-None-Match: ${tags}", 304, unchanged.statusLine.statusCode)

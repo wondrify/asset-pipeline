@@ -96,6 +96,22 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
     }
 
     @Unroll
+    def "If-Modified-Since #date is compared in whole seconds with a file changed at #modified, as Last-Modified is sent"() {
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', null, date, new Date(modified))
+
+        then: 'a client that sends back the Last-Modified it was given is told the asset has not changed'
+        response.headers['Last-Modified'] == 'Tue, 14 Nov 2023 22:13:20 GMT'
+        response.statusCode == status
+
+        where:
+        date                            | modified       | status
+        'Tue, 14 Nov 2023 22:13:20 GMT' | 1700000000001L | 304
+        'Tue, 14 Nov 2023 22:13:20 GMT' | 1700000000999L | 304
+        'Tue, 14 Nov 2023 22:13:19 GMT' | 1700000000999L | 200
+    }
+
+    @Unroll
     def "make sure etag is quoted for #filename"() {
         given:
         Properties props = new Properties()
