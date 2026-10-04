@@ -53,7 +53,7 @@ class AssetPipelineFilterCore {
 			final Date lastModifiedDate = resource.getLastModified() ? new Date(resource.getLastModified()) : null
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 				fileUri,
-				request.getHeader('If-None-Match'),
+				AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 				request.getHeader('If-Modified-Since'),
 				lastModifiedDate
 			)

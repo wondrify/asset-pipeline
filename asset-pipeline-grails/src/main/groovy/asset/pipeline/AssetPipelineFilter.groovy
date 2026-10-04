@@ -108,7 +108,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 			if(file) {
 				final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 					manifestPath,
-					request.getHeader('If-None-Match'),
+					AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 					request.getHeader('If-Modified-Since'),
 					null
 				)
@@ -180,7 +180,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					Resource file = attributeCache.resource
 					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 						manifestPath,
-						request.getHeader('If-None-Match'),
+						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
 						attributeCache.getLastModified()
 					)
@@ -239,7 +239,7 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 				if(file.exists()) {
 					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 						manifestPath,
-						request.getHeader('If-None-Match'),
+						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
 						request.getHeader('If-Modified-Since'),
 						file.lastModified() ? new Date(file.lastModified()) : null
 					)
