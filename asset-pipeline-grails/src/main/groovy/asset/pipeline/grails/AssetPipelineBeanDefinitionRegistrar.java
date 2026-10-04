@@ -18,6 +18,7 @@ package asset.pipeline.grails;
 import java.util.List;
 import java.util.Map;
 
+import asset.pipeline.AssetPaths;
 import asset.pipeline.AssetPipelineFilter;
 
 import org.grails.web.config.http.GrailsFilters;
@@ -51,8 +52,11 @@ public class AssetPipelineBeanDefinitionRegistrar implements BeanDefinitionRegis
 
     private final String mapping;
 
+    private final List<String> rootPaths;
+
     public AssetPipelineBeanDefinitionRegistrar(Map<String, Object> assetsConfig) {
         this.mapping = mappingOf(assetsConfig);
+        this.rootPaths = List.copyOf(AssetPaths.rootPaths(assetsConfig == null ? null : assetsConfig.get("rootPaths"), this.mapping));
     }
 
     @Override
@@ -80,17 +84,15 @@ public class AssetPipelineBeanDefinitionRegistrar implements BeanDefinitionRegis
         // ahead-of-time processing with UnsupportedTypeValueCodeGenerationException.
         GenericBeanDefinition filter = new GenericBeanDefinition();
         filter.setBeanClass(AssetPipelineFilter.class);
+        // The filter answers these urls outside the mapping and no others, whatever it is registered for.
+        filter.getPropertyValues().add("rootPaths", this.rootPaths);
 
         GenericBeanDefinition registration = new GenericBeanDefinition();
         registration.setBeanClass(FilterRegistrationBean.class);
         registration.getPropertyValues().add("order", GrailsFilters.ASSET_PIPELINE_FILTER.getOrder());
         registration.getPropertyValues().add("filter", filter);
-        registration.getPropertyValues().add("urlPatterns", urlPatterns());
+        registration.getPropertyValues().add("urlPatterns", List.copyOf(AssetPaths.urlPatterns(this.mapping, this.rootPaths)));
         return registration;
-    }
-
-    private List<String> urlPatterns() {
-        return List.of(this.mapping == null || this.mapping.isEmpty() ? "/*" : "/" + this.mapping + "/*");
     }
 
     private static String mappingOf(Map<String, Object> assetsConfig) {

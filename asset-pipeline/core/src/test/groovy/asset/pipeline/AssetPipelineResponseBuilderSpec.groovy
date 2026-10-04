@@ -189,4 +189,92 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         null                    | false
     }
 
+    @Unroll
+    def "#uri, with #manifestGiven, is sent #cacheControl"() {
+        given:
+        Properties props = new Properties()
+        props.setProperty('app.js', 'app-0123456789abcdef.js')
+        AssetPipelineConfigHolder.manifest = manifestGiven == 'a manifest' ? props : null
+
+        expect: 'only a digested name the manifest gives is cached for a year; any other may change'
+        new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
+
+        cleanup:
+        AssetPipelineConfigHolder.manifest = null
+
+        where:
+        uri                        | manifestGiven | cacheControl
+        'app-0123456789abcdef.js'  | 'a manifest'  | 'public, max-age=31536000'
+        '/app-0123456789abcdef.js' | 'a manifest'  | 'public, max-age=31536000'
+        'app.js'                   | 'a manifest'  | 'no-cache'
+        'other.js'                 | 'a manifest'  | 'no-cache'
+        'app-0123456789abcdef.js'  | 'no manifest' | 'no-cache'
+    }
+
+    def "a builder given a manifest of its own reads that one, as for a class loader registered with its own assets"() {
+        given:
+        AssetPipelineConfigHolder.manifest = null
+        Properties own = new Properties()
+        own.setProperty('lib.js', 'lib-0123456789abcdef.js')
+
+        expect:
+        new AssetPipelineResponseBuilder('lib-0123456789abcdef.js', null, null, null, own).headers['Cache-Control'] == 'public, max-age=31536000'
+        new AssetPipelineResponseBuilder('lib.js', null, null, null, own).headers['ETag'] == '"lib-0123456789abcdef.js"'
+    }
+
+    def "a manifest that gains an entry after a request is read again"() {
+        given: 'a manifest a builder has already read'
+        Properties props = new Properties()
+        props.setProperty('a.js', 'a-0123456789abcdef.js')
+        AssetPipelineConfigHolder.manifest = props
+        new AssetPipelineResponseBuilder('a-0123456789abcdef.js')
+
+        when:
+        props.setProperty('b.js', 'b-0123456789abcdef.js')
+
+        then:
+        new AssetPipelineResponseBuilder('b-0123456789abcdef.js').headers['Cache-Control'] == 'public, max-age=31536000'
+
+        cleanup:
+        AssetPipelineConfigHolder.manifest = null
+    }
+
+    @Unroll
+    def "#uri, which immutable #matching, is sent #cacheControl though there is no manifest"() {
+        given:
+        Map originalConfig = AssetPipelineConfigHolder.config
+        AssetPipelineConfigHolder.manifest = null
+        AssetPipelineConfigHolder.config = [immutable: ['webjars/**']]
+
+        expect:
+        new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
+
+        cleanup:
+        AssetPipelineConfigHolder.config = originalConfig
+
+        where:
+        uri                               | matching          | cacheControl
+        'webjars/jquery/3.7.1/jquery.js'  | 'matches'         | 'public, max-age=31536000'
+        '/webjars/jquery/3.7.1/jquery.js' | 'matches'         | 'public, max-age=31536000'
+        'app.js'                          | 'does not match'  | 'no-cache'
+    }
+
+    def "a configuration given anew is read anew"() {
+        given:
+        Map originalConfig = AssetPipelineConfigHolder.config
+        AssetPipelineConfigHolder.manifest = null
+
+        when:
+        AssetPipelineConfigHolder.config = [immutable: ['a.js']]
+        String first = new AssetPipelineResponseBuilder('a.js').headers['Cache-Control']
+        AssetPipelineConfigHolder.config = [immutable: ['b.js']]
+
+        then:
+        first == 'public, max-age=31536000'
+        new AssetPipelineResponseBuilder('a.js').headers['Cache-Control'] == 'no-cache'
+        new AssetPipelineResponseBuilder('b.js').headers['Cache-Control'] == 'public, max-age=31536000'
+
+        cleanup:
+        AssetPipelineConfigHolder.config = originalConfig
+    }
 }

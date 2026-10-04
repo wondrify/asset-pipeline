@@ -1,5 +1,6 @@
 package asset.pipeline.servlet
 
+import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipeline
 import jakarta.servlet.*
 import jakarta.servlet.http.HttpServletRequest
@@ -12,7 +13,15 @@ class AssetPipelineDevFilterCore {
 	private final static Logger log = Logger.getLogger(getClass().getName())
 
 
-	String mapping = "mapping"
+	/** The url assets are served under; empty, as it is unless set, serves every url the filter is registered for by its path */
+	String mapping = ""
+	/** The urls outside the mapping that name an asset, each without its leading slash, as AssetPaths.rootPaths reads them */
+	Collection<String> rootPaths = []
+
+	// Read as AssetPaths.rootPaths reads them, so that /favicon.ico names the same asset as favicon.ico
+	void setRootPaths(final Collection<String> rootPaths) {
+		this.rootPaths = new LinkedHashSet<String>(AssetPaths.rootPaths(rootPaths, null))
+	}
 	ServletContext servletContext
 
 
@@ -25,12 +34,18 @@ class AssetPipelineDevFilterCore {
 	}
 
 	private void doFilterHttp(final HttpServletRequest request, final HttpServletResponse response, final FilterChain filterChain) {
-		String fileUri = request.requestURI
-		final String baseAssetUrl = request.contextPath == "/" ? "/$mapping/" : "${request.contextPath}/${mapping}/"
-		if(fileUri.startsWith(baseAssetUrl)) {
-			fileUri = fileUri.substring(baseAssetUrl.length())
+		final String path = AssetPaths.pathWithinContext(request.requestURI, request.contextPath)
+		final AssetPaths.AssetUrl assetUrl = AssetPaths.assetUrl(request.method, path, mapping, rootPaths)
+		if(assetUrl == null) {
+			// Neither under the mapping nor one of the root paths
+			filterChain.doFilter(request, response)
+			return
 		}
-		final String format = servletContext.getMimeType(request.requestURI)
+		String fileUri = assetUrl.path
+		if(fileUri.startsWith('/')) {
+			fileUri = fileUri.substring(1)
+		}
+		final String format = servletContext.getMimeType(path)
 
 		final byte[] fileContents
 		if(request.getParameter('compile') == 'false') {
@@ -39,7 +54,8 @@ class AssetPipelineDevFilterCore {
 			fileContents = AssetPipeline.serveAsset(fileUri, format, null, request.characterEncoding)
 		}
 
-		if(fileContents) {
+		// Null rather than Groovy truth, so an empty file is served rather than taken for a missing one
+		if(fileContents != null) {
 			response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate"); // HTTP 1.1.
 			response.setHeader("Pragma", "no-cache"); // HTTP 1.0.
 			response.setDateHeader("Expires", 0); // Proxies.

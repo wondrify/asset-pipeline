@@ -74,10 +74,7 @@ public class ProductionAssetCache implements ConcurrentMap<String, AssetAttribut
 
     /**
      * The {@code maxCacheSize} in the asset pipeline configuration, or the default when it is not
-     * set. It is a whole number, or a string of one, as a system property or a {@code ${...}}
-     * placeholder in application.yml gives it. Grails does not map an environment variable such as
-     * {@code GRAILS_ASSETS_MAXCACHESIZE} onto {@code grails.assets}, so one reaches the setting
-     * only through a placeholder.
+     * set. It is a whole number, or a string of one, as a system property gives it.
      */
     public static long maximumSizeOf(Map<?, ?> config) {
         Object configured = config == null ? null : config.get(MAXIMUM_SIZE_KEY);
