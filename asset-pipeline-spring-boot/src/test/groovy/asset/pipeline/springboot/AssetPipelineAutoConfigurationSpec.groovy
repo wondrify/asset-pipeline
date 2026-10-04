@@ -34,6 +34,15 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
         imports.readLines()*.trim().contains(AssetPipelineAutoConfiguration.name)
     }
 
+    void 'the settings are described where an IDE looks for them'() {
+        given:
+        String metadata = getClass().getResourceAsStream('/META-INF/spring-configuration-metadata.json')?.text
+
+        expect:
+        metadata?.contains('"name": "assets.root-paths"')
+        metadata.contains('"name": "assets.enabled"')
+    }
+
     private WebApplicationContextRunner contextRunner() {
         new WebApplicationContextRunner().withUserConfiguration(AssetPipelineAutoConfiguration)
     }
