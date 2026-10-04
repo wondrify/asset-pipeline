@@ -17,56 +17,54 @@
 package asset.pipeline.grails;
 
 import java.math.BigDecimal;
-import java.util.AbstractMap;
-import java.util.AbstractSet;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 
+import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Policy;
 
 /**
  * What the filter has learned about each url it looked up in a compiled application: whether the
- * asset exists, and where. It keeps at most {@code grails.assets.maxCacheSize} assets it found,
- * {@value #DEFAULT_MAXIMUM_SIZE} unless configured, and as many urls it did not find, apart, so
- * that requests for urls that don't exist never push out an asset the application serves. Within
- * each, Caffeine admits an entry over the one it would evict by how often each is asked for, so
- * the assets an application serves most stay cached.
+ * asset exists, and where. It holds at most {@code grails.assets.maxCacheSize} urls,
+ * {@value #DEFAULT_MAXIMUM_SIZE} unless configured. Caffeine admits an entry over the one it would
+ * evict by how often each is asked for, so once the cache has filled, a url asked for once, as a
+ * scanner's are, does not push out an asset asked for more often.
  *
- * <p>It is a {@code Map} of url to what was found, as it was when it extended
- * {@code ConcurrentHashMap}.
+ * <p>It is a {@code ConcurrentMap} of url to what was found, as it was when it extended
+ * {@code ConcurrentHashMap}: each method is Caffeine's map view of the cache, atomic where
+ * {@code ConcurrentMap} requires it.
  */
-public class ProductionAssetCache extends AbstractMap<String, AssetAttributes> {
+public class ProductionAssetCache implements ConcurrentMap<String, AssetAttributes> {
 
     public static final String MAXIMUM_SIZE_KEY = "maxCacheSize";
 
     public static final long DEFAULT_MAXIMUM_SIZE = 10_000L;
 
-    // What a size of zero keeps: nothing, without building a cache to evict from
-    private static final Map<String, AssetAttributes> NOTHING = new AbstractMap<>() {
-        @Override
-        public AssetAttributes put(String uri, AssetAttributes attributes) {
-            return null;
-        }
+    private final Cache<String, AssetAttributes> cache;
 
-        @Override
-        public Set<Entry<String, AssetAttributes>> entrySet() {
-            return Collections.emptySet();
-        }
-    };
-
-    private volatile Tiers tiers;
+    private final ConcurrentMap<String, AssetAttributes> map;
 
     public ProductionAssetCache() {
         this(DEFAULT_MAXIMUM_SIZE);
     }
 
     /**
-     * @param maximumSize the most assets kept, and the most missing urls; zero keeps none
+     * @param maximumSize the most urls kept; zero keeps none
      */
     public ProductionAssetCache(long maximumSize) {
-        setMaximumSize(maximumSize);
+        // Evict on the thread that adds, rather than on ForkJoinPool.commonPool(), so the bound
+        // holds as entries are added and the application's own pool does none of the work
+        this.cache = Caffeine.newBuilder()
+                .maximumSize(zeroOrMore(maximumSize))
+                .executor(Runnable::run)
+                .build();
+        this.map = cache.asMap();
     }
 
     /**
@@ -81,137 +79,180 @@ public class ProductionAssetCache extends AbstractMap<String, AssetAttributes> {
         if (configured == null || configured.toString().isBlank()) {
             return DEFAULT_MAXIMUM_SIZE;
         }
-        long maximumSize;
+        BigDecimal value;
         try {
             // Rather than Number.longValue(), which would truncate 1.5 to 1
-            maximumSize = new BigDecimal(configured.toString().trim()).longValueExact();
-        } catch (NumberFormatException | ArithmeticException e) {
-            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be a whole number, not '" + configured + "'", e);
+            value = new BigDecimal(configured.toString().trim());
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(setting() + " must be a whole number, not '" + configured + "'", e);
         }
-        return zeroOrMore(maximumSize);
+        if (value.signum() < 0) {
+            throw new IllegalArgumentException(setting() + " must be zero or more, not " + configured);
+        }
+        if (value.stripTrailingZeros().scale() > 0) {
+            throw new IllegalArgumentException(setting() + " must be a whole number, not " + configured);
+        }
+        if (value.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0) {
+            throw new IllegalArgumentException(setting() + " must be at most " + Long.MAX_VALUE + ", not " + configured);
+        }
+        return value.longValueExact();
     }
 
     public long getMaximumSize() {
-        return tiers.maximumSize;
+        return eviction().getMaximum();
     }
 
     /**
-     * Empties the cache and bounds it anew.
+     * Bounds the cache anew, keeping what it holds unless that is more than the new bound allows.
      *
-     * @param maximumSize the most assets kept, and the most missing urls; zero keeps none
+     * @param maximumSize the most urls kept; zero keeps none
      */
     public void setMaximumSize(long maximumSize) {
-        this.tiers = new Tiers(zeroOrMore(maximumSize));
+        eviction().setMaximum(zeroOrMore(maximumSize));
+    }
+
+    private Policy.Eviction<String, AssetAttributes> eviction() {
+        return cache.policy().eviction().orElseThrow();
     }
 
     private static long zeroOrMore(long maximumSize) {
         if (maximumSize < 0) {
-            throw new IllegalArgumentException("grails.assets." + MAXIMUM_SIZE_KEY + " must be zero or more, not " + maximumSize);
+            throw new IllegalArgumentException(setting() + " must be zero or more, not " + maximumSize);
         }
         return maximumSize;
     }
 
-    @Override
-    public AssetAttributes get(Object uri) {
-        Tiers current = tiers;
-        AssetAttributes attributes = current.found.get(uri);
-        return attributes != null ? attributes : current.missing.get(uri);
+    private static String setting() {
+        return "grails.assets." + MAXIMUM_SIZE_KEY;
     }
 
     @Override
-    public AssetAttributes put(String uri, AssetAttributes attributes) {
-        Tiers current = tiers;
-        // A url whose asset has appeared or gone moves from one to the other
-        AssetAttributes moved = (attributes.exists() ? current.missing : current.found).remove(uri);
-        AssetAttributes replaced = (attributes.exists() ? current.found : current.missing).put(uri, attributes);
-        return replaced != null ? replaced : moved;
+    public int size() {
+        return map.size();
+    }
+
+    @Override
+    public boolean isEmpty() {
+        return map.isEmpty();
     }
 
     @Override
     public boolean containsKey(Object uri) {
-        Tiers current = tiers;
-        return current.found.containsKey(uri) || current.missing.containsKey(uri);
+        return map.containsKey(uri);
+    }
+
+    @Override
+    public boolean containsValue(Object attributes) {
+        return map.containsValue(attributes);
+    }
+
+    @Override
+    public AssetAttributes get(Object uri) {
+        return map.get(uri);
+    }
+
+    @Override
+    public AssetAttributes getOrDefault(Object uri, AssetAttributes defaultAttributes) {
+        return map.getOrDefault(uri, defaultAttributes);
+    }
+
+    @Override
+    public AssetAttributes put(String uri, AssetAttributes attributes) {
+        return map.put(uri, attributes);
+    }
+
+    @Override
+    public void putAll(Map<? extends String, ? extends AssetAttributes> entries) {
+        map.putAll(entries);
     }
 
     @Override
     public AssetAttributes remove(Object uri) {
-        Tiers current = tiers;
-        AssetAttributes found = current.found.remove(uri);
-        AssetAttributes missing = current.missing.remove(uri);
-        return found != null ? found : missing;
+        return map.remove(uri);
     }
 
     @Override
     public void clear() {
-        Tiers current = tiers;
-        current.found.clear();
-        current.missing.clear();
+        map.clear();
+    }
+
+    @Override
+    public Set<String> keySet() {
+        return map.keySet();
+    }
+
+    @Override
+    public Collection<AssetAttributes> values() {
+        return map.values();
     }
 
     @Override
     public Set<Entry<String, AssetAttributes>> entrySet() {
-        Tiers current = tiers;
-        return new AbstractSet<>() {
-            @Override
-            public Iterator<Entry<String, AssetAttributes>> iterator() {
-                return new Iterator<>() {
-                    private final Iterator<Entry<String, AssetAttributes>> found = current.found.entrySet().iterator();
-                    private final Iterator<Entry<String, AssetAttributes>> missing = current.missing.entrySet().iterator();
-                    private Iterator<Entry<String, AssetAttributes>> last;
-
-                    @Override
-                    public boolean hasNext() {
-                        return found.hasNext() || missing.hasNext();
-                    }
-
-                    @Override
-                    public Entry<String, AssetAttributes> next() {
-                        last = found.hasNext() ? found : missing;
-                        return last.next();
-                    }
-
-                    @Override
-                    public void remove() {
-                        if (last == null) {
-                            throw new IllegalStateException();
-                        }
-                        last.remove();
-                    }
-                };
-            }
-
-            @Override
-            public int size() {
-                return current.found.size() + current.missing.size();
-            }
-        };
+        return map.entrySet();
     }
 
-    private static final class Tiers {
+    @Override
+    public void forEach(BiConsumer<? super String, ? super AssetAttributes> action) {
+        map.forEach(action);
+    }
 
-        final long maximumSize;
+    @Override
+    public AssetAttributes putIfAbsent(String uri, AssetAttributes attributes) {
+        return map.putIfAbsent(uri, attributes);
+    }
 
-        final Map<String, AssetAttributes> found;
+    @Override
+    public boolean remove(Object uri, Object attributes) {
+        return map.remove(uri, attributes);
+    }
 
-        final Map<String, AssetAttributes> missing;
+    @Override
+    public boolean replace(String uri, AssetAttributes oldAttributes, AssetAttributes newAttributes) {
+        return map.replace(uri, oldAttributes, newAttributes);
+    }
 
-        Tiers(long maximumSize) {
-            this.maximumSize = maximumSize;
-            this.found = bounded(maximumSize);
-            this.missing = bounded(maximumSize);
-        }
+    @Override
+    public AssetAttributes replace(String uri, AssetAttributes attributes) {
+        return map.replace(uri, attributes);
+    }
 
-        private static Map<String, AssetAttributes> bounded(long maximumSize) {
-            if (maximumSize == 0) {
-                return NOTHING;
-            }
-            // Evict on the thread that adds, rather than on ForkJoinPool.commonPool(), so the bound
-            // holds as entries are added and the application's own pool does none of the work
-            return Caffeine.newBuilder()
-                    .maximumSize(maximumSize)
-                    .executor(Runnable::run)
-                    .<String, AssetAttributes>build()
-                    .asMap();
-        }
+    @Override
+    public void replaceAll(BiFunction<? super String, ? super AssetAttributes, ? extends AssetAttributes> function) {
+        map.replaceAll(function);
+    }
+
+    @Override
+    public AssetAttributes computeIfAbsent(String uri, Function<? super String, ? extends AssetAttributes> mappingFunction) {
+        return map.computeIfAbsent(uri, mappingFunction);
+    }
+
+    @Override
+    public AssetAttributes computeIfPresent(String uri, BiFunction<? super String, ? super AssetAttributes, ? extends AssetAttributes> remappingFunction) {
+        return map.computeIfPresent(uri, remappingFunction);
+    }
+
+    @Override
+    public AssetAttributes compute(String uri, BiFunction<? super String, ? super AssetAttributes, ? extends AssetAttributes> remappingFunction) {
+        return map.compute(uri, remappingFunction);
+    }
+
+    @Override
+    public AssetAttributes merge(String uri, AssetAttributes attributes, BiFunction<? super AssetAttributes, ? super AssetAttributes, ? extends AssetAttributes> remappingFunction) {
+        return map.merge(uri, attributes, remappingFunction);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return other == this || map.equals(other);
+    }
+
+    @Override
+    public int hashCode() {
+        return map.hashCode();
+    }
+
+    @Override
+    public String toString() {
+        return map.toString();
     }
 }

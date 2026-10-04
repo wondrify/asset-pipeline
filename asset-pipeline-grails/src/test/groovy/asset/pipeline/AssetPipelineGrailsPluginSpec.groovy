@@ -30,6 +30,7 @@ import org.springframework.beans.factory.support.GenericBeanDefinition
 import org.springframework.beans.factory.support.RootBeanDefinition
 import org.springframework.beans.factory.support.SimpleBeanDefinitionRegistry
 import org.springframework.boot.web.servlet.FilterRegistrationBean
+import org.springframework.core.NestedExceptionUtils
 import org.springframework.core.env.MapPropertySource
 import org.springframework.core.env.MutablePropertySources
 import org.springframework.context.aot.ApplicationContextAotGenerator
@@ -59,6 +60,7 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         AssetPipelineConfigHolder.manifest = null
         AssetPipelineConfigHolder.config = [:]
         AssetPipelineFilter.fileCache.maximumSize = ProductionAssetCache.DEFAULT_MAXIMUM_SIZE
+        AssetPipelineFilter.fileCache.clear()
     }
 
     void 'the filter is contributed as a nested bean definition rather than a constructed instance'() {
@@ -151,7 +153,7 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         applicationContext.containsBeanDefinition('assetResourceLocator')
     }
 
-    void 'grails.assets.maxCacheSize sizes the filter cache as the plugin reads its configuration'() {
+    void 'grails.assets.maxCacheSize sizes the filter cache as Spring creates the filter'() {
         given:
         configure('grails.assets.maxCacheSize': '250')
 
@@ -170,8 +172,10 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         startWithPlugin()
 
         then:
-        IllegalArgumentException e = thrown()
-        e.message.contains('grails.assets.maxCacheSize')
+        Exception e = thrown()
+        Throwable cause = NestedExceptionUtils.getMostSpecificCause(e)
+        cause instanceof IllegalArgumentException
+        cause.message.contains('grails.assets.maxCacheSize')
     }
 
     private void configure(Map<String, Object> properties) {

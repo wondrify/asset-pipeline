@@ -16,7 +16,7 @@ grails:
 
 ==== Lookup Cache
 
-In a compiled application the asset filter caches what it finds for each url it is asked for, so it does not look the same url up again. The cache holds at most `maxCacheSize` assets, 10000 unless configured, and keeps those asked for most often. It holds as many urls that matched no asset apart from them, so requests for urls that don't exist never push out an asset the application serves.
+In a compiled application the asset filter caches what it finds for each url it is asked for, an asset or none, so it does not look the same url up again. The cache holds at most `maxCacheSize` urls, 10000 unless configured, and keeps those asked for most often: a url asked for once, as a scanner's are, does not push out an asset the application serves.
 
 [source,yml]
 ----

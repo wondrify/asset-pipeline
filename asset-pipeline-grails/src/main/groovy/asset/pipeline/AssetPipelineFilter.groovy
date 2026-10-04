@@ -21,7 +21,7 @@ import org.springframework.web.filter.OncePerRequestFilter
 @CompileStatic
 class AssetPipelineFilter extends OncePerRequestFilter {
 
-	// Sized by the plugin when it reads grails.assets
+	// Sized by initFilterBean() from grails.assets
 	static final ProductionAssetCache fileCache = new ProductionAssetCache()
 	static final indexFile = 'index.html'
 
@@ -31,6 +31,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 
 	@Override
 	void initFilterBean() throws ServletException {
+		// The plugin fills the holder before Spring creates any bean, and sizing the cache again when
+		// the servlet container starts the filter changes nothing
+		fileCache.maximumSize = ProductionAssetCache.maximumSizeOf(AssetPipelineConfigHolder.config)
+
 		// GenericFilterBean implements InitializingBean, so when this filter is a container-managed
 		// bean (a nested bean definition of the FilterRegistrationBean) Spring calls this from
 		// afterPropertiesSet() - long before the servlet container supplies a FilterConfig.
