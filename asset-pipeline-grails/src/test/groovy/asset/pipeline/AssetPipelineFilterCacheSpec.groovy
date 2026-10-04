@@ -193,6 +193,46 @@ class AssetPipelineFilterCacheSpec extends Specification {
         acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'GZIP', 'gzip;q=1.0, identity;q=0.5', ['br', 'gzip']]
     }
 
+    void '304 responses for #uri using #validator retain cache headers before and after caching the asset'() {
+        given:
+        AssetPipelineFilter filter = filter()
+        assert new File(assets, DIGESTED).setLastModified(1700000000000L)
+        Map<String, String> validators = ['If-None-Match': "\"${DIGESTED}\"",
+                                          'If-Modified-Since': 'Wed, 15 Nov 2023 22:13:20 GMT']
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', uri)
+            request.addHeader(validator, validators[validator])
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+        MockHttpServletResponse full = request(filter, uri)
+
+        then:
+        full.status == 200
+        full.contentAsByteArray == FAVICON
+        full.getHeader('ETag') == "\"${DIGESTED}\""
+        full.getHeader('Last-Modified') == 'Tue, 14 Nov 2023 22:13:20 GMT'
+        full.getHeader('Vary') == 'Accept-Encoding'
+        full.getHeader('Cache-Control') == cacheControl
+        responses.each { response ->
+            assert response.status == 304
+            assert response.contentAsByteArray.length == 0
+            ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].each { header ->
+                assert response.getHeader(header) == full.getHeader(header)
+            }
+        }
+
+        where:
+        uri                   | validator           | cacheControl
+        '/assets/favicon.ico' | 'If-None-Match'     | 'no-cache'
+        '/assets/favicon.ico' | 'If-Modified-Since' | 'no-cache'
+        "/assets/${DIGESTED}" | 'If-None-Match'     | 'public, max-age=31536000'
+        "/assets/${DIGESTED}" | 'If-Modified-Since' | 'public, max-age=31536000'
+    }
+
     void 'each filter has a cache of its own, and getFileCache() answers with the last one created'() {
         given: 'a filter that has cached an asset'
         AssetPipelineFilter first = filter(maxCacheSize: 100)

@@ -24,14 +24,14 @@ public class AssetPipelineResponseBuilder {
         boolean digestVersion = isDigestVersion()
 		if(!checkDateChanged()) {
 			statusCode = 304
-		} else if (checkETag()) {
-            headers['Vary'] = 'Accept-Encoding'
-            if(digestVersion && !uri.endsWith(".html")) {
-                headers['Cache-Control'] = 'public, max-age=31536000'    
-            } else {
-                headers['Cache-Control'] = 'no-cache'
-            }
-            
+		}
+        // A 304 carries the same cache metadata as a 200 response.
+        checkETag()
+        headers['Vary'] = 'Accept-Encoding'
+        if(digestVersion && !uri.endsWith(".html")) {
+            headers['Cache-Control'] = 'public, max-age=31536000'
+        } else {
+            headers['Cache-Control'] = 'no-cache'
         }
     }
 

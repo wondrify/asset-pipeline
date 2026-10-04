@@ -5,6 +5,16 @@ import spock.lang.Unroll
 
 public class AssetPipelineResponseBuilderSpec extends Specification {
 
+    Properties originalManifest
+
+    void setup() {
+        originalManifest = AssetPipelineConfigHolder.manifest
+    }
+
+    void cleanup() {
+        AssetPipelineConfigHolder.manifest = originalManifest
+    }
+
     @Unroll
     def "make sure etag is quoted for #filename"() {
         given:
@@ -65,6 +75,55 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
         where:
         filename << ['global.js', '/global.js']
+    }
+
+    @Unroll
+    def "304 responses for #uri retain the cache headers of a 200 response"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        manifest.setProperty('index.html', 'index-2222.html')
+        AssetPipelineConfigHolder.manifest = manifest
+        Date modified = new Date(1700000000000L)
+
+        when:
+        def initial = new AssetPipelineResponseBuilder(uri, null, null, modified)
+        def byETag = new AssetPipelineResponseBuilder(uri, etag, null, modified)
+        def byDate = new AssetPipelineResponseBuilder(uri, null, 'Wed, 15 Nov 2023 22:13:20 GMT', modified)
+
+        then:
+        initial.statusCode == 200
+        initial.headers == ['ETag': etag, 'Last-Modified': 'Tue, 14 Nov 2023 22:13:20 GMT',
+                            'Vary': 'Accept-Encoding', 'Cache-Control': cacheControl]
+        byETag.statusCode == 304
+        byETag.headers == initial.headers
+        byDate.statusCode == 304
+        byDate.headers == initial.headers
+
+        where:
+        uri                | etag                | cacheControl
+        'app.js'           | '"app-2222.js"'     | 'no-cache'
+        '/app.js'          | '"app-2222.js"'     | 'no-cache'
+        'app-2222.js'      | '"app-2222.js"'     | 'public, max-age=31536000'
+        '/app-2222.js'     | '"app-2222.js"'     | 'public, max-age=31536000'
+        'index.html'       | '"index-2222.html"' | 'no-cache'
+        '/index.html'      | '"index-2222.html"' | 'no-cache'
+        'index-2222.html'  | '"index-2222.html"' | 'no-cache'
+        '/index-2222.html' | '"index-2222.html"' | 'no-cache'
+    }
+
+    def "ETag validation retains cache headers when no last-modified date is available"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        AssetPipelineConfigHolder.manifest = manifest
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', '"app-2222.js"')
+
+        then:
+        response.statusCode == 304
+        response.headers == ['ETag': '"app-2222.js"', 'Vary': 'Accept-Encoding', 'Cache-Control': 'no-cache']
     }
 
     @Unroll
