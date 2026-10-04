@@ -14,6 +14,19 @@ grails:
     storagePath: /path/to/store #automatically copy assets to external folder on startup
 ----
 
+==== Lookup Cache
+
+In a compiled application the asset filter caches what it finds for each url it is asked for, so it does not look the same url up again. The cache holds at most `maxCacheSize` entries, 10000 unless configured, and keeps the urls asked for most often.
+
+[source,yml]
+----
+grails:
+  assets:
+    maxCacheSize: 10000
+----
+
+An application that serves more distinct assets than that can raise it; an evicted url is only looked up again. `0` turns the cache off. Development, where assets are compiled as they are asked for, does not use it.
+
 ==== Mappings and Asset Taglib URLs
 
 In many cases you may want to change the URL for which to include your static assets. This can be useful when using a CDN or perhaps even using nginx to serve your static assets.
