@@ -11,12 +11,16 @@ import java.text.SimpleDateFormat
 @CompileStatic
 public class AssetPipelineResponseBuilder {
 	public static final String HTTP_DATE_FORMAT = "EEE, dd MMM yyyy HH:mm:ss zzz"
+	/** Ends the ETag of an asset sent gzipped, whose bytes differ from the ones sent as they are */
+	public static final String GZIP_ETAG_SUFFIX = '-gz'
     public String uri
     public String ifNoneMatchHeader
     public String ifModifiedSinceHeader
     public Integer statusCode = 200
 	private Date lastModifiedDate
 	private final Properties manifest
+	private final String method
+	private final boolean gzip
 
 	// The digested names of the manifest a builder last read, so a request doesn't scan every entry of it
 	private static volatile DigestedNames digestedNames
@@ -29,10 +33,14 @@ public class AssetPipelineResponseBuilder {
     /**
      * @param manifest the manifest the asset was compiled into; the application's unless given, which a class loader
      *        registered with its own assets passes instead
+     * @param method the request's method: only GET and HEAD are answered 304, and any other fails its precondition
+     * @param gzip whether the gzipped asset is the one sent, which has an ETag of its own (RFC 9110 section 8.8.3.3)
      */
-    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest) {
+    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest, String method = 'GET', boolean gzip = false) {
         this.uri = uri
         this.manifest = manifest
+        this.method = method
+        this.gzip = gzip
         this.ifNoneMatchHeader = ifNoneMatchHeader
         this.ifModifiedSinceHeader = ifModifiedSinceHeader
 		this.lastModifiedDate = lastModifiedDate
@@ -40,15 +48,14 @@ public class AssetPipelineResponseBuilder {
 		boolean etagChanged = checkETag()
 		boolean dateChanged = checkDateChanged()
 		if(!etagChanged || !dateChanged) {
-			statusCode = 304
-		} else {
-            headers['Vary'] = 'Accept-Encoding'
-            if(digestVersion && !uri.endsWith(".html")) {
-                headers['Cache-Control'] = 'public, max-age=31536000'    
-            } else {
-                headers['Cache-Control'] = 'no-cache'
-            }
-            
+			statusCode = conditionFailedStatus()
+		}
+        // A 304 carries the same cache metadata as a 200 response.
+        headers['Vary'] = 'Accept-Encoding'
+        if(digestVersion && !uri.endsWith(".html")) {
+            headers['Cache-Control'] = 'public, max-age=31536000'
+        } else {
+            headers['Cache-Control'] = 'no-cache'
         }
     }
 
@@ -114,7 +121,7 @@ public class AssetPipelineResponseBuilder {
             manifestPath = uri.substring(1) //Omit forward slash
         }
 
-        return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + "\""
+        return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + (gzip ? GZIP_ETAG_SUFFIX : '') + "\""
     }
 
     /**
@@ -183,10 +190,20 @@ public class AssetPipelineResponseBuilder {
         headers["ETag"] = etagName
 
         if (ifNoneMatchHeader != null && matchesETag(etagName)) {
-            statusCode = 304
+            statusCode = conditionFailedStatus()
             return false
         }
         return true
+    }
+
+    // RFC 9110 section 13.2.2: GET and HEAD are told the asset has not changed, and any other method that its
+    // precondition failed. Only If-None-Match can fail another method's, as If-Modified-Since is read for GET and HEAD alone.
+    private int conditionFailedStatus() {
+        return isGetOrHead() ? 304 : 412
+    }
+
+    private boolean isGetOrHead() {
+        return method == 'GET' || method == 'HEAD'
     }
 
     /** Combine field lines without confusing an absent If-None-Match with an empty one. */
@@ -225,10 +242,11 @@ public class AssetPipelineResponseBuilder {
 		if(lastModifiedDate) {
 			headers["Last-Modified"] = getLastModifiedDate(lastModifiedDate)
 		}
-		// RFC 9110 section 13.1.3: even an empty If-None-Match suppresses date validation.
-		if (ifNoneMatchHeader == null && ifModifiedSinceHeader && lastModifiedDate) {
+		// RFC 9110 section 13.1.3: read for GET and HEAD alone, and even an empty If-None-Match suppresses it.
+		if (isGetOrHead() && ifNoneMatchHeader == null && ifModifiedSinceHeader && lastModifiedDate) {
 			try {
-				hasNotChanged = lastModifiedDate <= sdf.parse(ifModifiedSinceHeader)
+				// Last-Modified is sent in whole seconds, so the date a client sends back is compared in them too
+				hasNotChanged = Math.floorDiv(lastModifiedDate.time, 1000L) <= Math.floorDiv(sdf.parse(ifModifiedSinceHeader).time, 1000L)
 			} catch (Exception e) {
 				//Ignore this just a parse error
 			}

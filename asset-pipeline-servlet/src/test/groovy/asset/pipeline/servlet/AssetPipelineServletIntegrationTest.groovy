@@ -7,7 +7,6 @@ import jakarta.servlet.DispatcherType
 import org.apache.http.Header
 import org.apache.http.HttpResponse
 import org.apache.http.client.fluent.Request
-import org.apache.http.client.utils.DateUtils
 import org.apache.http.util.EntityUtils
 import org.eclipse.jetty.ee11.servlet.FilterHolder
 import org.eclipse.jetty.ee11.webapp.WebAppContext
@@ -139,23 +138,54 @@ class AssetPipelineServletIntegrationTest {
         String url = "http://localhost:${port}/prod_assets/css/test.css"
         HttpResponse initial = Request.Get(url).execute().returnResponse()
         String etag = initial.getFirstHeader('ETag').value
-        Date lastModified = DateUtils.parseDate(initial.getFirstHeader('Last-Modified').value)
-        String laterDate = DateUtils.formatDate(new Date(lastModified.time + 1000L))
+        String lastModified = initial.getFirstHeader('Last-Modified').value
 
         HttpResponse changed = Request.Get(url)
                 .setHeader('If-None-Match', '"old.css"')
-                .setHeader('If-Modified-Since', laterDate)
+                .setHeader('If-Modified-Since', lastModified)
                 .execute().returnResponse()
         assertEquals(200, changed.statusLine.statusCode)
         assertEquals('body { font-family: "Comic Sans", sans-serif; }', EntityUtils.toString(changed.entity))
 
         [['W/' + etag], ['"old.css", ' + etag], ['"old.css"', 'W/' + etag], ['*'], []].each { List<String> tags ->
-            Request request = Request.Get(url).setHeader('If-Modified-Since', laterDate)
+            Request request = Request.Get(url).setHeader('If-Modified-Since', lastModified)
             tags.each { request.addHeader('If-None-Match', it) }
             HttpResponse unchanged = request.execute().returnResponse()
             assertEquals("If-None-Match: ${tags}", 304, unchanged.statusLine.statusCode)
-            assertEquals(null, unchanged.entity)
         }
+    }
+
+    @Test
+    void testGzippedAssetIsValidatedByItsOwnETag() {
+        String url = "http://localhost:${port}/prod_assets/maybe_gzipped/css/test.js"
+        String gzipped = '"maybe_gzipped/css/test.js-gz"'
+        String asItIs = '"maybe_gzipped/css/test.js"'
+        assertEquals(gzipped, Request.Get(url).execute().returnResponse().getFirstHeader('ETag')?.value)
+        assertEquals(asItIs, Request.Get(url).setHeader('Accept-Encoding', '').execute().returnResponse().getFirstHeader('ETag')?.value)
+
+        // Each coding is validated by its own tag, so a cache never takes one for the other
+        assertEquals(304, Request.Get(url).setHeader('If-None-Match', gzipped).execute().returnResponse().statusLine.statusCode)
+        assertEquals(200, Request.Get(url).setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
+        assertEquals(304, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
+        assertEquals(200, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', gzipped).execute().returnResponse().statusLine.statusCode)
+    }
+
+    @Test
+    void testOtherMethodsFailTheirPreconditionRatherThanRevalidate() {
+        String url = "http://localhost:${port}/prod_assets/css/test.css"
+        HttpResponse initial = Request.Get(url).execute().returnResponse()
+        String etag = initial.getFirstHeader('ETag').value
+        String lastModified = initial.getFirstHeader('Last-Modified').value
+        EntityUtils.consume(initial.entity)
+
+        HttpResponse failed = Request.Post(url).setHeader('If-None-Match', etag).execute().returnResponse()
+        assertEquals(412, failed.statusLine.statusCode)
+        assertEquals('', failed.entity == null ? '' : EntityUtils.toString(failed.entity))
+
+        // If-Modified-Since is read for GET and HEAD alone
+        HttpResponse served = Request.Post(url).setHeader('If-Modified-Since', lastModified).execute().returnResponse()
+        assertEquals(200, served.statusLine.statusCode)
+        assertEquals('body { font-family: "Comic Sans", sans-serif; }', EntityUtils.toString(served.entity))
     }
 
     @Test

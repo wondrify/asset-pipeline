@@ -193,6 +193,100 @@ class AssetPipelineFilterCacheSpec extends Specification {
         acceptEncoding << ['gzip', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'GZIP', 'gzip;q=1.0, identity;q=0.5', ['br', 'gzip']]
     }
 
+    void '304 responses for #uri using #validator retain cache headers before and after caching the asset'() {
+        given:
+        AssetPipelineFilter filter = filter(rootPaths: ['favicon.ico'])
+        assert new File(assets, DIGESTED).setLastModified(1700000000999L)
+        Map<String, String> validators = ['If-None-Match': "\"${DIGESTED}\"",
+                                          'If-Modified-Since': 'Tue, 14 Nov 2023 22:13:20 GMT']
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', uri)
+            request.addHeader(validator, validators[validator])
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+        MockHttpServletResponse full = request(filter, uri)
+
+        then:
+        full.status == 200
+        full.contentAsByteArray == FAVICON
+        full.getHeader('ETag') == "\"${DIGESTED}\""
+        full.getHeader('Last-Modified') == 'Tue, 14 Nov 2023 22:13:20 GMT'
+        full.getHeader('Vary') == 'Accept-Encoding'
+        full.getHeader('Cache-Control') == cacheControl
+        responses.each { response ->
+            assert response.status == 304
+            assert response.contentAsByteArray.length == 0
+            ['ETag', 'Last-Modified', 'Vary', 'Cache-Control'].each { header ->
+                assert response.getHeader(header) == full.getHeader(header)
+            }
+        }
+
+        where:
+        uri                   | validator           | cacheControl
+        '/assets/favicon.ico' | 'If-None-Match'     | 'no-cache'
+        '/assets/favicon.ico' | 'If-Modified-Since' | 'no-cache'
+        "/assets/${DIGESTED}" | 'If-None-Match'     | 'public, max-age=31536000'
+        "/assets/${DIGESTED}" | 'If-Modified-Since' | 'public, max-age=31536000'
+        '/favicon.ico'        | 'If-None-Match'     | 'no-cache'
+        '/favicon.ico'        | 'If-Modified-Since' | 'no-cache'
+    }
+
+    void 'sent #acceptEncoding with If-None-Match #ifNoneMatch, the asset is answered #status with ETag #etag before and after caching it'() {
+        given:
+        AssetPipelineFilter filter = filter()
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, 'GET', '/assets/favicon.ico')
+            request.addHeader('Accept-Encoding', acceptEncoding)
+            request.addHeader('If-None-Match', ifNoneMatch)
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+
+        then:
+        responses.every { it.status == status && it.getHeader('ETag') == etag }
+        responses.every { it.contentAsByteArray == body }
+
+        where: 'each coding is validated by its own tag, so a cache never takes one for the other'
+        acceptEncoding | ifNoneMatch            | status | etag                   | body
+        'gzip'         | "\"${DIGESTED}-gz\"" | 304    | "\"${DIGESTED}-gz\"" | new byte[0]
+        'gzip'         | "\"${DIGESTED}\""    | 200    | "\"${DIGESTED}-gz\"" | FAVICON_GZIPPED
+        'identity'     | "\"${DIGESTED}-gz\"" | 200    | "\"${DIGESTED}\""    | FAVICON
+        'identity'     | "\"${DIGESTED}\""    | 304    | "\"${DIGESTED}\""    | new byte[0]
+    }
+
+    void '#method with #validator is answered #status before and after caching the asset'() {
+        given:
+        AssetPipelineFilter filter = filter()
+        assert new File(assets, DIGESTED).setLastModified(1700000000000L)
+
+        when:
+        List<MockHttpServletResponse> responses = (1..2).collect {
+            MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, method, '/assets/favicon.ico')
+            request.addHeader(validator, value)
+            MockHttpServletResponse response = new MockHttpServletResponse()
+            filter.doFilter(request, response, new MockFilterChain())
+            response
+        }
+
+        then:
+        responses.every { it.status == status }
+        responses.every { it.contentAsByteArray == (status == 200 ? FAVICON : new byte[0]) }
+
+        where: 'only GET and HEAD are told an asset has not changed, and If-Modified-Since is read for them alone'
+        method | validator           | value                           | status
+        'POST' | 'If-None-Match'     | "\"${DIGESTED}\""               | 412
+        'POST' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+        'HEAD' | 'If-None-Match'     | "\"${DIGESTED}\""               | 304
+        'HEAD' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 304
+    }
+
     void 'conditional requests with If-None-Match #etags work before and after caching the asset'() {
         given:
         AssetPipelineFilter filter = filter()

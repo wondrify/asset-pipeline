@@ -6,13 +6,16 @@ import spock.lang.Unroll
 public class AssetPipelineResponseBuilderSpec extends Specification {
 
     Properties originalManifest
+    Map originalConfig
 
     void setup() {
         originalManifest = AssetPipelineConfigHolder.manifest
+        originalConfig = AssetPipelineConfigHolder.config
     }
 
     void cleanup() {
         AssetPipelineConfigHolder.manifest = originalManifest
+        AssetPipelineConfigHolder.config = originalConfig
     }
 
     @Unroll
@@ -93,6 +96,69 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
     }
 
     @Unroll
+    def "If-Modified-Since #date is compared in whole seconds with a file changed at #modified, as Last-Modified is sent"() {
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', null, date, new Date(modified))
+
+        then: 'a client that sends back the Last-Modified it was given is told the asset has not changed'
+        response.headers['Last-Modified'] == 'Tue, 14 Nov 2023 22:13:20 GMT'
+        response.statusCode == status
+
+        where:
+        date                            | modified       | status
+        'Tue, 14 Nov 2023 22:13:20 GMT' | 1700000000001L | 304
+        'Tue, 14 Nov 2023 22:13:20 GMT' | 1700000000999L | 304
+        'Tue, 14 Nov 2023 22:13:19 GMT' | 1700000000999L | 200
+    }
+
+    @Unroll
+    def "#method with #validator #value is answered #status"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        String ifNoneMatch = validator == 'If-None-Match' ? value : null
+        String ifModifiedSince = validator == 'If-Modified-Since' ? value : null
+
+        expect:
+        new AssetPipelineResponseBuilder('app.js', ifNoneMatch, ifModifiedSince, new Date(1700000000000L), manifest, method).statusCode == status
+
+        where: 'only GET and HEAD are told an asset has not changed, and If-Modified-Since is read for them alone'
+        method   | validator           | value                           | status
+        'GET'    | 'If-None-Match'     | '"app-2222.js"'                 | 304
+        'HEAD'   | 'If-None-Match'     | '"app-2222.js"'                 | 304
+        'POST'   | 'If-None-Match'     | '"app-2222.js"'                 | 412
+        'PUT'    | 'If-None-Match'     | '*'                             | 412
+        'POST'   | 'If-None-Match'     | '"app-1111.js"'                 | 200
+        'HEAD'   | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 304
+        'POST'   | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+        'DELETE' | 'If-Modified-Since' | 'Tue, 14 Nov 2023 22:13:20 GMT' | 200
+    }
+
+    @Unroll
+    def "sent #coding, the asset has ETag #etag, and If-None-Match #ifNoneMatch is answered #status"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', ifNoneMatch, null, null, manifest, 'GET', coding == 'gzipped')
+
+        then:
+        response.headers['ETag'] == etag
+        response.statusCode == status
+
+        where: 'each coding is validated by its own tag, so a cache never takes one for the other'
+        coding     | ifNoneMatch                       | etag               | status
+        'gzipped'  | null                              | '"app-2222.js-gz"' | 200
+        'gzipped'  | '"app-2222.js-gz"'                | '"app-2222.js-gz"' | 304
+        'gzipped'  | 'W/"app-2222.js-gz"'              | '"app-2222.js-gz"' | 304
+        'gzipped'  | '"app-2222.js", "app-2222.js-gz"' | '"app-2222.js-gz"' | 304
+        'gzipped'  | '"app-2222.js"'                   | '"app-2222.js-gz"' | 200
+        'as it is' | '"app-2222.js-gz"'                | '"app-2222.js"'    | 200
+        'as it is' | '"app-2222.js"'                   | '"app-2222.js"'    | 304
+    }
+
+    @Unroll
     def "make sure etag is quoted for #filename"() {
         given:
         Properties props = new Properties()
@@ -155,6 +221,58 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
     }
 
     @Unroll
+    def "304 responses for #uri retain the cache headers of a 200 response"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        manifest.setProperty('index.html', 'index-2222.html')
+        AssetPipelineConfigHolder.manifest = manifest
+        AssetPipelineConfigHolder.config = [immutable: ['vendor/**']]
+        Date modified = new Date(1700000000000L)
+
+        when:
+        def initial = new AssetPipelineResponseBuilder(uri, null, null, modified)
+        def byETag = new AssetPipelineResponseBuilder(uri, etag, null, modified)
+        def byDate = new AssetPipelineResponseBuilder(uri, null, 'Wed, 15 Nov 2023 22:13:20 GMT', modified)
+
+        then:
+        initial.statusCode == 200
+        initial.headers == ['ETag': etag, 'Last-Modified': 'Tue, 14 Nov 2023 22:13:20 GMT',
+                            'Vary': 'Accept-Encoding', 'Cache-Control': cacheControl]
+        byETag.statusCode == 304
+        byETag.headers == initial.headers
+        byDate.statusCode == 304
+        byDate.headers == initial.headers
+
+        where:
+        uri                | etag                | cacheControl
+        'app.js'           | '"app-2222.js"'     | 'no-cache'
+        '/app.js'          | '"app-2222.js"'     | 'no-cache'
+        'app-2222.js'      | '"app-2222.js"'     | 'public, max-age=31536000'
+        '/app-2222.js'     | '"app-2222.js"'     | 'public, max-age=31536000'
+        'index.html'       | '"index-2222.html"' | 'no-cache'
+        '/index.html'      | '"index-2222.html"' | 'no-cache'
+        'index-2222.html'  | '"index-2222.html"' | 'no-cache'
+        '/index-2222.html' | '"index-2222.html"' | 'no-cache'
+        'vendor/lib.js'    | '"vendor/lib.js"'   | 'public, max-age=31536000'
+        '/vendor/lib.js'   | '"vendor/lib.js"'   | 'public, max-age=31536000'
+    }
+
+    def "ETag validation retains cache headers when no last-modified date is available"() {
+        given:
+        Properties manifest = new Properties()
+        manifest.setProperty('app.js', 'app-2222.js')
+        AssetPipelineConfigHolder.manifest = manifest
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', '"app-2222.js"')
+
+        then:
+        response.statusCode == 304
+        response.headers == ['ETag': '"app-2222.js"', 'Vary': 'Accept-Encoding', 'Cache-Control': 'no-cache']
+    }
+
+    @Unroll
     def "Accept-Encoding #acceptEncoding accepts gzip"() {
         expect:
         AssetPipelineResponseBuilder.acceptsGzip(acceptEncoding)
@@ -201,9 +319,6 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         expect: 'only a digested name the manifest gives is cached for a year; any other may change'
         new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
 
-        cleanup:
-        AssetPipelineConfigHolder.manifest = null
-
         where:
         uri                        | manifestGiven | cacheControl
         'app-0123456789abcdef.js'  | 'a manifest'  | 'public, max-age=31536000'
@@ -236,23 +351,16 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
         then:
         new AssetPipelineResponseBuilder('b-0123456789abcdef.js').headers['Cache-Control'] == 'public, max-age=31536000'
-
-        cleanup:
-        AssetPipelineConfigHolder.manifest = null
     }
 
     @Unroll
     def "#uri, which immutable #matching, is sent #cacheControl though there is no manifest"() {
         given:
-        Map originalConfig = AssetPipelineConfigHolder.config
         AssetPipelineConfigHolder.manifest = null
         AssetPipelineConfigHolder.config = [immutable: ['webjars/**']]
 
         expect:
         new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
-
-        cleanup:
-        AssetPipelineConfigHolder.config = originalConfig
 
         where:
         uri                               | matching          | cacheControl
@@ -263,7 +371,6 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
     def "a configuration given anew is read anew"() {
         given:
-        Map originalConfig = AssetPipelineConfigHolder.config
         AssetPipelineConfigHolder.manifest = null
 
         when:
@@ -275,8 +382,5 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         first == 'public, max-age=31536000'
         new AssetPipelineResponseBuilder('a.js').headers['Cache-Control'] == 'no-cache'
         new AssetPipelineResponseBuilder('b.js').headers['Cache-Control'] == 'public, max-age=31536000'
-
-        cleanup:
-        AssetPipelineConfigHolder.config = originalConfig
     }
 }
