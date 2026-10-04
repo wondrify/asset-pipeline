@@ -46,8 +46,8 @@ final class AssetPaths {
 
     /**
      * The assets an application also serves from the root of its context, read from the {@code rootPaths} setting.
-     * Browsers and crawlers ask for some files by a fixed name whatever a page links to: {@code /favicon.ico},
-     * {@code /apple-touch-icon.png}, {@code /robots.txt}, {@code /.well-known/security.txt}. Each entry names one
+     * Browsers ask for some assets by a fixed name whatever a page links to: {@code /favicon.ico},
+     * {@code /apple-touch-icon.png}, {@code /apple-touch-icon-precomposed.png}. Each entry names one
      * asset the way a tag does, and becomes an exact servlet url pattern, so an entry with a wildcard, a character a
      * url pattern cannot match, an empty, {@code .} or {@code ..} segment, or no file name is rejected, as is one
      * under the mapping, where the asset is already served. A blank entry, as a trailing comma leaves, is skipped.

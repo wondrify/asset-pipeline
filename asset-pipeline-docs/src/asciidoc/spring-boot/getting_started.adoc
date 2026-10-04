@@ -35,14 +35,14 @@ class Application {
 
 By default a servlet filter will be registered to the url `/assets` from which all assets will be served.
 
-Files that clients ask for by a fixed name at the root of a site, such as `/favicon.ico` or `/robots.txt`, can be served there as well by listing them in `assets.rootPaths`. Each entry names one asset, and the filter is registered for its exact url:
+Assets that clients ask for by a fixed name at the root of a site, such as `/favicon.ico` or `/apple-touch-icon.png`, can be served there as well by listing them in `assets.rootPaths`. Each entry names one asset, and the filter is registered for its exact url:
 
 [source,yml]
 ----
 assets:
   rootPaths:
     - favicon.ico
-    - robots.txt
+    - apple-touch-icon.png
 ----
 
 An entry that does not name a single asset, or that is already under `/assets`, stops the application from starting.

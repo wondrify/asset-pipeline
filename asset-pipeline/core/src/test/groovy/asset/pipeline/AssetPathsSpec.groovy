@@ -28,20 +28,20 @@ class AssetPathsSpec extends Specification {
         null                                                | []
         []                                                  | []
         ''                                                  | []
-        ['favicon.ico', 'robots.txt']                       | ['favicon.ico', 'robots.txt']
-        ['/favicon.ico', ' robots.txt ']                    | ['favicon.ico', 'robots.txt']
-        ['.well-known/security.txt']                        | ['.well-known/security.txt']
+        ['favicon.ico', 'apple-touch-icon.png']                       | ['favicon.ico', 'apple-touch-icon.png']
+        ['/favicon.ico', ' apple-touch-icon.png ']                    | ['favicon.ico', 'apple-touch-icon.png']
+        ['.well-known/favicon.ico']                         | ['.well-known/favicon.ico'] // a leading dot is not a . segment
         'favicon.ico, apple-touch-icon.png'                 | ['favicon.ico', 'apple-touch-icon.png']
         ['favicon.ico', '/favicon.ico']                     | ['favicon.ico']
-        new LinkedHashSet(['robots.txt', 'favicon.ico'])    | ['robots.txt', 'favicon.ico']
+        new LinkedHashSet(['apple-touch-icon.png', 'favicon.ico'])    | ['apple-touch-icon.png', 'favicon.ico']
         ['assets-logo.png', 'assetsx/a.txt']                | ['assets-logo.png', 'assetsx/a.txt']
     }
 
     void "rootPaths skips the blank entries a stray comma leaves, in '#configured'"() {
         expect: 'the same whether the string is split here, as in Grails, or by the Spring Boot binder'
-        AssetPaths.rootPaths(configured, 'assets') == ['favicon.ico', 'robots.txt']
+        AssetPaths.rootPaths(configured, 'assets') == ['favicon.ico', 'apple-touch-icon.png']
         where:
-        configured << ['favicon.ico,robots.txt,', 'favicon.ico,,robots.txt', 'favicon.ico, ,robots.txt', ['favicon.ico', 'robots.txt', ''], ['favicon.ico', null, 'robots.txt']]
+        configured << ['favicon.ico,apple-touch-icon.png,', 'favicon.ico,,apple-touch-icon.png', 'favicon.ico, ,apple-touch-icon.png', ['favicon.ico', 'apple-touch-icon.png', ''], ['favicon.ico', null, 'apple-touch-icon.png']]
     }
 
     void "rootPaths rejects '#entry', which does not name one asset"() {
@@ -84,11 +84,11 @@ class AssetPathsSpec extends Specification {
 
     void "the filter is registered under #mapping and for each root path"() {
         expect:
-        AssetPaths.urlPatterns(mapping, ['favicon.ico', '.well-known/security.txt']) == patterns
+        AssetPaths.urlPatterns(mapping, ['favicon.ico', 'icons/apple-touch-icon.png']) == patterns
         where:
         mapping  | patterns
-        'assets' | ['/assets/*', '/favicon.ico', '/.well-known/security.txt']
-        'static' | ['/static/*', '/favicon.ico', '/.well-known/security.txt']
+        'assets' | ['/assets/*', '/favicon.ico', '/icons/apple-touch-icon.png']
+        'static' | ['/static/*', '/favicon.ico', '/icons/apple-touch-icon.png']
         ''       | ['/*']
         null     | ['/*']
     }
@@ -103,7 +103,7 @@ class AssetPathsSpec extends Specification {
         '/app/favicon.ico'                  | '/app'       | '/favicon.ico'
         '/my%20app/favicon.ico'             | '/my%20app'  | '/favicon.ico'
         '/app'                              | '/app'       | '/'
-        '/robots.txt;x=1'                   | ''           | '/robots.txt'
+        '/favicon.ico;x=1'                  | ''           | '/favicon.ico'
         '/app/assets;v=1/app.js;jsessionid=a' | '/app'     | '/assets/app.js'
     }
 

@@ -77,7 +77,7 @@ grails:
 
 ==== Serving Assets at the Root
 
-Some files are asked for by a fixed name at the root of a site, whatever a page links to: browsers request `/favicon.ico`, Safari `/apple-touch-icon.png` and `/apple-touch-icon-precomposed.png`, crawlers `/robots.txt`, and security scanners `/.well-known/security.txt`. List them in `rootPaths` to serve those assets at the root as well as under the mapping:
+Some assets are asked for by a fixed name at the root of a site, whatever a page links to: browsers request `/favicon.ico`, and Safari `/apple-touch-icon.png` and `/apple-touch-icon-precomposed.png`. List them in `rootPaths` to serve those assets at the root as well as under the mapping:
 
 [source,yml]
 ----
@@ -86,9 +86,10 @@ grails:
     rootPaths:
       - favicon.ico
       - apple-touch-icon.png
-      - robots.txt
-      - .well-known/security.txt
+      - apple-touch-icon-precomposed.png
 ----
+
+`rootPaths` serves assets, the files under `grails-app/assets`. Other files asked for at the root, such as `robots.txt` or `.well-known/security.txt`, are not assets, and are better served by the application itself.
 
 Each entry names one asset the way a tag does, so `favicon.ico` is `grails-app/assets/images/favicon.ico`, and `/favicon.ico` is served in development and, through the manifest, from a compiled application. The filter is registered for the exact url of each entry and answers no other url outside the mapping, so other requests never reach it. Wildcards are not supported, and an entry that does not name a single asset, or that is already under the mapping, fails at startup.
 

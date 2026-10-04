@@ -114,7 +114,7 @@ class AssetPipelineGrailsPluginSpec extends Specification {
         noExceptionThrown()
 
         where:
-        assetsConfig << [[:], [rootPaths: ['favicon.ico', 'robots.txt']]]
+        assetsConfig << [[:], [rootPaths: ['favicon.ico', 'apple-touch-icon.png']]]
     }
 
     void 'the resource locator inherits its search locations from the abstract Grails definition'() {
@@ -135,23 +135,23 @@ class AssetPipelineGrailsPluginSpec extends Specification {
 
     void 'each root path reaches the filter as an exact url pattern, from #rootPaths'() {
         expect: 'only those urls at the root pass through the filter, beside everything under the mapping'
-        urlPatterns(rootPaths: rootPaths) == ['/assets/*', '/favicon.ico', '/robots.txt', '/.well-known/security.txt']
+        urlPatterns(rootPaths: rootPaths) == ['/assets/*', '/favicon.ico', '/apple-touch-icon.png', '/icons/apple-touch-icon-precomposed.png']
 
         where: 'a list from application.yml or application.groovy, or a string from a system property'
         rootPaths << [
-                ['favicon.ico', '/robots.txt', '.well-known/security.txt'],
-                'favicon.ico,robots.txt,.well-known/security.txt'
+                ['favicon.ico', '/apple-touch-icon.png', 'icons/apple-touch-icon-precomposed.png'],
+                'favicon.ico,apple-touch-icon.png,icons/apple-touch-icon-precomposed.png'
         ]
     }
 
     void 'the root paths reach the filter, which answers no other url outside the mapping'() {
         when:
-        BeanDefinition filter = registrarDefinitions(rootPaths: 'favicon.ico, robots.txt,')
+        BeanDefinition filter = registrarDefinitions(rootPaths: 'favicon.ico, apple-touch-icon.png,')
                 .getBeanDefinition('assetPipelineFilter')
                 .propertyValues.getPropertyValue('filter').value as BeanDefinition
 
         then: 'as read and checked, whatever url patterns the filter is registered for'
-        filter.propertyValues.getPropertyValue('rootPaths').value == ['favicon.ico', 'robots.txt']
+        filter.propertyValues.getPropertyValue('rootPaths').value == ['favicon.ico', 'apple-touch-icon.png']
     }
 
     void 'root paths sit beside a configured mapping'() {

@@ -47,7 +47,7 @@ class AssetPipelineDevFilterCore {
 			fileContents = AssetPipeline.serveAsset(fileUri, format, null, request.characterEncoding)
 		}
 
-		// An empty file, such as a robots.txt that allows everything, is served as well
+		// Null rather than Groovy truth, so an empty file is served rather than taken for a missing one
 		if(fileContents != null) {
 			response.setHeader("Cache-Control", "no-cache, no-store, must-revalidate"); // HTTP 1.1.
 			response.setHeader("Pragma", "no-cache"); // HTTP 1.0.

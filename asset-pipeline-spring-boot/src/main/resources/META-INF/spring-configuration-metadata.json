@@ -15,7 +15,7 @@
     {
       "name": "assets.root-paths",
       "type": "java.util.List<java.lang.String>",
-      "description": "Assets also served at the root of the context under their own name, such as favicon.ico or robots.txt. Each entry names one asset.",
+      "description": "Assets also served at the root of the context under their own name, such as favicon.ico or apple-touch-icon.png. Each entry names one asset.",
       "defaultValue": []
     }
   ]

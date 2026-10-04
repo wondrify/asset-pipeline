@@ -63,16 +63,16 @@ class AssetPipelineAutoConfigurationSpec extends Specification {
         expect: 'only those urls at the root pass through the filter, beside everything under /assets'
         contextRunner().withPropertyValues(properties as String[]).run { context ->
             FilterRegistrationBean registration = context.getBean(FilterRegistrationBean)
-            assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/robots.txt']
+            assert registration.urlPatterns.toList() == ['/assets/*', '/favicon.ico', '/apple-touch-icon.png']
             // and the filter answers those urls outside /assets and no others
-            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths == ['favicon.ico', 'robots.txt']
+            assert (registration.filter as AssetPipelineDevFilter).assetPipelineDevFilterCoreStandalone.rootPaths == ['favicon.ico', 'apple-touch-icon.png']
         }
 
         where: 'a list in application.yml, or a comma separated value in a properties file, stray commas included'
         properties << [
-                ['assets.rootPaths[0]=favicon.ico', 'assets.rootPaths[1]=/robots.txt'],
-                ['assets.root-paths=favicon.ico,robots.txt'],
-                ['assets.root-paths=favicon.ico,robots.txt,']
+                ['assets.rootPaths[0]=favicon.ico', 'assets.rootPaths[1]=/apple-touch-icon.png'],
+                ['assets.root-paths=favicon.ico,apple-touch-icon.png'],
+                ['assets.root-paths=favicon.ico,apple-touch-icon.png,']
         ]
     }
 

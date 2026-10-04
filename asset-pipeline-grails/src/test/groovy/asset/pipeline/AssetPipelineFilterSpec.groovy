@@ -35,7 +35,7 @@ class AssetPipelineFilterSpec extends Specification {
 
     static final byte[] FAVICON = [0, 0, 1, 0, 1, 0] as byte[]
     static final byte[] LOGO = [(byte) 0x89, 0x50, 0x4E, 0x47] as byte[]
-    static final List<String> ROOT_PATHS = ['favicon.ico', 'assets-logo.png', 'robots.txt']
+    static final List<String> ROOT_PATHS = ['favicon.ico', 'assets-logo.png', 'apple-touch-icon.png']
 
     @TempDir
     File root
@@ -113,11 +113,11 @@ class AssetPipelineFilterSpec extends Specification {
     }
 
     void 'in development, a root path with no asset passes the request on to the application, under context #contextPath'() {
-        given: 'robots.txt is configured as a root path, and the application may answer it itself'
+        given: 'apple-touch-icon.png is configured as a root path but has no asset, and the application may answer it itself'
         development()
 
         when:
-        Exchange exchange = request(contextPath, "${contextPath}/robots.txt")
+        Exchange exchange = request(contextPath, "${contextPath}/apple-touch-icon.png")
 
         then:
         exchange.passedOn
@@ -130,7 +130,7 @@ class AssetPipelineFilterSpec extends Specification {
 
     void 'a url outside the mapping that is not a root path is left to the application, though an asset has its name'() {
         given: 'a filter registered more widely than the mapping and its root paths, as an application may register it'
-        development(['robots.txt'])
+        development(['apple-touch-icon.png'])
 
         when:
         Exchange exchange = request('', '/favicon.ico')
@@ -209,7 +209,7 @@ class AssetPipelineFilterSpec extends Specification {
         compiled()
 
         when:
-        Exchange exchange = request('', '/robots.txt')
+        Exchange exchange = request('', '/apple-touch-icon.png')
 
         then:
         exchange.passedOn
@@ -221,12 +221,12 @@ class AssetPipelineFilterSpec extends Specification {
         compiled()
 
         when:
-        List<Exchange> exchanges = (1..3).collect { int n -> request('', "/robots.txt;x=${n}") }
+        List<Exchange> exchanges = (1..3).collect { int n -> request('', "/apple-touch-icon.png;x=${n}") }
 
         then:
         exchanges.every { it.passedOn }
-        filter.cache.isMissing('robots.txt')
-        (1..3).every { int n -> !filter.cache.isMissing("robots.txt;x=${n}") }
+        filter.cache.isMissing('apple-touch-icon.png')
+        (1..3).every { int n -> !filter.cache.isMissing("apple-touch-icon.png;x=${n}") }
     }
 
     /** Assets compiled on request, as in development: images/ flattened, as grails-app/assets is. */
