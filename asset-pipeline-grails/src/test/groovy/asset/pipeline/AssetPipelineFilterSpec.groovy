@@ -225,7 +225,8 @@ class AssetPipelineFilterSpec extends Specification {
 
         then:
         exchanges.every { it.passedOn }
-        filter.fileCache.keySet() == ['robots.txt'] as Set
+        filter.cache.isMissing('robots.txt')
+        (1..3).every { int n -> !filter.cache.isMissing("robots.txt;x=${n}") }
     }
 
     /** Assets compiled on request, as in development: images/ flattened, as grails-app/assets is. */
