@@ -30,7 +30,7 @@ dependencies {
     compileOnly platform("org.apache.grails:grails-bom:$grailsVersion")
     compileOnly 'org.apache.grails:grails-url-mappings'
 
-    compileOnly 'com.github.ben-manes.caffeine:caffeine' // Cache
+    implementation "com.github.ben-manes.caffeine:caffeine:$caffeineVersion" // ProductionAssetCache
     compileOnly 'jakarta.servlet:jakarta.servlet-api' // Provided by the servlet container
     compileOnly 'org.apache.grails:grails-core' // Provided as this is a Grails plugin
     compileOnly 'org.apache.grails.views:grails-web-taglib' // For taglib compilation

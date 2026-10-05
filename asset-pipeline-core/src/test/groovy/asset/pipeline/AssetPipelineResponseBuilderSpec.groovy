@@ -67,4 +67,41 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         filename << ['global.js', '/global.js']
     }
 
+    @Unroll
+    def "Accept-Encoding #acceptEncoding accepts gzip"() {
+        expect:
+        AssetPipelineResponseBuilder.acceptsGzip(acceptEncoding)
+
+        where:
+        acceptEncoding << ['gzip', 'GZIP', 'gzip, deflate', 'br, gzip', 'deflate,gzip', 'deflate,\tgzip',
+                           'gzip;q=1.0, identity;q=0.5', 'br, gzip ; q=0.5', 'gzip;q = 0.5', 'gzip;Q=1', 'gzip;q=0.001',
+                           'gzip;q=1.000', 'gzip;level=9', 'x-gzip', '*', 'br, *;q=0.1', 'gzip, *;q=0']
+    }
+
+    @Unroll
+    def "Accept-Encoding #acceptEncoding does not accept gzip"() {
+        expect:
+        !AssetPipelineResponseBuilder.acceptsGzip(acceptEncoding)
+
+        where:
+        acceptEncoding << [null, '', 'identity', 'br, deflate', 'gzipped', 'gzip;q=0', 'gzip;q=0.000', 'GZIP; Q=0',
+                           'gzip;q =0', 'gzip; q = 0', '*;q=0', 'gzip;q=0, *', 'gzip;q=none', 'gzip;q=', 'gzip;q',
+                           'gzip;q=NaN', '*;q=NaN', 'gzip;q=Infinity', 'gzip;q=1e0', 'gzip;q=1.5', 'gzip;q=-1',
+                           'gzip, gzip;q=0', 'gzip;q=0, gzip', 'x-gzip;q=0, gzip']
+    }
+
+    @Unroll
+    def "Accept-Encoding sent as #lines accepts gzip: #accepted"() {
+        expect:
+        AssetPipelineResponseBuilder.acceptsGzip(lines == null ? null : Collections.enumeration(lines)) == accepted
+
+        where: 'a request may send the field more than once'
+        lines                   | accepted
+        ['br', 'gzip']          | true
+        ['gzip', 'gzip;q=0']    | false
+        ['br', 'deflate']       | false
+        []                      | false
+        null                    | false
+    }
+
 }
