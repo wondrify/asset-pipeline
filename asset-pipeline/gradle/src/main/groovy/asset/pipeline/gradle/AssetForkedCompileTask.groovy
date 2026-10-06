@@ -27,7 +27,15 @@ import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
-import org.gradle.api.tasks.*
+import org.gradle.api.provider.Provider
+import org.gradle.api.tasks.CacheableTask
+import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Nested
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.compile.AbstractCompile
 import org.gradle.process.ExecOperations
 import org.gradle.process.ExecResult
@@ -56,31 +64,27 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
     @PathSensitive(PathSensitivity.RELATIVE)
     final DirectoryProperty srcDir
 
-    private ExecOperations execOperations
+    private final ExecOperations execOperations
 
-    private File buildDir
+    private final FileTree assetSource
+
+    private final Provider<Directory> cacheDirectory
 
     @Inject
     AssetForkedCompileTask(ExecOperations execOperations, ObjectFactory objectFactory) {
-        config = project.extensions.findByType(AssetPipelineExtension)
+        config = AssetPipelineExtension.forTask(project, objectFactory, true)
         this.execOperations = execOperations
         srcDir = config.assetsPath
+        assetSource = config.sourceTree(objectFactory)
         assetClassPath = objectFactory.fileCollection()
-        this.destinationDirectory.set(objectFactory.directoryProperty().convention(project.layout.buildDirectory.dir('assets')))
-        buildDir = project.layout.buildDirectory.asFile.get()
+        destinationDirectory.convention(project.layout.buildDirectory.dir('assets'))
+        cacheDirectory = AssetPipelineExtension.cacheDirectory(project.layout)
     }
-
 
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
     FileTree getSource() {
-        FileTree src = project.files(config.assetsPath).asFileTree
-        config.resolvers.files.each { File resolverFile ->
-            if (resolverFile.exists() && resolverFile.directory) {
-                src += project.files(resolverFile).asFileTree
-            }
-        }
-        return src
+        assetSource
     }
 
     @Override
@@ -171,7 +175,7 @@ abstract class AssetForkedCompileTask extends AbstractCompile {
             configurationJson.put("includes", config.includes.getOrElse([]))
             configurationJson.put("resolvers", config.resolvers.files.collect { it.canonicalPath })
             configurationJson.put("assetsPath", config.assetsPath.get().asFile.canonicalPath)
-            configurationJson.put("cacheLocation",new File(buildDir, '.assetcache').canonicalPath)
+            configurationJson.put("cacheLocation", cacheDirectory.get().asFile.canonicalPath)
             String json = JsonOutput.toJson(configurationJson);
             arguments.add("-B")
             //base64 encoding the JSON to avoid issues with special characters in the command line

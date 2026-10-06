@@ -31,8 +31,9 @@ abstract class AssetPluginPackage extends DefaultTask {
 
     @Inject
     AssetPluginPackage(ObjectFactory objects, Project project) {
-        config = project.extensions.findByType(AssetPipelineExtension)
+        config = AssetPipelineExtension.forTask(project, objects, false)
         destinationDirectory = objects.directoryProperty()
+        AssetPipelineConfigService.usedBy(this, project)
     }
 
     @TaskAction

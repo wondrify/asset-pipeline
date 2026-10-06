@@ -56,34 +56,20 @@ tasks.register('console', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
 }
 
-tasks.register("depsize") {
-    description = 'Prints dependencies for "default" configuration'
-    doLast() {
-        listConfigurationDependencies(configurations.runtimeClasspath)
-    }
-}
-
-tasks.register("depsize-all-configurations") {
-    description = 'Prints dependencies for all available configurations'
-    doLast() {
-        configurations
-                .findAll { it.isCanBeResolved() }
-                .each { listConfigurationDependencies(it) }
-    }
-}
-
-def listConfigurationDependencies(Configuration configuration) {
+// The tasks below take the names and files of the configurations they list while they are configured, as the
+// configuration cache restores their actions without the project or this script's methods
+def listConfigurationDependencies = { String configurationName, Set<File> files ->
     def formatStr = "%,10.2f"
 
-    def size = configuration.collect { it.length() / (1024 * 1024) }.sum()
+    def size = files.collect { it.length() / (1024 * 1024) }.sum()
 
     def out = new StringBuffer()
-    out << "\nConfiguration name: \"${configuration.name}\"\n"
+    out << "\nConfiguration name: \"${configurationName}\"\n"
     if (size) {
         out << 'Total dependencies size:'.padRight(65)
         out << "${String.format(formatStr, size)} Mb\n\n"
 
-        configuration.sort { -it.length() }
+        files.sort { -it.length() }
                 .each {
                     out << "${it.name}".padRight(65)
                     out << "${String.format(formatStr, (it.length() / 1024))} kb\n"
@@ -91,7 +77,29 @@ def listConfigurationDependencies(Configuration configuration) {
     } else {
         out << 'No dependencies found'
     }
-    println(out)
+    out.toString()
+}
+
+tasks.register("depsize") {
+    description = 'Prints dependencies for "default" configuration'
+    Map<String, FileCollection> listed = [(configurations.runtimeClasspath.name): configurations.runtimeClasspath]
+    doLast() {
+        for (Map.Entry<String, FileCollection> configuration : listed) {
+            println(listConfigurationDependencies(configuration.key, configuration.value.files))
+        }
+    }
+}
+
+tasks.register("depsize-all-configurations") {
+    description = 'Prints dependencies for all available configurations'
+    Map<String, FileCollection> listed = configurations
+            .findAll { it.isCanBeResolved() }
+            .collectEntries { [(it.name): it] }
+    doLast() {
+        for (Map.Entry<String, FileCollection> configuration : listed) {
+            println(listConfigurationDependencies(configuration.key, configuration.value.files))
+        }
+    }
 }
 
 test {

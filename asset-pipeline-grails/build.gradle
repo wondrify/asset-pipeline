@@ -70,13 +70,15 @@ apply {
     plugin 'cloud.wondrify.publish-config'
 }
 
-tasks.withType(Jar).configureEach { Jar it ->
-    it.exclude('grails-app/assets/**')
-    it.exclude('test/**')
-    
-    eachFile { copyDetails ->
+tasks.withType(Jar).configureEach { Jar jar ->
+    jar.exclude('grails-app/assets/**')
+    jar.exclude('test/**')
+
+    // Names the archive task rather than finding its excludes through this closure's delegate, which the
+    // configuration cache does not restore
+    jar.eachFile { FileCopyDetails copyDetails ->
         if (copyDetails.path.contains('grails-plugin.xml')) {
-            filter { line -> excludes.find { line.contains(it) } ? null : line }
+            copyDetails.filter { String line -> jar.excludes.find { line.contains(it) } ? null : line }
         }
     }
 }

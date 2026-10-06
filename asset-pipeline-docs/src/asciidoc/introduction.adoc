@@ -6,6 +6,9 @@ The asset-pipeline provides first class static and 'not so static' asset managem
 This guide documents configuration and usage examples of the asset-pipeline plugin.
 
 === Release History
+* Unreleased
+** 5.2.1 - Gradle configuration cache support. Each asset task has its own compiler configuration, initially linked to the `assets { }` extension. Changes to compiler settings through a task's `config` now affect only that task; put settings shared by all tasks in `assets { }`.
+** The project-wide wiring settings `packagePlugin`, `developmentRuntime`, and `jarTaskName` remain shared with the extension, including when set through a task's `config`, as in 5.2.0. Prefer configuring these in `assets { }`; existing eager task configuration such as `assetCompile { config.developmentRuntime = false }` continues to work. These settings must be configured before the plugin wires the build at the end of project evaluation.
 * July 2026
 ** 5.2.0 - Grails 8 support, Spring Boot 4, dependency upgrades.
 * January 2026
