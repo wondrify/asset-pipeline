@@ -1,5 +1,9 @@
 pluginManagement {
     includeBuild('../build-logic')
+    apply from: file('../gradle/plugin-repositories.gradle')
+    repositories {
+        configurePluginRepositories(delegate)
+    }
 }
 
 plugins {
