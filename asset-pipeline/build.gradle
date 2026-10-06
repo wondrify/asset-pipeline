@@ -8,14 +8,5 @@ group = 'cloud.wondrify'
 subprojects { project ->
     if (project.name != 'asset-pipeline-classpath-test') {
         apply plugin: 'org.apache.grails.gradle.grails-publish'
-        // The grails-publish release this build uses keeps the project in the actions that write the pom and the module
-        // metadata, which the configuration cache cannot store. A build that publishes runs without the cache instead of
-        // failing; remove this once grails-publish supports the configuration cache.
-        project.tasks.withType(org.gradle.api.publish.maven.tasks.GenerateMavenPom).configureEach {
-            it.notCompatibleWithConfigurationCache('grails-publish keeps the project in its pom action')
-        }
-        project.tasks.withType(org.gradle.api.publish.tasks.GenerateModuleMetadata).configureEach {
-            it.notCompatibleWithConfigurationCache('grails-publish keeps the project in its module metadata action')
-        }
     }
 }

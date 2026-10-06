@@ -40,12 +40,22 @@ repositories {
             includeVersionByRegex('org[.]apache[.]grails.*', '.*', '.*SNAPSHOT')
         }
     }
+    // grails-publish releases are staged here before they reach Maven Central, as grails-core resolves them
+    maven {
+        url = 'https://repository.apache.org/content/groups/staging'
+        content {
+            includeModule('org.apache.grails.gradle', 'grails-publish')
+        }
+        mavenContent {
+            releasesOnly()
+        }
+    }
 }
 
 dependencies {
     implementation platform("org.apache.grails:grails-gradle-bom:${gradleProperties.grailsVersion}")
     implementation 'org.apache.grails:grails-gradle-plugins'
-    implementation 'org.apache.grails.gradle:grails-publish'
+    implementation "org.apache.grails.gradle:grails-publish:${gradleProperties.grailsPublishVersion}"
     implementation 'com.gradle.publish:plugin-publish-plugin:2.1.1'
     implementation 'com.github.node-gradle:gradle-node-plugin:7.1.0'
 }

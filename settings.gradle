@@ -1,6 +1,10 @@
 pluginManagement {
     includeBuild('build-logic')
     includeBuild('asset-pipeline')
+    apply from: file('gradle/plugin-repositories.gradle')
+    repositories {
+        configurePluginRepositories(delegate)
+    }
 }
 
 plugins {

@@ -1,0 +1,15 @@
+// The repositories a settings file resolves build-logic and the plugins it brings from. Each settings file applies this
+// in pluginManagement, before any settings plugin is on its classpath, so it is a script rather than a plugin.
+ext.configurePluginRepositories = { RepositoryHandler repositories ->
+    repositories.gradlePluginPortal()
+    // grails-publish releases are staged here before they reach Maven Central, as grails-core resolves them
+    repositories.maven {
+        url = uri('https://repository.apache.org/content/groups/staging')
+        content {
+            includeModule('org.apache.grails.gradle', 'grails-publish')
+        }
+        mavenContent {
+            releasesOnly()
+        }
+    }
+}
