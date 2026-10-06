@@ -16,7 +16,6 @@
 
 package asset.pipeline.gradle
 
-import asset.pipeline.AssetPipelineConfigHolder
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.artifacts.Configuration
@@ -47,12 +46,6 @@ class AssetPipelinePlugin implements Plugin<Project> {
         createAssetsGradleConfiguration(project)
 
         AssetPipelineExtension extension = project.extensions.create('assets', AssetPipelineExtension)
-
-        if (!AssetPipelineConfigHolder.config) {
-            AssetPipelineConfigHolder.config = [:]
-        }
-        def config = AssetPipelineConfigHolder.config
-        config['cacheLocation'] = project.layout.buildDirectory.dir('.assetcache').get().asFile.absolutePath
 
         def assetCleanTask = project.tasks.register('assetClean', Delete)
         def assetPrecompileTask = project.tasks.register('assetCompile', AssetForkedCompileTask)

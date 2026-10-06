@@ -21,9 +21,13 @@ import java.util.concurrent.TimeUnit
 import java.util.jar.JarFile
 
 import groovy.io.FileType
+import org.gradle.testkit.runner.BuildResult
 import org.gradle.testkit.runner.GradleRunner
 import spock.lang.Specification
 import spock.lang.TempDir
+
+import static org.gradle.testkit.runner.TaskOutcome.SUCCESS
+import static org.gradle.testkit.runner.TaskOutcome.UP_TO_DATE
 
 class AssetPipelinePluginSpec extends Specification {
 
@@ -149,7 +153,339 @@ class AssetPipelinePluginSpec extends Specification {
         developmentRuntime << [true, false]
     }
 
+    void 'assetCompile reuses the configuration cache entry and compiles the assets again'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('src/assets/stylesheets/ignored.txt', 'not compiled\n')
+        write('shared-assets/javascripts/shared.js', 'var shared = 1;\n')
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            assets {
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+                excludes = ['**/*.txt']
+                configOptions = [commonJs: false]
+                forkOptions = objects.newInstance(org.gradle.api.tasks.compile.GroovyForkOptions)
+                forkOptions.memoryMaximumSize = '256m'
+                forkOptions.jvmArgs = ['-Dasset.pipeline.test=true']
+                from 'shared-assets'
+            }
+        """.stripIndent())
+
+        when: 'the configuration cache entry is stored'
+        BuildResult stored = runner.withArguments('assetCompile', '--stacktrace').build()
+
+        then:
+        stored.task(':assetCompile').outcome == SUCCESS
+        stored.output.contains('Configuration cache entry stored')
+        assertCompiledAssets('build/assets')
+
+        when: 'the compiled assets are removed'
+        BuildResult cleaned = runner.withArguments('assetClean', '--stacktrace').build()
+
+        then:
+        cleaned.task(':assetClean').outcome == SUCCESS
+        !new File(projectDirectory, 'build/assets').exists()
+
+        when: 'the same build runs again'
+        BuildResult reused = runner.withArguments('assetCompile', '--info', '--stacktrace').build()
+
+        then: 'the task restored from the configuration cache compiles the assets again'
+        reused.task(':assetCompile').outcome == SUCCESS
+        reused.output.contains('Configuration cache entry reused')
+        assertCompiledAssets('build/assets')
+
+        and: 'with the fork options it was configured with'
+        reused.output.contains('-Dasset.pipeline.test=true')
+        reused.output.contains('-Xmx256m')
+
+        when: 'nothing changed'
+        BuildResult unchanged = runner.withArguments('assetCompile', '--stacktrace').build()
+
+        then:
+        unchanged.task(':assetCompile').outcome == UP_TO_DATE
+        unchanged.output.contains('Configuration cache entry reused')
+    }
+
+    void 'assetPluginPackage reuses the configuration cache entry and packages the assets again'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('src/assets/javascripts/library.js', 'var library = 1;\n')
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            assets {
+                packagePlugin = true
+            }
+            tasks.named('jar') {
+                archiveFileName = 'plugin.jar'
+            }
+        """.stripIndent())
+
+        when: 'the configuration cache entry is stored'
+        BuildResult stored = runner.withArguments('jar', '--stacktrace').build()
+
+        then:
+        stored.task(':assetPluginPackage').outcome == SUCCESS
+        stored.task(':assetCompile') == null
+        stored.output.contains('Configuration cache entry stored')
+        assertPackagedAssets()
+
+        when: 'the build output is removed and the same build runs again'
+        new File(projectDirectory, 'build').deleteDir()
+        BuildResult reused = runner.withArguments('jar', '--stacktrace').build()
+
+        then: 'the task restored from the configuration cache packages the assets again'
+        reused.task(':assetPluginPackage').outcome == SUCCESS
+        reused.output.contains('Configuration cache entry reused')
+        assertPackagedAssets()
+    }
+
+    void 'assetCompile and assetPluginPackage reuse the configuration cache entry when both run'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('src/assets/javascripts/library.js', 'var library = 1;\n')
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            // Created before the fork options below are set
+            tasks.named('assetCompile').get()
+
+            assets {
+                packagePlugin = true
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+                forkOptions = objects.newInstance(org.gradle.api.tasks.compile.GroovyForkOptions)
+                forkOptions.jvmArgs = ['-Dasset.pipeline.test=both']
+            }
+            tasks.named('jar') {
+                archiveFileName = 'plugin.jar'
+            }
+        """.stripIndent())
+
+        when: 'the configuration cache entry is stored'
+        BuildResult stored = runner.withArguments('assetCompile', 'jar', '--stacktrace').build()
+
+        then:
+        stored.task(':assetCompile').outcome == SUCCESS
+        stored.task(':assetPluginPackage').outcome == SUCCESS
+        stored.output.contains('Configuration cache entry stored')
+        assertPackagedAssets()
+
+        when: 'the build output is removed and the same build runs again'
+        new File(projectDirectory, 'build').deleteDir()
+        BuildResult reused = runner.withArguments('assetCompile', 'jar', '--info', '--stacktrace').build()
+
+        then:
+        reused.task(':assetCompile').outcome == SUCCESS
+        reused.task(':assetPluginPackage').outcome == SUCCESS
+        reused.output.contains('Configuration cache entry reused')
+        reused.output.contains('-Dasset.pipeline.test=both')
+        assertPackagedAssets()
+        manifest('build/assets').getProperty('library.js')?.startsWith('library-')
+        manifest('build/assets').getProperty('nested/site.css')?.startsWith('nested/site-')
+    }
+
+    void 'a registered in-process AssetCompile task reuses the configuration cache entry'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('shared-assets/javascripts/shared.js', 'var shared = 1;\n')
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            assets {
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+                from 'shared-assets'
+            }
+            tasks.register('inProcessAssetCompile', asset.pipeline.gradle.AssetCompile) {
+                destinationDirectory = layout.buildDirectory.dir('in-process-assets')
+                flattenResolvers = true
+            }
+        """.stripIndent())
+
+        when: 'the configuration cache entry is stored'
+        BuildResult stored = runner.withArguments('inProcessAssetCompile', '--stacktrace').build()
+
+        then:
+        stored.task(':inProcessAssetCompile').outcome == SUCCESS
+        stored.output.contains('Configuration cache entry stored')
+        assertCompiledAssets('build/in-process-assets')
+
+        when: 'the compiled assets are removed and the same build runs again'
+        new File(projectDirectory, 'build/in-process-assets').deleteDir()
+        BuildResult reused = runner.withArguments('inProcessAssetCompile', '--stacktrace').build()
+
+        then: 'the task restored from the configuration cache compiles the assets again'
+        reused.task(':inProcessAssetCompile').outcome == SUCCESS
+        reused.output.contains('Configuration cache entry reused')
+        assertCompiledAssets('build/in-process-assets')
+    }
+
+    void 'setting #setting through a task still wires the build and reuses the configuration cache'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            assets {
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+            }
+            tasks.named('jar') {
+                archiveFileName = 'plugin.jar'
+            }
+            tasks.register('customJar', Jar) {
+                archiveFileName = 'custom.jar'
+            }
+            $configuration
+        """.stripIndent())
+
+        when:
+        runner.withArguments(target, '--stacktrace')
+        BuildResult stored = runner.build()
+
+        then:
+        stored.output.contains('Configuration cache entry stored')
+        stored.task(":$assetTask").outcome == SUCCESS
+        new File(projectDirectory, output).file
+        !entry || contains(new File(projectDirectory, output), entry)
+
+        when:
+        new File(projectDirectory, 'build').deleteDir()
+        BuildResult reused = runner.build()
+
+        then:
+        reused.output.contains('Configuration cache entry reused')
+        reused.task(":$assetTask").outcome == SUCCESS
+        new File(projectDirectory, output).file
+        !entry || contains(new File(projectDirectory, output), entry)
+
+        where:
+        setting              | configuration                                                | target             | assetTask            | output                                            | entry
+        'developmentRuntime' | 'assetCompile { config.developmentRuntime = false }'           | 'processResources' | 'assetCompile'       | 'build/resources/main/assets/manifest.properties' | null
+        'packagePlugin'      | 'assetPluginPackage { config.packagePlugin = true }'           | 'jar'              | 'assetPluginPackage' | 'build/libs/plugin.jar'                           | 'META-INF/assets.list'
+        'jarTaskName'        | "assetCompile { config.jarTaskName.set('customJar') }"         | 'customJar'        | 'assetCompile'       | 'build/libs/custom.jar'                           | 'assets/manifest.properties'
+    }
+
+    void 'asset tasks that compile in the Gradle daemon run one at a time with their own configuration'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        write('shared-assets/javascripts/shared.js', 'var shared = 1;\n')
+        write('src/assets/javascripts/library.js', 'var library = 1;\n')
+        write('build.gradle', """
+            plugins {
+                id 'java'
+                id 'cloud.wondrify.asset-pipeline'
+            }
+
+            ${assetRuntime(runner)}
+
+            assets {
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+                from 'shared-assets'
+            }
+            tasks.register('withoutShared', asset.pipeline.gradle.AssetCompile) {
+                destinationDirectory = layout.buildDirectory.dir('without-shared')
+                flattenResolvers = true
+                config.excludes.add('shared.js')
+            }
+            tasks.register('withoutLibrary', asset.pipeline.gradle.AssetCompile) {
+                destinationDirectory = layout.buildDirectory.dir('without-library')
+                flattenResolvers = true
+                config.excludes.add('library.js')
+            }
+            tasks.matching { it.name in ['withoutShared', 'withoutLibrary', 'assetPluginPackage'] }.configureEach { task ->
+                File interval = layout.buildDirectory.file("task-intervals/\${task.name}.txt").get().asFile
+                task.doFirst {
+                    interval.parentFile.mkdirs()
+                    interval.text = "\${System.nanoTime()}\\n"
+                    // Give another worker time to start an unlocked task, even when compiling these small fixtures.
+                    Thread.sleep(1500)
+                }
+                task.doLast {
+                    interval << "\${System.nanoTime()}\\n"
+                }
+            }
+        """.stripIndent())
+
+        when: 'three workers can run the tasks while storing the configuration cache entry'
+        runner.withArguments('withoutShared', 'withoutLibrary', 'assetPluginPackage', '--max-workers=3', '--stacktrace')
+        BuildResult stored = runner.build()
+
+        then:
+        stored.output.contains('Configuration cache entry stored')
+        assertInProcessTasksSerialized(stored)
+
+        when: 'the tasks execute again from the configuration cache'
+        new File(projectDirectory, 'build').deleteDir()
+        BuildResult reused = runner.build()
+
+        then:
+        reused.output.contains('Configuration cache entry reused')
+        assertInProcessTasksSerialized(reused)
+    }
+
+    private void assertInProcessTasksSerialized(BuildResult result) {
+        List<List<Long>> intervals = ['withoutShared', 'withoutLibrary', 'assetPluginPackage'].collect { String name ->
+            assert result.task(":$name").outcome == SUCCESS
+            List<Long> interval = new File(projectDirectory, "build/task-intervals/${name}.txt").readLines()*.toLong()
+            assert interval.size() == 2
+            assert interval[0] < interval[1]
+            interval
+        }.sort { it[0] }
+        for (int index = 1; index < intervals.size(); index++) {
+            assert intervals[index - 1][1] <= intervals[index][0]: "Asset task execution overlapped: $intervals"
+        }
+        assert manifest('build/without-shared').stringPropertyNames() == ['nested/site.css', 'library.js'] as Set
+        assert manifest('build/without-library').stringPropertyNames() == ['nested/site.css', 'shared.js'] as Set
+    }
+
     private GradleRunner runner() {
+        // Every build runs with the configuration cache, and fails on any configuration cache problem
+        write('gradle.properties', [
+                'org.gradle.jvmargs=-Xmx512m',
+                'org.gradle.configuration-cache=true',
+                'org.gradle.configuration-cache.problems=fail',
+        ].join('\n') + '\n')
         GradleRunner.create().withProjectDir(projectDirectory).withPluginClasspath()
     }
 
@@ -171,7 +507,6 @@ class AssetPipelinePluginSpec extends Specification {
 
     private void writeApplication() {
         write('settings.gradle', "rootProject.name = 'asset-packaging-test'\n")
-        write('gradle.properties', 'org.gradle.jvmargs=-Xmx512m\n')
         write('src/main/java/example/Application.java', getClass().getResource('/packaging/Application.java').text)
         write('src/assets/stylesheets/nested/site.css', 'body { color: #123456; }\n')
     }
@@ -180,6 +515,35 @@ class AssetPipelinePluginSpec extends Specification {
         new File(projectDirectory, path).tap {
             parentFile.mkdirs()
             setText(text, 'UTF-8')
+        }
+    }
+
+    private Properties manifest(String path) {
+        def manifest = new Properties()
+        new File(projectDirectory, "$path/manifest.properties").withInputStream { manifest.load(it) }
+        manifest
+    }
+
+    private void assertCompiledAssets(String path) {
+        def compiled = new File(projectDirectory, path)
+        def manifest = manifest(path)
+        ['nested/site.css', 'shared.js'].each { String asset ->
+            String digested = manifest.getProperty(asset)
+            assert digested && digested != asset
+            assert new File(compiled, digested).file
+            assert new File(compiled, "${digested}.gz").file
+        }
+        assert new File(compiled, manifest.getProperty('nested/site.css')).text.contains('#123456')
+        assert new File(compiled, manifest.getProperty('shared.js')).text.contains('var shared = 1')
+        assert !manifest.stringPropertyNames().any { it.endsWith('.txt') }
+    }
+
+    private void assertPackagedAssets() {
+        new JarFile(new File(projectDirectory, 'build/libs/plugin.jar')).withCloseable { JarFile jar ->
+            assert jar.getInputStream(jar.getJarEntry('META-INF/assets.list')).text == 'library.js\nnested/site.css'
+            assert jar.getInputStream(jar.getJarEntry('META-INF/assets/nested/site.css')).text.contains('#123456')
+            assert jar.getInputStream(jar.getJarEntry('META-INF/assets/library.js')).text.contains('var library = 1')
+            assert jar.getJarEntry('assets/manifest.properties') == null
         }
     }
 

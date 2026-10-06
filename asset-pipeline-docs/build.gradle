@@ -69,4 +69,6 @@ tasks.register('generateConfigurationProperties') {
 
 tasks.named('asciidoctor') {
     dependsOn(tasks.named('generateConfigurationProperties'))
+    // Its task holds the plugin's extension and configurations, which the configuration cache cannot store
+    notCompatibleWithConfigurationCache('The Asciidoctor Gradle plugin does not support the configuration cache')
 }

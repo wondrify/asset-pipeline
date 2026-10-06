@@ -24,11 +24,14 @@ import groovy.transform.CompileDynamic
 import groovy.transform.CompileStatic
 import org.gradle.api.DefaultTask
 import org.gradle.api.Project
+import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.Directory
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileTree
 import org.gradle.api.model.ObjectFactory
 import org.gradle.api.provider.Property
+import org.gradle.api.provider.Provider
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Classpath
 import org.gradle.api.tasks.Input
@@ -67,47 +70,49 @@ abstract class AssetCompile extends DefaultTask {
     @Optional
     abstract final ConfigurableFileCollection classpath
 
+    private static final List<String> CLASSPATH_CONFIGURATION_NAMES = [
+            AssetPipelinePlugin.ASSET_CONFIGURATION_NAME,
+            'provided',
+            'runtimeClasspath',
+    ].asImmutable()
+
+    private final FileTree source
+
+    private final Provider<Directory> cacheDirectory
+
     @InputFiles
     @PathSensitive(PathSensitivity.RELATIVE)
     FileTree getSource() {
-        FileTree src = project.files(config.assetsPath).asFileTree
-        config.resolvers.files.each { File resolverFile ->
-            if (resolverFile.exists() && resolverFile.directory) {
-                src += project.files(resolverFile).asFileTree
-            }
-        }
-        return src
+        source
     }
 
     @Inject
     AssetCompile(ObjectFactory objects, Project project) {
-        config = project.extensions.findByType(AssetPipelineExtension)
+        config = AssetPipelineExtension.forTask(project, objects, false)
+        source = config.sourceTree(objects)
+        cacheDirectory = AssetPipelineExtension.cacheDirectory(project.layout)
+        AssetPipelineConfigService.usedBy(this, project)
 
         flattenResolvers = objects.property(Boolean).convention(false)
         assetConfigurationFiles = objects.fileCollection()
                 .convention(project.configurations.named(AssetPipelinePlugin.ASSET_CONFIGURATION_NAME))
         destinationDirectory = objects.directoryProperty()
                 .convention(project.layout.buildDirectory.dir('assets'))
-        classpath = objects.fileCollection().from(project.provider {
-            try {
-                def existingConfigurations = [
-                        'assets',
-                        'provided',
-                        'runtimeClasspath',
-                ].findResults {
-                    project.configurations.names.contains(it) ? project.configurations.named(it) : null
-                }
-                project.files(existingConfigurations)
-            } catch (ignored) {
-                return null
-            }
+        // Looked up when the classpath is read, so it includes configurations created after this task. Only their names
+        // are read to find them: iterating a filtered view of the container would create every other configuration.
+        ConfigurationContainer configurations = project.configurations
+        classpath = objects.fileCollection().from(project.providers.provider {
+            CLASSPATH_CONFIGURATION_NAMES.findAll { String name -> name in configurations.names }
+                    .collect { String name -> configurations.named(name) }
         })
     }
 
     @TaskAction
     @CompileDynamic
     void compile() {
-        AssetPipelineConfigHolder.config = (AssetPipelineConfigHolder.config ?: [:]) + config.configOptions.get()
+        // Only this task's configuration: the holder keeps what earlier tasks set for as long as the daemon runs
+        AssetPipelineConfigHolder.config = [cacheLocation: cacheDirectory.get().asFile.absolutePath] +
+                config.configOptions.get()
         AssetPipelineConfigHolder.resolvers = []
         registerResolvers()
         loadAssetSpecifications()

@@ -42,15 +42,20 @@ dependencies {
     testRuntimeOnly "org.webjars:bootstrap:$bootstrapCssVersion"
 }
 
+// Resolved while configuring, as the configuration cache restores these task actions without this script's project
+def javetVersionFile = file('src/main/resources/javet-version.txt')
+def javetVersionText = javetVersion
+def bundledCompilerDirectory = file('src/main/resources/js')
+
 task copyJavetVersion()  {
     doLast {
-        new File("${projectDir}/src/main/resources", "javet-version.txt").text = javetVersion
+        javetVersionFile.text = javetVersionText
     }
 }
 
 task bundleJSCompiler(type: NpmTask, dependsOn: ['npmInstall']) {
     doFirst {
-        mkdir('src/main/resources/js')
+        bundledCompilerDirectory.mkdirs()
     }
     inputs.files(fileTree('src/main/js'), file('webpack.config.js'))
     outputs.file('src/main/resources/js/compiler.js')

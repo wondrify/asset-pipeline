@@ -2,18 +2,15 @@ buildscript {
     repositories {
         // mavenLocal()
         mavenCentral()
-        maven {
-            url "https://xbib.org/repository"
-        }
     }
     dependencies {
-        classpath 'org.xbib.gradle.plugin:gradle-plugin-jflex:1.1.0'
+        // The JFlex version the org.xbib.gradle.plugin.jflex plugin, which this build used, generated the lexer with
+        classpath 'de.jflex:jflex:1.6.1'
     }
 }
 
 apply plugin: 'groovy'
 apply plugin: 'java-library'
-apply plugin: 'org.xbib.gradle.plugin.jflex'
 
 group = 'cloud.wondrify'
 
@@ -45,6 +42,48 @@ dependencies {
     testRuntimeOnly "org.junit.platform:junit-platform-launcher" // version managed by junit-bom (via spock); required by Gradle 9
 }
 
+/**
+ * Generates a lexer from each JFlex specification, in the directory of its package, as the jflex task of the
+ * org.xbib.gradle.plugin.jflex plugin did. That task used the project while it ran, which the configuration cache
+ * does not support.
+ */
+abstract class GenerateLexers extends DefaultTask {
+
+    @InputDirectory
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract DirectoryProperty getSource()
+
+    @OutputDirectory
+    abstract DirectoryProperty getGenerateDir()
+
+    @javax.inject.Inject
+    abstract FileSystemOperations getFileSystemOperations()
+
+    @TaskAction
+    void generate() {
+        File generateDir = getGenerateDir().get().asFile
+        fileSystemOperations.delete { it.delete(generateDir) }
+        generateDir.mkdirs()
+        source.asFileTree.matching { include('**/*.jflex') }.visit { FileVisitDetails details ->
+            if (!details.directory) {
+                String packageDirectory = new File(generateDir, details.relativePath.parent.pathString).absolutePath
+                jflex.Main.generate(['-q', details.file.absolutePath, '-d', packageDirectory + '/'] as String[])
+            }
+        }
+    }
+}
+
+def generateLexers = tasks.register('jflex', GenerateLexers) {
+    source = layout.projectDirectory.dir('src/main/jflex')
+    generateDir = layout.buildDirectory.dir('generated-src/jflex')
+}
+
+sourceSets {
+    main {
+        java.srcDir(generateLexers.flatMap { it.generateDir })
+    }
+}
+
 tasks.register('console', JavaExec) {
   dependsOn('classes')
   mainClass = 'groovy.ui.Console'
@@ -66,7 +105,7 @@ apply {
 }
 
 tasks.named('sourcesJar', Jar).configure {
-    it.dependsOn(jflex)
+    it.dependsOn(generateLexers)
 }
 
 tasks.named('javadocJar', Jar).configure { Jar it ->
