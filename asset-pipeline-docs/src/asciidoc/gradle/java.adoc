@@ -15,3 +15,5 @@ dependencies {
   assets 'cloud.wondrify:less-asset-pipeline:{project-version}'
 }
 ----
+
+NOTE: With Spring Boot, the `assets` configuration is also added to `developmentOnly`, so `bootRun` and the IDE compile assets on the fly while `bootJar` and `bootWar` leave these compilers out of the application.

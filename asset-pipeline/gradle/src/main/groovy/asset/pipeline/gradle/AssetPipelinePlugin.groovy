@@ -162,5 +162,20 @@ class AssetPipelinePlugin implements Plugin<Project> {
                 it.extendsFrom(assetsConfiguration)
             }
         }
+        // bootJar and bootWar leave out what only developmentOnly brings in, so the compilers stay available to
+        // bootRun and the IDE without being packaged. Registered after Spring Boot's JavaPlugin action, which
+        // copies the runtime classpath's parents (assets among them, if it was added first) into
+        // productionRuntimeClasspath.
+        project.plugins.withId('org.springframework.boot') {
+            project.plugins.withType(JavaPlugin).configureEach {
+                project.configurations.named('developmentOnly').configure {
+                    it.extendsFrom(assetsConfiguration)
+                }
+                project.configurations.named('productionRuntimeClasspath').configure { Configuration production ->
+                    // findAll, not minus: a Configuration is an Iterable of its files, and minus would resolve it
+                    production.setExtendsFrom(production.extendsFrom.findAll { it != assetsConfiguration })
+                }
+            }
+        }
     }
 }
