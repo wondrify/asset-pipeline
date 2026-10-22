@@ -111,6 +111,87 @@ class AssetPipelinePluginSpec extends Specification {
         '4.1.1'     | false
     }
 
+    void 'Spring Boot #bootVersion keeps the assets configuration out of bootJar and bootWar with plugins #order'() {
+        given:
+        def runner = runner()
+        writeApplication()
+        def plugins = [
+                java         : "id 'java'\nid 'war'",
+                boot         : "id 'org.springframework.boot' version '$bootVersion'",
+                assetPipeline: "id 'cloud.wondrify.asset-pipeline'",
+        ]
+        write('build.gradle', """
+            plugins {
+                ${order.collect { plugins[it] }.join('\n')}
+            }
+
+            ${assetRuntime(runner)}
+
+            dependencies {
+                implementation platform('org.springframework.boot:spring-boot-dependencies:$bootVersion')
+                implementation 'org.springframework.boot:spring-boot-starter'
+                implementation 'args4j:args4j:2.33'
+                assets 'org.mozilla:rhino:1.7.15'
+                assets 'args4j:args4j:2.33'
+            }
+            assets {
+                minifyCss = false
+                minifyJs = false
+                maxThreads = 1
+            }
+            springBoot {
+                mainClass = 'example.Application'
+            }
+            tasks.named('bootJar') {
+                archiveFileName = 'application.jar'
+            }
+            tasks.named('bootWar') {
+                archiveFileName = 'application.war'
+            }
+            tasks.register('developmentClasspath') {
+                def runtimeClasspath = configurations.runtimeClasspath
+                def bootRun = tasks.named('bootRun', JavaExec)
+                doLast {
+                    println "RUNTIME_CLASSPATH=\${runtimeClasspath.files*.name.sort().join(',')}"
+                    println "BOOT_RUN_CLASSPATH=\${bootRun.get().classpath.files*.name.sort().join(',')}"
+                }
+            }
+        """.stripIndent())
+
+        when:
+        runner.withArguments('bootJar', 'bootWar', '--stacktrace', '--max-workers=2').build()
+        def jar = new File(projectDirectory, 'build/libs/application.jar')
+        def war = new File(projectDirectory, 'build/libs/application.war')
+
+        then: 'a dependency only the assets configuration declares is not packaged'
+        !contains(jar, 'BOOT-INF/lib/rhino-1.7.15.jar')
+        !contains(war, 'WEB-INF/lib/rhino-1.7.15.jar')
+        !contains(war, 'WEB-INF/lib-provided/rhino-1.7.15.jar')
+
+        and: 'one the application also declares still is'
+        contains(jar, 'BOOT-INF/lib/args4j-2.33.jar')
+        contains(war, 'WEB-INF/lib/args4j-2.33.jar')
+        runJava(projectDirectory, '-jar', jar.absolutePath).contains('ASSETS_OK')
+
+        when:
+        String output = runner.withArguments('developmentClasspath', '--no-configuration-cache', '--stacktrace').build().output
+
+        then: 'bootRun and the IDE still have it'
+        output.readLines().find { it.startsWith('RUNTIME_CLASSPATH=') }.contains('rhino-1.7.15.jar')
+        output.readLines().find { it.startsWith('BOOT_RUN_CLASSPATH=') }.contains('rhino-1.7.15.jar')
+
+        where:
+        [bootVersion, order] << [
+                ['3.5.10', '4.1.1'],
+                [
+                        ['java', 'boot', 'assetPipeline'],
+                        ['java', 'assetPipeline', 'boot'],
+                        ['assetPipeline', 'boot', 'java'],
+                        ['boot', 'assetPipeline', 'java'],
+                ],
+        ].combinations()
+    }
+
     void 'ordinary and custom JAR tasks work without Spring Boot with developmentRuntime=#developmentRuntime'() {
         given:
         def runner = runner()
