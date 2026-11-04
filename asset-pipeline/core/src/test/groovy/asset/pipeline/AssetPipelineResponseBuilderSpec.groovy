@@ -328,6 +328,36 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
         'app-0123456789abcdef.js'  | 'no manifest' | 'no-cache'
     }
 
+    @Unroll
+    def "#uri, from a manifest that maps app.js to itself, is sent #cacheControl"() {
+        given: 'a manifest from a compile with enableDigests off, which maps each name to itself, beside a digested entry'
+        Properties props = new Properties()
+        props.setProperty('app.js', 'app.js')
+        props.setProperty('lib.js', 'lib-0123456789abcdef.js')
+        AssetPipelineConfigHolder.manifest = props
+
+        expect: 'a name the manifest maps to itself has no digest, so its content may change at the same url'
+        new AssetPipelineResponseBuilder(uri).headers['Cache-Control'] == cacheControl
+
+        where:
+        uri                       | cacheControl
+        'app.js'                  | 'no-cache'
+        '/app.js'                 | 'no-cache'
+        'lib-0123456789abcdef.js' | 'public, max-age=31536000'
+        'lib.js'                  | 'no-cache'
+    }
+
+    def "an asset compiled with enableDigests off is still cached for a year when immutable names it"() {
+        given:
+        Properties props = new Properties()
+        props.setProperty('app.js', 'app.js')
+        AssetPipelineConfigHolder.manifest = props
+        AssetPipelineConfigHolder.config = [immutable: ['app.js']]
+
+        expect:
+        new AssetPipelineResponseBuilder('app.js').headers['Cache-Control'] == 'public, max-age=31536000'
+    }
+
     def "a builder given a manifest of its own reads that one, as for a class loader registered with its own assets"() {
         given:
         AssetPipelineConfigHolder.manifest = null

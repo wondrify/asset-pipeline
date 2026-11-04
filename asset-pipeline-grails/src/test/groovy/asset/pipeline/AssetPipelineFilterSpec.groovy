@@ -221,6 +221,29 @@ class AssetPipelineFilterSpec extends Specification {
         exchange.response.getHeader('Cache-Control') == 'public, max-age=31536000'
     }
 
+    void 'from a war compiled with enableDigests off, #uri is revalidated rather than cached for a year'() {
+        given: 'the manifest maps each asset to its own name, as the compiler writes it without digests'
+        File assets = new File(root, 'assets')
+        assets.mkdirs()
+        new File(assets, 'favicon.ico').bytes = FAVICON
+        Properties manifest = new Properties()
+        manifest.setProperty('favicon.ico', 'favicon.ico')
+        AssetPipelineConfigHolder.manifest = manifest
+        start(ROOT_PATHS)
+
+        when:
+        Exchange exchange = request('', uri)
+
+        then: 'the url never changes, so its content may'
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == FAVICON
+        exchange.response.getHeader('Cache-Control') == 'no-cache'
+        exchange.response.getHeader('ETag') == '"favicon.ico"'
+
+        where:
+        uri << ['/assets/favicon.ico', '/favicon.ico']
+    }
+
     void 'from a compiled war, a root path with no asset passes the request on to the application'() {
         given:
         compiled()
