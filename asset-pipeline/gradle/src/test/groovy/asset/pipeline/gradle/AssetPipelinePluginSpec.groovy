@@ -130,7 +130,10 @@ class AssetPipelinePluginSpec extends Specification {
             dependencies {
                 implementation platform('org.springframework.boot:spring-boot-dependencies:$bootVersion')
                 implementation 'org.springframework.boot:spring-boot-starter'
-                implementation 'args4j:args4j:2.33'
+                // Also declared in assets at a higher version: the archives must keep the version runtimeClasspath
+                // resolves, which Spring Boot's consistent resolution of productionRuntimeClasspath guarantees,
+                // rather than drop the library because the two classpaths resolved different files.
+                implementation 'args4j:args4j:2.32'
                 assets 'org.mozilla:rhino:1.7.15'
                 assets 'args4j:args4j:2.33'
             }
@@ -168,9 +171,11 @@ class AssetPipelinePluginSpec extends Specification {
         !contains(war, 'WEB-INF/lib/rhino-1.7.15.jar')
         !contains(war, 'WEB-INF/lib-provided/rhino-1.7.15.jar')
 
-        and: 'one the application also declares still is'
+        and: 'one the application also declares still is, at the version runtimeClasspath resolves'
         contains(jar, 'BOOT-INF/lib/args4j-2.33.jar')
         contains(war, 'WEB-INF/lib/args4j-2.33.jar')
+        !contains(jar, 'BOOT-INF/lib/args4j-2.32.jar')
+        !contains(war, 'WEB-INF/lib/args4j-2.32.jar')
         runJava(projectDirectory, '-jar', jar.absolutePath).contains('ASSETS_OK')
 
         when:
@@ -178,6 +183,7 @@ class AssetPipelinePluginSpec extends Specification {
 
         then: 'bootRun and the IDE still have it'
         output.readLines().find { it.startsWith('RUNTIME_CLASSPATH=') }.contains('rhino-1.7.15.jar')
+        output.readLines().find { it.startsWith('RUNTIME_CLASSPATH=') }.contains('args4j-2.33.jar')
         output.readLines().find { it.startsWith('BOOT_RUN_CLASSPATH=') }.contains('rhino-1.7.15.jar')
 
         where:

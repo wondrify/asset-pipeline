@@ -166,6 +166,10 @@ class AssetPipelinePlugin implements Plugin<Project> {
         // bootRun and the IDE without being packaged. Registered after Spring Boot's JavaPlugin action, which
         // copies the runtime classpath's parents (assets among them, if it was added first) into
         // productionRuntimeClasspath.
+        // The archives subtract developmentOnly minus productionRuntimeClasspath by file, so a library declared in
+        // both assets and implementation survives only because Spring Boot resolves productionRuntimeClasspath
+        // consistently with runtimeClasspath (shouldResolveConsistentlyWith): both pick the same version, hence
+        // the same file, even when assets asks for a higher one. AssetPipelinePluginSpec pins that case.
         project.plugins.withId('org.springframework.boot') {
             project.plugins.withType(JavaPlugin).configureEach {
                 project.configurations.named('developmentOnly').configure {
