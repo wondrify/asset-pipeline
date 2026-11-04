@@ -16,7 +16,9 @@
 
 package asset.pipeline.grails;
 
+import asset.pipeline.AssetHelper;
 import org.springframework.core.io.Resource;
+import java.io.IOException;
 import java.util.Date;
 
 public class AssetAttributes {
@@ -28,6 +30,7 @@ public class AssetAttributes {
 	private Long fileSize;
 	private Long gzipFileSize;
 	private Date lastModified;
+	private volatile String digest;
 
 	public AssetAttributes(boolean exists, Boolean gzipExists, Boolean isDirectory, Long fileSize, Long gzipFileSize, Date lastModified, Resource resource, Resource gzipResource) {
 		this.gzipExists = gzipExists;
@@ -70,5 +73,24 @@ public class AssetAttributes {
 
 	public Long getGzipFileSize() {
 		return this.gzipFileSize;
+	}
+
+	/**
+	 * The digest of the asset's bytes, which validates a name the manifest gives no digest (see
+	 * {@link asset.pipeline.AssetPipelineResponseBuilder#getCurrentETag()}). It is read from the asset when first
+	 * asked for and kept, so that it is computed once however often the asset is requested. Null when the asset
+	 * has no resource, or when it cannot be read, which serving it will report.
+	 */
+	public String getDigest() {
+		String current = digest;
+		if (current == null && resource != null) {
+			try {
+				current = AssetHelper.getByteDigest(resource.getInputStream());
+			} catch (IOException e) {
+				return null;
+			}
+			digest = current;
+		}
+		return current;
 	}
 }

@@ -19,6 +19,8 @@ package asset.pipeline
 import spock.lang.Specification
 import asset.pipeline.fs.FileSystemAssetResolver
 import asset.pipeline.utils.Handler
+
+import java.util.concurrent.atomic.AtomicBoolean
 /**
  * @author David Estes
  */
@@ -129,4 +131,31 @@ class AssetHelperSpec extends Specification {
         '../fonts/test.eot'       | 'test.eot'
     }
 
+    void "a stream is digested as its bytes are, read to its end and closed"() {
+        given:
+            Map originalConfig = AssetPipelineConfigHolder.config
+            byte[] bytes = 'abc'.bytes
+            AtomicBoolean closed = new AtomicBoolean()
+            InputStream stream = new ByteArrayInputStream(bytes) {
+                @Override
+                void close() {
+                    closed.set(true)
+                }
+            }
+
+        expect:
+            AssetHelper.getByteDigest(stream) == '900150983cd24fb0d6963f7d28e17f72'
+            AssetHelper.getByteDigest(bytes) == '900150983cd24fb0d6963f7d28e17f72'
+            closed.get()
+
+        when: 'the configuration salts the digest'
+            AssetPipelineConfigHolder.config = [digestSalt: 'pepper']
+
+        then: 'both are salted alike'
+            AssetHelper.getByteDigest(new ByteArrayInputStream(bytes)) == AssetHelper.getByteDigest(bytes)
+            AssetHelper.getByteDigest(bytes) != '900150983cd24fb0d6963f7d28e17f72'
+
+        cleanup:
+            AssetPipelineConfigHolder.config = originalConfig
+    }
 }

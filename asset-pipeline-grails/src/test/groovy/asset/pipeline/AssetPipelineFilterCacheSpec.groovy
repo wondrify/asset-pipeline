@@ -20,6 +20,7 @@ import asset.pipeline.grails.AssetAttributes
 import asset.pipeline.grails.AssetProcessorService
 import asset.pipeline.grails.ProductionAssetCache
 import org.springframework.beans.factory.support.RootBeanDefinition
+import org.springframework.core.io.Resource
 import org.springframework.mock.web.MockFilterChain
 import org.springframework.mock.web.MockHttpServletRequest
 import org.springframework.mock.web.MockHttpServletResponse
@@ -373,6 +374,19 @@ class AssetPipelineFilterCacheSpec extends Specification {
         then: 'it forgets both'
         cache.isEmpty()
         !cache.isMissing('c.js')
+    }
+
+    void 'the digest of a cached asset is read from it once, however often it is asked for'() {
+        given:
+        Resource resource = Mock()
+        AssetAttributes attributes = new AssetAttributes(true, false, false, 6L, null, null, resource, null)
+
+        when:
+        List<String> digests = (1..3).collect { attributes.digest }
+
+        then:
+        1 * resource.getInputStream() >> new ByteArrayInputStream(FAVICON)
+        digests.every { it == 'b57c04a9215494a2a2d90876aa7aeff8' }
     }
 
     private AssetPipelineFilter filter(Map config = [:]) {

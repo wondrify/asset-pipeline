@@ -1,5 +1,6 @@
 package asset.pipeline.servlet
 
+import asset.pipeline.AssetDigests
 import asset.pipeline.AssetHelper
 import asset.pipeline.AssetPaths
 import asset.pipeline.AssetPipelineConfigHolder
@@ -8,6 +9,7 @@ import jakarta.servlet.*
 import jakarta.servlet.http.HttpServletRequest
 import jakarta.servlet.http.HttpServletResponse
 
+import java.util.function.Supplier
 import java.util.logging.Logger
 
 class AssetPipelineFilterCore {
@@ -27,6 +29,9 @@ class AssetPipelineFilterCore {
 	}
 	AssetPipelineServletResourceRepository assetPipelineServletResourceRepository
 	ServletContext servletContext
+
+	// The digests of the assets served under a name without one, read once each rather than on every request
+	private final AssetDigests digests = new AssetDigests()
 
 
 	void doFilter(final ServletRequest request, final ServletResponse response, final FilterChain chain) throws IOException, ServletException {
@@ -65,6 +70,12 @@ class AssetPipelineFilterCore {
 			// Looked up before the response is built, as the gzipped asset has an ETag of its own
 			final AssetPipelineServletResource gzipResource = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders("Accept-Encoding")) ?
 				assetPipelineServletResourceRepository.getGzippedResource(fileUri) : null
+			// The digest validates a name without one, read when the asset is first asked for or has changed since
+			final AssetPipelineServletResource asset = resource
+			final String assetName = fileUri
+			final Supplier<String> digest = { ->
+				digests.digestOf(assetName, asset.getLastModified(), { -> asset.getInputStream() } as AssetDigests.Source)
+			} as Supplier<String>
 			// The name asked for, as the Grails filter passes it: fileUri is the digested name by now, which
 			// the builder would take for a url that can be cached for a year
 			final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
@@ -74,7 +85,8 @@ class AssetPipelineFilterCore {
 				lastModifiedDate,
 				manifest,
 				request.method,
-				gzipResource != null
+				gzipResource != null,
+				digest
 			)
 
 			responseBuilder.headers.each { final header ->

@@ -36,6 +36,10 @@ class AssetPipelineFilterSpec extends Specification {
     static final byte[] FAVICON = [0, 0, 1, 0, 1, 0] as byte[]
     static final byte[] LOGO = [(byte) 0x89, 0x50, 0x4E, 0x47] as byte[]
     static final List<String> ROOT_PATHS = ['favicon.ico', 'assets-logo.png', 'apple-touch-icon.png']
+    // The MD5 digests of FAVICON, LOGO and '// lib', which the filter computes for a name without one
+    static final String FAVICON_DIGEST = 'b57c04a9215494a2a2d90876aa7aeff8'
+    static final String LOGO_DIGEST = '3bdaf5969285188ac756c339f69f5c79'
+    static final String LIB_DIGEST = '86b494ec23ebe2d184420bf345b0da90'
 
     @TempDir
     File root
@@ -56,6 +60,7 @@ class AssetPipelineFilterSpec extends Specification {
 
     void cleanup() {
         applicationContext?.close()
+        AssetPipelineConfigHolder.unregisterClassLoader('/plugin/')
         AssetPipelineConfigHolder.resolvers = originalResolvers
         AssetPipelineConfigHolder.config = originalConfig
         AssetPipelineConfigHolder.manifest = originalManifest
@@ -221,6 +226,81 @@ class AssetPipelineFilterSpec extends Specification {
         exchange.response.getHeader('Cache-Control') == 'public, max-age=31536000'
     }
 
+    void 'from a war compiled with enableDigests off, #uri is revalidated rather than cached for a year'() {
+        given: 'the manifest maps each asset to its own name, as the compiler writes it without digests'
+        undigested()
+
+        when:
+        Exchange exchange = request('', uri)
+
+        then: 'the url never changes, so its content may: the tag carries the digest of the content, not the name alone'
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == FAVICON
+        exchange.response.getHeader('Cache-Control') == 'no-cache'
+        exchange.response.getHeader('ETag') == "\"favicon-${FAVICON_DIGEST}.ico\""
+
+        where:
+        uri << ['/assets/favicon.ico', '/favicon.ico']
+    }
+
+    void 'an asset compiled with enableDigests off is answered #status to If-None-Match #ifNoneMatch'() {
+        given:
+        undigested()
+
+        when:
+        Exchange exchange = request('', '/assets/favicon.ico', 'GET', ['If-None-Match': ifNoneMatch])
+
+        then: 'the digest of the content validates it; the name alone, which a browser may hold from before, does not'
+        exchange.response.status == status
+        exchange.response.contentAsByteArray == body
+        exchange.response.getHeader('ETag') == "\"favicon-${FAVICON_DIGEST}.ico\""
+
+        where:
+        ifNoneMatch                         | status | body
+        "\"favicon-${FAVICON_DIGEST}.ico\"" | 304    | new byte[0]
+        '"favicon.ico"'                     | 200    | FAVICON
+    }
+
+    void 'after a redeploy with enableDigests off, a browser that holds the old asset is sent the new one'() {
+        given: 'the tag a browser kept for the asset as first deployed'
+        undigested(FAVICON)
+        String held = request('', '/assets/favicon.ico').response.getHeader('ETag')
+
+        when: 'the asset changes at the same url, and the application starts again'
+        undigested(LOGO)
+        Exchange exchange = request('', '/assets/favicon.ico', 'GET', ['If-None-Match': held])
+
+        then: 'rather than told it has not changed'
+        exchange.response.status == 200
+        exchange.response.contentAsByteArray == LOGO
+        exchange.response.getHeader('ETag') == "\"favicon-${LOGO_DIGEST}.ico\""
+    }
+
+    void 'an asset a registered class loader serves under a name without a digest is validated by the digest of its content'() {
+        given: 'a class loader registered for /plugin/, whose manifest was compiled with enableDigests off'
+        File plugin = new File(root, 'plugin/assets')
+        plugin.mkdirs()
+        new File(plugin, 'lib.js').text = '// lib'
+        new File(plugin, 'manifest.properties').text = 'lib.js=lib.js\n'
+        AssetPipelineConfigHolder.registerClassLoader('/plugin/', new URLClassLoader([new File(root, 'plugin').toURI().toURL()] as URL[], null))
+        start(ROOT_PATHS)
+
+        when:
+        Exchange served = request('', '/assets/plugin/lib.js')
+        Exchange unchanged = request('', '/assets/plugin/lib.js', 'GET', ['If-None-Match': "\"lib-${LIB_DIGEST}.js\""])
+        Exchange byName = request('', '/assets/plugin/lib.js', 'GET', ['If-None-Match': '"lib.js"'])
+
+        then:
+        served.response.status == 200
+        served.response.contentAsString == '// lib'
+        served.response.getHeader('Cache-Control') == 'no-cache'
+        served.response.getHeader('ETag') == "\"lib-${LIB_DIGEST}.js\""
+        unchanged.response.status == 304
+        unchanged.response.contentAsByteArray.length == 0
+        byName.response.status == 200
+        byName.response.contentAsString == '// lib'
+    }
+
     void 'from a compiled war, a root path with no asset passes the request on to the application'() {
         given:
         compiled()
@@ -268,7 +348,19 @@ class AssetPipelineFilterSpec extends Specification {
         start(ROOT_PATHS)
     }
 
+    /** Assets compiled ahead of time with enableDigests off: each under its own name, which the manifest maps to itself. */
+    private void undigested(byte[] favicon = FAVICON) {
+        File assets = new File(root, 'assets')
+        assets.mkdirs()
+        new File(assets, 'favicon.ico').bytes = favicon
+        Properties manifest = new Properties()
+        manifest.setProperty('favicon.ico', 'favicon.ico')
+        AssetPipelineConfigHolder.manifest = manifest
+        start(ROOT_PATHS)
+    }
+
     private void start(List<String> rootPaths) {
+        applicationContext?.close() // the one a feature started before, as an application deployed again
         MockServletContext servletContext = new MockServletContext("file:${root.absolutePath}")
         applicationContext = new GenericWebApplicationContext(servletContext)
         applicationContext.registerBean('assetProcessorService', AssetProcessorService)
@@ -354,9 +446,10 @@ class AssetPipelineFilterSpec extends Specification {
         method << ['POST', 'PUT', 'DELETE']
     }
 
-    private Exchange request(String contextPath, String uri, String method = 'GET') {
+    private Exchange request(String contextPath, String uri, String method = 'GET', Map<String, String> headers = [:]) {
         MockHttpServletRequest request = new MockHttpServletRequest(filter.servletContext, method, uri)
         request.contextPath = contextPath
+        headers.each { String name, String value -> request.addHeader(name, value) }
         MockHttpServletResponse response = new MockHttpServletResponse()
         MockFilterChain chain = new MockFilterChain()
         filter.doFilter(request, response, chain)

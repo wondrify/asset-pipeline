@@ -216,23 +216,31 @@ public class AssetHelper {
      * @return md5 String
      */
     static String getByteDigest(byte[] fileBytes) {
+        return getByteDigest(new ByteArrayInputStream(fileBytes))
+    }
 
-        def hashAlgorithm = AssetPipelineConfigHolder.getConfig()?.digestAlgorithm ?: 'MD5'
-        def salt = AssetPipelineConfigHolder.getConfig()?.digestSalt ?: ''
+    /**
+     * The digest of a stream's contents, as {@link #getByteDigest(byte[])} computes it for the same bytes. The
+     * stream is read to its end and closed, so a file need not be held in memory to be digested.
+     * @param stream the contents of a file
+     * @return the digest as hex
+     */
+    static String getByteDigest(InputStream stream) {
+        String hashAlgorithm = (AssetPipelineConfigHolder.getConfig()?.digestAlgorithm ?: 'MD5').toString()
+        String salt = (AssetPipelineConfigHolder.getConfig()?.digestSalt ?: '').toString()
 
         // Generate Checksum based on the file contents and the configuration settings
         MessageDigest md = MessageDigest.getInstance(hashAlgorithm)
-
-        byte[] hashBytes = fileBytes
-
-        if(salt){
-            def saltBytes = salt.bytes
-            hashBytes = new byte[fileBytes.length + saltBytes.length]
-            System.arraycopy(fileBytes, 0, hashBytes, 0, fileBytes.length)
-            System.arraycopy(saltBytes, 0, hashBytes, fileBytes.length, saltBytes.length)
+        stream.withCloseable { InputStream input ->
+            byte[] buffer = new byte[8192]
+            int read
+            while((read = input.read(buffer)) != -1) {
+                md.update(buffer, 0, read)
+            }
         }
-
-        md.update(hashBytes)
+        if(salt) {
+            md.update(salt.bytes)
+        }
         return md.digest().encodeHex().toString()
     }
 
