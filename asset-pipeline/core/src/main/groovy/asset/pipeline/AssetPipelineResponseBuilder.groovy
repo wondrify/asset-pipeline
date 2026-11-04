@@ -125,10 +125,11 @@ public class AssetPipelineResponseBuilder {
     }
 
     /**
-     * Whether the uri can be cached for a year: the digested name the manifest gives an asset, which changes whenever
-     * the asset does, or an asset the {@code immutable} setting says never changes at its url. Any other name,
-     * including every name when there is no manifest and every name compiled with {@code enableDigests} off, which
-     * the manifest maps to itself, may be sent different content tomorrow.
+     * Whether the uri can be cached for a year. It can when it is the digested name the manifest gives an asset,
+     * which changes whenever the asset does, or when the {@code immutable} setting says the asset never changes at
+     * its url. Any other name may be sent different content tomorrow: a name the manifest does not list, every name
+     * when there is no manifest, and every name compiled with {@code enableDigests} off, which the manifest maps
+     * to itself.
      */
     public boolean isDigestVersion() {
         String manifestPath = uri
