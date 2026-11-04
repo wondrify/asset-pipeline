@@ -3,6 +3,8 @@ package asset.pipeline;
 import spock.lang.Specification
 import spock.lang.Unroll
 
+import java.util.function.Supplier
+
 public class AssetPipelineResponseBuilderSpec extends Specification {
 
     Properties originalManifest
@@ -356,6 +358,66 @@ public class AssetPipelineResponseBuilderSpec extends Specification {
 
         expect:
         new AssetPipelineResponseBuilder('app.js').headers['Cache-Control'] == 'public, max-age=31536000'
+    }
+
+    @Unroll
+    def "#uri, which the manifest gives no digest, is validated by the digest of its content: #etag"() {
+        given: 'a manifest from a compile with enableDigests off, and an asset it does not list'
+        Properties props = new Properties()
+        props.setProperty('app.js', 'app.js')
+        AssetPipelineConfigHolder.manifest = props
+        Supplier<String> digest = { -> '0123456789abcdef' } as Supplier<String>
+
+        expect: 'the name alone, which a browser holds from before the asset changed, no longer matches'
+        new AssetPipelineResponseBuilder(uri, null, null, null, props, 'GET', gzip, digest).headers['ETag'] == etag
+        new AssetPipelineResponseBuilder(uri, etag, null, null, props, 'GET', gzip, digest).statusCode == 304
+        new AssetPipelineResponseBuilder(uri, byName, null, null, props, 'GET', gzip, digest).statusCode == 200
+
+        where:
+        uri                      | gzip  | etag                                          | byName
+        'app.js'                 | false | '"app-0123456789abcdef.js"'                   | '"app.js"'
+        '/app.js'                | false | '"app-0123456789abcdef.js"'                   | '"app.js"'
+        'app.js'                 | true  | '"app-0123456789abcdef.js-gz"'                | '"app.js-gz"'
+        'webjars/lib/1.0/lib.js' | false | '"webjars/lib/1.0/lib-0123456789abcdef.js"'   | '"webjars/lib/1.0/lib.js"'
+        'LICENSE'                | false | '"LICENSE-0123456789abcdef"'                  | '"LICENSE"'
+        'fonts/.hidden'          | false | '"fonts/.hidden-0123456789abcdef"'            | '"fonts/.hidden"'
+    }
+
+    def "the digest is not read for a digested name, nor for a name the manifest gives one"() {
+        given:
+        Properties props = new Properties()
+        props.setProperty('app.js', 'app-2222.js')
+        AssetPipelineConfigHolder.manifest = props
+        int reads = 0
+        Supplier<String> digest = { -> reads++; '0123456789abcdef' } as Supplier<String>
+
+        expect: 'the digested name changes whenever the asset does, so it validates the asset by itself'
+        new AssetPipelineResponseBuilder('app.js', null, null, null, props, 'GET', false, digest).headers['ETag'] == '"app-2222.js"'
+        new AssetPipelineResponseBuilder('app-2222.js', null, null, null, props, 'GET', false, digest).headers['ETag'] == '"app-2222.js"'
+        reads == 0
+    }
+
+    def "the digest is read once for a response"() {
+        given:
+        AssetPipelineConfigHolder.manifest = null
+        int reads = 0
+        Supplier<String> digest = { -> reads++; '0123456789abcdef' } as Supplier<String>
+
+        when:
+        def response = new AssetPipelineResponseBuilder('app.js', '"app-0123456789abcdef.js"', null, null, null, 'GET', false, digest)
+
+        then:
+        response.statusCode == 304
+        reads == 1
+    }
+
+    def "a name without a digest is validated by the name alone when no digest is supplied, or none can be read"() {
+        given:
+        AssetPipelineConfigHolder.manifest = null
+
+        expect: 'as before, for a filter that reads none'
+        new AssetPipelineResponseBuilder('app.js').headers['ETag'] == '"app.js"'
+        new AssetPipelineResponseBuilder('app.js', null, null, null, null, 'GET', false, { -> null } as Supplier<String>).headers['ETag'] == '"app.js"'
     }
 
     def "a builder given a manifest of its own reads that one, as for a class loader registered with its own assets"() {

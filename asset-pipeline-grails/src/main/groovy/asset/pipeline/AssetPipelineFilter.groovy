@@ -17,6 +17,8 @@ import org.springframework.core.io.Resource
 import org.springframework.web.context.support.WebApplicationContextUtils
 import org.springframework.web.filter.OncePerRequestFilter
 
+import java.util.function.Supplier
+
 @Slf4j
 @CompileStatic
 class AssetPipelineFilter extends OncePerRequestFilter {
@@ -127,6 +129,16 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 			if(file) {
 				// Chosen before the response is built, as the gzipped asset has an ETag of its own
 				final URL gzipFile = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) ? classLoaderEntry.classLoader.getResource("assets/${fileUri}.gz") : null
+				// The digest validates a name without one, read once per asset and kept with the class loader
+				final URL asset = file
+				final String assetName = fileUri
+				final Supplier<String> digest = { ->
+					classLoaderEntry.digests.digestOf(assetName, null, { ->
+						URLConnection connection = asset.openConnection()
+						connection.setUseCaches(false)
+						connection.getInputStream()
+					} as AssetDigests.Source)
+				} as Supplier<String>
 				final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
 					manifestPath,
 					AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
@@ -134,7 +146,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					null,
 					manifest,
 					request.method,
-					gzipFile != null
+					gzipFile != null,
+					digest
 				)
 				if(responseBuilder.statusCode) {
 					response.status = responseBuilder.statusCode
@@ -207,7 +220,8 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						attributeCache.getLastModified(),
 						manifest,
 						request.method,
-						gzip
+						gzip,
+						{ -> attributeCache.digest } as Supplier<String>
 					)
 
 					responseBuilder.headers.each { final header ->
@@ -268,25 +282,10 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 					}
 					// Chosen before the response is built, as the gzipped asset has an ETag of its own
 					final boolean gzip = AssetPipelineResponseBuilder.acceptsGzip(request.getHeaders('Accept-Encoding')) && gzipFile.exists()
-					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
-						manifestPath,
-						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
-						request.getHeader('If-Modified-Since'),
-						file.lastModified() ? new Date(file.lastModified()) : null,
-						manifest,
-						request.method,
-						gzip
-					)
-
-					if(responseBuilder.statusCode) {
-						response.status = responseBuilder.statusCode
-					}
-					responseBuilder.headers.each { final header ->
-						response.setHeader(header.key, header.value)
-					}
-
 					final Date lastModifiedDate = file.lastModified() ? new Date(file.lastModified()) : null
 
+					// Recorded before the response is built, as a name without a digest is validated by the digest
+					// the record reads from the asset and keeps
 					final AssetAttributes newCache = new AssetAttributes(
 						true,
 						gzipFile.exists(),
@@ -298,6 +297,24 @@ class AssetPipelineFilter extends OncePerRequestFilter {
 						gzipFile
 					)
 					cache.put(fileUri, newCache)
+
+					final AssetPipelineResponseBuilder responseBuilder = new AssetPipelineResponseBuilder(
+						manifestPath,
+						AssetPipelineResponseBuilder.combineIfNoneMatchHeaders(request.getHeaders('If-None-Match')),
+						request.getHeader('If-Modified-Since'),
+						lastModifiedDate,
+						manifest,
+						request.method,
+						gzip,
+						{ -> newCache.digest } as Supplier<String>
+					)
+
+					if(responseBuilder.statusCode) {
+						response.status = responseBuilder.statusCode
+					}
+					responseBuilder.headers.each { final header ->
+						response.setHeader(header.key, header.value)
+					}
 
 					if(response.status == 200) {
 						if(gzip) {

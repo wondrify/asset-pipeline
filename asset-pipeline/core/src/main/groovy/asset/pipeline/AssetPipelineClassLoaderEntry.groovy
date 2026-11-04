@@ -9,6 +9,9 @@ class AssetPipelineClassLoaderEntry {
 	Properties manifest
 	ClassLoader classLoader 
 
+	/** The digests of the assets served under a name without one, which validate them, kept as long as the class loader is registered */
+	final AssetDigests digests = new AssetDigests()
+
 	static final String MANIFEST_LOCATION = "assets/manifest.properties"
 
 	public AssetPipelineClassLoaderEntry(ClassLoader classLoader) {

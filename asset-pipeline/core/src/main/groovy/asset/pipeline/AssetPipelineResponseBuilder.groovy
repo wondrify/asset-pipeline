@@ -7,6 +7,7 @@ import java.nio.file.PathMatcher
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import java.text.SimpleDateFormat
+import java.util.function.Supplier
 
 @CompileStatic
 public class AssetPipelineResponseBuilder {
@@ -21,6 +22,7 @@ public class AssetPipelineResponseBuilder {
 	private final Properties manifest
 	private final String method
 	private final boolean gzip
+	private final Supplier<String> digest
 
 	// The digested names of the manifest a builder last read, so a request doesn't scan every entry of it
 	private static volatile DigestedNames digestedNames
@@ -35,12 +37,15 @@ public class AssetPipelineResponseBuilder {
      *        registered with its own assets passes instead
      * @param method the request's method: only GET and HEAD are answered 304, and any other fails its precondition
      * @param gzip whether the gzipped asset is the one sent, which has an ETag of its own (RFC 9110 section 8.8.3.3)
+     * @param digest the digest of the asset's bytes, read for a name the manifest gives no digest, whose ETag then
+     *        carries it so that a change to the asset is seen at its unchanging url; a digested name never reads it
      */
-    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest, String method = 'GET', boolean gzip = false) {
+    AssetPipelineResponseBuilder(String uri, String ifNoneMatchHeader = null, String ifModifiedSinceHeader = null, Date lastModifiedDate = null, Properties manifest = AssetPipelineConfigHolder.manifest, String method = 'GET', boolean gzip = false, Supplier<String> digest = null) {
         this.uri = uri
         this.manifest = manifest
         this.method = method
         this.gzip = gzip
+        this.digest = digest
         this.ifNoneMatchHeader = ifNoneMatchHeader
         this.ifModifiedSinceHeader = ifModifiedSinceHeader
 		this.lastModifiedDate = lastModifiedDate
@@ -114,14 +119,35 @@ public class AssetPipelineResponseBuilder {
         return statusCode;
     }
 
+    /**
+     * The ETag of the asset as it is sent: its digested name, which changes whenever the asset does, with a suffix
+     * when it is sent gzipped. A name without a digest, which the manifest maps to itself or does not list, is sent
+     * different content at the same url once the asset changes, so its tag carries the digest of that content when
+     * the filter supplies one, and a browser that holds the old asset is sent the new one rather than a 304.
+     * Without a digest, the tag is the name alone.
+     */
     public String getCurrentETag() {
-
         String manifestPath = uri
         if (uri.startsWith('/')) {
             manifestPath = uri.substring(1) //Omit forward slash
         }
+        String name = manifest?.getProperty(manifestPath) ?: manifestPath
+        if (name == manifestPath && digest != null && !(manifest != null && digestedNamesOf(manifest).contains(name))) {
+            String contentDigest = digest.get()
+            if (contentDigest) {
+                name = digestedName(name, contentDigest)
+            }
+        }
+        return "\"" + name + (gzip ? GZIP_ETAG_SUFFIX : '') + "\""
+    }
 
-        return "\"" + (manifest?.getProperty(manifestPath) ?: manifestPath) + (gzip ? GZIP_ETAG_SUFFIX : '') + "\""
+    // The digest before the extension, as the compiler names a digested asset: app.js becomes app-<digest>.js
+    private static String digestedName(String name, String digest) {
+        int dot = name.lastIndexOf('.')
+        if (dot <= name.lastIndexOf('/') + 1) {
+            return name + '-' + digest // no extension, or a name that is only one, such as .htaccess
+        }
+        return name.substring(0, dot) + '-' + digest + name.substring(dot)
     }
 
     /**

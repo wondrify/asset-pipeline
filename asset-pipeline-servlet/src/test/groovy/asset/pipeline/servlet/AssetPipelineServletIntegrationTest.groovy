@@ -18,7 +18,9 @@ import org.junit.BeforeClass
 import org.junit.Test
 
 import static org.junit.Assert.assertEquals
+import static org.junit.Assert.assertNotEquals
 import static org.junit.Assert.assertNotNull
+import static org.junit.Assert.assertTrue
 
 class AssetPipelineServletIntegrationTest {
     private static Server server
@@ -26,10 +28,13 @@ class AssetPipelineServletIntegrationTest {
     private static AssetPipelineDevFilter devFilter
     private static int port
     private static Collection<AssetResolver> originalAssetResolvers
+    /** An asset the tests change in place, served as /css/changing.css */
+    private static File changing
 
     @BeforeClass
     static void startServer() {
         originalAssetResolvers = AssetPipelineConfigHolder.getResolvers()
+        changing = File.createTempFile('changing', '.css')
         server = new Server(0)
         prodFilter = new AssetPipelineFilter()
         prodFilter.mapping = "prod_assets"
@@ -46,6 +51,10 @@ class AssetPipelineServletIntegrationTest {
 
                 if (path == "/maybe_gzipped/css/test.js") {
                     return new TestResource("fixtures/test.js")
+                }
+
+                if (path == "/css/changing.css") {
+                    return new TestResource(changing)
                 }
 
                 return null
@@ -79,6 +88,7 @@ class AssetPipelineServletIntegrationTest {
     static void stopServer() {
         AssetPipelineConfigHolder.setResolvers(originalAssetResolvers)
         server.stop()
+        changing.delete()
     }
 
     private final static class TestResource implements AssetPipelineServletResource {
@@ -90,6 +100,10 @@ class AssetPipelineServletIntegrationTest {
             if (file == null || !file.isFile()) {
                 throw new IllegalArgumentException("Provided path ${path} is not an existing file")
             }
+        }
+
+        public TestResource(File file) {
+            this.file = file
         }
 
         @Override
@@ -158,8 +172,9 @@ class AssetPipelineServletIntegrationTest {
     @Test
     void testGzippedAssetIsValidatedByItsOwnETag() {
         String url = "http://localhost:${port}/prod_assets/maybe_gzipped/css/test.js"
-        String gzipped = '"maybe_gzipped/css/test.js-gz"'
-        String asItIs = '"maybe_gzipped/css/test.js"'
+        // Both carry the digest of the asset as it is, since the name alone would not change with it
+        String gzipped = '"maybe_gzipped/css/test-0229235580ad4bcdc3f97b57bedee07a.js-gz"'
+        String asItIs = '"maybe_gzipped/css/test-0229235580ad4bcdc3f97b57bedee07a.js"'
         assertEquals(gzipped, Request.Get(url).execute().returnResponse().getFirstHeader('ETag')?.value)
         assertEquals(asItIs, Request.Get(url).setHeader('Accept-Encoding', '').execute().returnResponse().getFirstHeader('ETag')?.value)
 
@@ -168,6 +183,34 @@ class AssetPipelineServletIntegrationTest {
         assertEquals(200, Request.Get(url).setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
         assertEquals(304, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', asItIs).execute().returnResponse().statusLine.statusCode)
         assertEquals(200, Request.Get(url).setHeader('Accept-Encoding', '').setHeader('If-None-Match', gzipped).execute().returnResponse().statusLine.statusCode)
+    }
+
+    @Test
+    void testAssetWithoutADigestIsValidatedByTheDigestOfItsContent() {
+        String url = "http://localhost:${port}/prod_assets/css/test.css"
+        String etag = '"css/test-df1c8fa6ba62e00edd26c0d5c79f3290.css"'
+        assertEquals(etag, Request.Get(url).execute().returnResponse().getFirstHeader('ETag')?.value)
+        assertEquals(304, Request.Get(url).setHeader('If-None-Match', etag).execute().returnResponse().statusLine.statusCode)
+        // The name alone, which a browser may hold from before the asset changed, no longer matches
+        assertEquals(200, Request.Get(url).setHeader('If-None-Match', '"css/test.css"').execute().returnResponse().statusLine.statusCode)
+    }
+
+    @Test
+    void testAssetChangedInPlaceIsSentToABrowserThatHoldsTheOldOne() {
+        String url = "http://localhost:${port}/prod_assets/css/changing.css"
+        changing.text = 'a { color: red }'
+        HttpResponse initial = Request.Get(url).execute().returnResponse()
+        String held = initial.getFirstHeader('ETag').value
+        assertEquals('a { color: red }', EntityUtils.toString(initial.entity))
+        assertEquals(304, Request.Get(url).setHeader('If-None-Match', held).execute().returnResponse().statusLine.statusCode)
+
+        changing.text = 'a { color: blue }'
+        // Seen as changed even where the file system keeps whole seconds
+        assertTrue(changing.setLastModified(changing.lastModified() + 2000))
+        HttpResponse changed = Request.Get(url).setHeader('If-None-Match', held).execute().returnResponse()
+        assertEquals(200, changed.statusLine.statusCode)
+        assertEquals('a { color: blue }', EntityUtils.toString(changed.entity))
+        assertNotEquals(held, changed.getFirstHeader('ETag').value)
     }
 
     @Test

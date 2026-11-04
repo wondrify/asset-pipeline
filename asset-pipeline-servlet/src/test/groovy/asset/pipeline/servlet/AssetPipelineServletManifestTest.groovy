@@ -25,6 +25,8 @@ import static org.junit.Assert.assertNotNull
 class AssetPipelineServletManifestTest {
     private static final String CSS = """body { font-family: "Comic Sans", sans-serif; }"""
     private static final String DIGESTED = 'test-0123456789abcdef.css'
+    /** The tag of plain.css, which the manifest maps to itself as the compiler writes it with enableDigests off: the digest of fixtures/test.css */
+    private static final String PLAIN_ETAG = '"plain-df1c8fa6ba62e00edd26c0d5c79f3290.css"'
 
     private static Server server
     private static int port
@@ -35,6 +37,7 @@ class AssetPipelineServletManifestTest {
         originalManifest = AssetPipelineConfigHolder.manifest
         Properties manifest = new Properties()
         manifest.setProperty('test.css', DIGESTED)
+        manifest.setProperty('plain.css', 'plain.css')
         AssetPipelineConfigHolder.manifest = manifest
 
         AssetPipelineFilter filter = new AssetPipelineFilter()
@@ -43,7 +46,7 @@ class AssetPipelineServletManifestTest {
         filter.assetPipelineServletResourceRepository = new AssetPipelineServletResourceRepository() {
             @Override
             AssetPipelineServletResource getResource(String path) {
-                return path == DIGESTED ? new FixtureResource('fixtures/test.css') : null
+                return path == DIGESTED || path == 'plain.css' ? new FixtureResource('fixtures/test.css') : null
             }
 
             @Override
@@ -104,16 +107,29 @@ class AssetPipelineServletManifestTest {
     }
 
     @Test
+    void testUrlCompiledWithoutDigestsIsValidatedByTheDigestOfItsContent() {
+        assertServed('/assets/plain.css', 'no-cache', PLAIN_ETAG)
+        assertEquals(304, Request.Get("http://localhost:${port}/assets/plain.css").setHeader('If-None-Match', PLAIN_ETAG).execute().returnResponse().statusLine.statusCode)
+        // The name alone, which a browser may hold from before the asset changed, no longer matches
+        assertEquals(200, Request.Get("http://localhost:${port}/assets/plain.css").setHeader('If-None-Match', '"plain.css"').execute().returnResponse().statusLine.statusCode)
+    }
+
+    @Test
+    void testUrlCompiledWithoutDigestsKeepsItsCacheHeadersWhenNotModified() {
+        assertRevalidated('/assets/plain.css', 'no-cache')
+    }
+
+    @Test
     void testDigestedUrlKeepsItsCacheHeadersWhenNotModified() {
         assertRevalidated("/assets/${DIGESTED}", 'public, max-age=31536000')
     }
 
-    private static void assertServed(String uri, String cacheControl) {
+    private static void assertServed(String uri, String cacheControl, String etag = "\"${DIGESTED}\"") {
         HttpResponse res = Request.Get("http://localhost:${port}${uri}").execute().returnResponse()
         assertEquals(uri, 200, res.statusLine.statusCode)
         assertEquals(uri, CSS, EntityUtils.toString(res.getEntity()).trim())
         assertEquals(uri, cacheControl, res.getFirstHeader('Cache-Control')?.value)
-        assertEquals(uri, "\"${DIGESTED}\"".toString(), res.getFirstHeader('ETag')?.value)
+        assertEquals(uri, etag.toString(), res.getFirstHeader('ETag')?.value)
     }
 
     // A 304 for either validator carries the headers the 200 did. HttpClient reads no body for a 304, so the
