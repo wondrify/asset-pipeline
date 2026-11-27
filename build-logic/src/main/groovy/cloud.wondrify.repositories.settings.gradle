@@ -4,7 +4,10 @@ import org.gradle.api.initialization.resolve.RepositoriesMode
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
-        // mavenLocal()
+        // A Grails snapshot published locally, as grails-core resolves one when GRAILS_INCLUDE_MAVEN_LOCAL is set
+        if (System.getenv('GRAILS_INCLUDE_MAVEN_LOCAL')) {
+            mavenLocal()
+        }
         mavenCentral()
         maven { url = 'https://repo.grails.org/grails/core' }
         maven {
