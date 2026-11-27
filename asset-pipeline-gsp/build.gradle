@@ -12,8 +12,8 @@ ext {
 configurations.configureEach {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
-            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy5Version")
-            details.because "The dependency coordinates are changed in Apache Groovy 4+, plus ensure the Groovy 5 version Grails 8 applications run"
+            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy6Version")
+            details.because "The dependency coordinates are changed in Apache Groovy 4+, plus ensure the Groovy 6 version Grails 9 applications run"
         }
     }
 }
