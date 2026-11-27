@@ -32,7 +32,7 @@ import grails.util.Environment
 import grails.util.Holder
 import grails.util.Holders
 import groovy.transform.CompileStatic
-import org.grails.plugins.BinaryGrailsPlugin
+import org.grails.plugins.DefaultGrailsPlugin
 import org.springframework.core.io.FileSystemResource
 import org.springframework.core.io.InputStreamResource
 import org.springframework.core.io.UrlResource
@@ -329,8 +329,8 @@ class I18nProcessor extends AbstractProcessor {
         def pluginManager = Holders.pluginManager 
         if(pluginManager != null){
             for(GrailsPlugin plugin in pluginManager.allPlugins){
-                if(plugin instanceof BinaryGrailsPlugin){
-                    String projectDir = ((BinaryGrailsPlugin)plugin).projectDirectory
+                File projectDir = plugin instanceof DefaultGrailsPlugin ? ((DefaultGrailsPlugin)plugin).projectDirectory : null
+                if(projectDir != null){
                     String i18nPropertiesPath = new File(projectDir,"grails-app/i18n").canonicalPath
                     
                     if(new File(i18nPropertiesPath,filename+PROPERTIES_SUFFIX).exists()){

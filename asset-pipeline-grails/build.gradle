@@ -12,8 +12,8 @@ ext {
 configurations.configureEach {
     resolutionStrategy.eachDependency { DependencyResolveDetails details ->
         if ((details.requested.group == 'org.codehaus.groovy' || details.requested.group == 'org.apache.groovy') && details.requested.name != 'groovy-bom') {
-            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy5Version")
-            details.because "The dependency coordinates are changed in Apache Groovy 4+, plus ensure the Groovy 5 version Grails 8 applications run"
+            details.useTarget(group: 'org.apache.groovy', name: details.requested.name, version: "$groovy6Version")
+            details.because "The dependency coordinates are changed in Apache Groovy 4+, plus ensure the Groovy 6 version Grails 9 applications run"
         }
     }
 }
@@ -73,14 +73,6 @@ apply {
 tasks.withType(Jar).configureEach { Jar jar ->
     jar.exclude('grails-app/assets/**')
     jar.exclude('test/**')
-
-    // Names the archive task rather than finding its excludes through this closure's delegate, which the
-    // configuration cache does not restore
-    jar.eachFile { FileCopyDetails copyDetails ->
-        if (copyDetails.path.contains('grails-plugin.xml')) {
-            copyDetails.filter { String line -> jar.excludes.find { line.contains(it) } ? null : line }
-        }
-    }
 }
 
 tasks.named('javadocJar', Jar).configure { Jar it ->

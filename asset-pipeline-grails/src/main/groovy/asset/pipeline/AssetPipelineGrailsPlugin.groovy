@@ -23,12 +23,13 @@ import asset.pipeline.grails.AssetSupportingCachingLinkGenerator
 import asset.pipeline.grails.AssetSupportingLinkGenerator
 import grails.config.Settings
 import grails.plugins.Plugin
+import grails.plugins.metadata.GrailsPluginDescriptor
 import grails.util.BuildSettings
 import grails.util.Environment
 import grails.web.mapping.LinkGenerator
 import groovy.util.logging.Slf4j
 import org.grails.config.NavigableMap
-import org.grails.plugins.BinaryGrailsPlugin
+import org.grails.plugins.DefaultGrailsPlugin
 import org.springframework.beans.factory.BeanRegistrar
 import org.springframework.boot.autoconfigure.AutoConfiguration
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication
@@ -37,28 +38,13 @@ import java.util.function.Consumer
 import java.util.function.Function
 
 @Slf4j
-// An ordering hint, not a dependency: everything used below comes from grails-web-url-mappings,
-// while the class named lives in grails-url-mappings, which this plugin declares compileOnly.
-@AutoConfiguration(beforeName = 'org.grails.plugins.web.mapping.UrlMappingsAutoConfiguration')
+// Before url mappings, not a dependency: this plugin's grailsLinkGenerator, which builds asset urls, is the one
+// an application gets, and the url mappings plugin's own backs off from it. The compiler orders the generated
+// auto-configuration before the url mappings one to match.
+@GrailsPluginDescriptor(before = ['urlMappings'])
+@AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class AssetPipelineGrailsPlugin extends Plugin {
-
-    def grailsVersion = '8.0.0 > *'
-    def title = 'Asset Pipeline Plugin'
-    def author = 'David Estes'
-    def description = 'The Asset-Pipeline is a plugin used for managing and processing static assets in Grails applications. Asset-Pipeline functions include processing and minification of both CSS and JavaScript files. It is also capable of being extended to compile custom static assets, such as CoffeeScript.'
-    def documentation = 'https://wondrify.github.io/asset-pipeline/'
-    def license = 'APACHE'
-    def organization = [name: 'Bertram Capital', url: 'https://www.bertramcapital.com/']
-    def issueManagement = [system: 'GITHUB', url: 'https://github.com/wondrify/asset-pipeline/issues']
-    def scm = [url: 'https://github.com/wondrify/asset-pipeline']
-    def pluginExcludes = [
-            'grails-app/assets/**',
-            'test/dummy/**'
-    ]
-    def developers = [[name: 'Brian Wheeler']]
-    def loadAfter = ['url-mappings']
-
 
     /**
      * The beans this plugin contributes, compiled into a sibling AssetPipelineAutoConfiguration.
@@ -98,7 +84,7 @@ class AssetPipelineGrailsPlugin extends Plugin {
 
         try {
             ctx.pluginManager.getAllPlugins()?.each { plugin ->
-                if (plugin instanceof BinaryGrailsPlugin) {
+                if (plugin instanceof DefaultGrailsPlugin) {
                     def projectDirectory = plugin.getProjectDirectory()
                     if (projectDirectory) {
                         String assetPath = new File(plugin.getProjectDirectory(), "grails-app/assets").canonicalPath

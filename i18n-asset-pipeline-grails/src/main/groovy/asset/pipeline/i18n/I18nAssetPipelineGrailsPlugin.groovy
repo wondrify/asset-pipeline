@@ -20,39 +20,12 @@
 package asset.pipeline.i18n
 
 import grails.plugins.Plugin
+import grails.plugins.metadata.GrailsPluginDescriptor
 
+@GrailsPluginDescriptor(watchedResources = ['file:./grails-app/i18n/*.properties'])
 class I18nAssetPipelineGrailsPlugin extends Plugin {
 
-    //-- Fields ---------------------------------
-
-    def grailsVersion = '8.0.0-SNAPSHOT > *'
-    def profiles = ['web']
-    def title = 'I18n Asset Pipeline Plugin'
-    def author = 'Daniel Ellermann'
-    def authorEmail = 'd.ellermann@amc-world.de'
-    def description = 'An asset-pipeline plugin for client-side i18n.  It generates JavaScript files from i18n resources for use in client-side code.'
-    def documentation = 'https://github.com/dellermann/i18n-asset-pipeline'
-    def license = 'APACHE'
-    def organization = [
-        name: 'AMC World Technologies GmbH',
-        url: 'http://www.amc-world.de/'
-    ]
-    def issueManagement = [
-        system: 'GITHUB',
-        url: 'https://github.com/dellermann/i18n-asset-pipeline/issues'
-    ]
-    def scm = [url: 'https://github.com/dellermann/i18n-asset-pipeline']
-    def watchedResources = ['file:./grails-app/i18n/*.properties']
-
     //-- Public methods -------------------------
-
-    Closure doWithSpring() {{ ->
-            
-    }}
-
-    void doWithDynamicMethods() {
-        // TODO Implement registering dynamic methods to classes (optional)
-    }
 
     void doWithApplicationContext() {
         

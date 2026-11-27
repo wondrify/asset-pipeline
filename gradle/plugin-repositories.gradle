@@ -1,6 +1,10 @@
 // The repositories a settings file resolves build-logic and the plugins it brings from. Each settings file applies this
 // in pluginManagement, before any settings plugin is on its classpath, so it is a script rather than a plugin.
 ext.configurePluginRepositories = { RepositoryHandler repositories ->
+    // A Grails snapshot published locally, as grails-core resolves one when GRAILS_INCLUDE_MAVEN_LOCAL is set
+    if (System.getenv('GRAILS_INCLUDE_MAVEN_LOCAL')) {
+        repositories.mavenLocal()
+    }
     repositories.gradlePluginPortal()
     // grails-publish releases are staged here before they reach Maven Central, as grails-core resolves them
     repositories.maven {
