@@ -329,8 +329,8 @@ class I18nProcessor extends AbstractProcessor {
         def pluginManager = Holders.pluginManager 
         if(pluginManager != null){
             for(GrailsPlugin plugin in pluginManager.allPlugins){
-                if(plugin instanceof DefaultGrailsPlugin){
-                    String projectDir = ((DefaultGrailsPlugin)plugin).projectDirectory
+                File projectDir = plugin instanceof DefaultGrailsPlugin ? ((DefaultGrailsPlugin)plugin).projectDirectory : null
+                if(projectDir != null){
                     String i18nPropertiesPath = new File(projectDir,"grails-app/i18n").canonicalPath
                     
                     if(new File(i18nPropertiesPath,filename+PROPERTIES_SUFFIX).exists()){
