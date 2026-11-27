@@ -45,7 +45,7 @@ class AssetPipelineGrailsPluginDescriptorSpec extends Specification {
         AssetPipelineConfigHolder.resolvers = resolvers
     }
 
-    void 'the compiled descriptor makes the plugin discoverable, loading after url mappings'() {
+    void 'the compiled descriptor makes the plugin discoverable, coming before url mappings'() {
         when: 'the class path is searched the way an application searches it at startup'
         PluginInfo plugin = new ClasspathPluginFinder()
                 .findClasspathPlugins(getClass().classLoader, GrailsUtil.grailsVersion)
@@ -54,7 +54,8 @@ class AssetPipelineGrailsPluginDescriptorSpec extends Specification {
         then:
         plugin != null
         plugin.name == 'assetPipeline'
-        plugin.loadAfterNames.toList() == ['urlMappings']
+        plugin.beforeNames.toList() == ['urlMappings']
+        plugin.afterNames.length == 0
         plugin.dependsOnNames.length == 0
     }
 

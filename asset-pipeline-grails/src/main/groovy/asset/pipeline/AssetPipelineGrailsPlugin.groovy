@@ -38,10 +38,11 @@ import java.util.function.Consumer
 import java.util.function.Function
 
 @Slf4j
-@GrailsPluginDescriptor(loadAfter = ['url-mappings'])
-// An ordering hint, not a dependency: everything used below comes from grails-web-url-mappings,
-// while the class named lives in grails-url-mappings, which this plugin declares compileOnly.
-@AutoConfiguration(beforeName = 'org.grails.plugins.web.mapping.UrlMappingsAutoConfiguration')
+// Before url mappings, not a dependency: this plugin's grailsLinkGenerator, which builds asset urls, is the one
+// an application gets, and the url mappings plugin's own backs off from it. The compiler orders the generated
+// auto-configuration before the url mappings one to match.
+@GrailsPluginDescriptor(before = ['urlMappings'])
+@AutoConfiguration
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 class AssetPipelineGrailsPlugin extends Plugin {
 
